@@ -246,7 +246,7 @@ Route::middleware('auth')->group(function () {
             return back()->withInput()->with('error', 'The announcement could not be posted. Please run migrations and check Railway logs.');
         }
 
-        if (app()->environment('local')) {
+        if (app()->environment('local') && ! env('RAILWAY_ENVIRONMENT')) {
             app()->terminating(function () use ($announcement) {
                 try {
                     app(EmailNotificationService::class)->sendAnnouncementPosted($announcement);
