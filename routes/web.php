@@ -7,6 +7,7 @@ use App\Http\Controllers\DefenseScheduleController;
 use App\Http\Controllers\GroupController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectController;
+use App\Services\EmailNotificationService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
@@ -115,7 +116,142 @@ Route::middleware('auth')->group(function () {
 
         return view('notifications.index', compact('chatNotifications', 'studentRequestNotifications'));
     })->name('notifications.index');
+    Route::get('/announcements/manage', function () {
+        $user = Auth::user();
+
+        if ($user->isAdmin()) {
+            return redirect()->route('admin.announcements');
+        }
+
+        if (! $user->isAdmin() && ! $user->isTeacher() && ! $user->canLeadGroup()) {
+            abort(403, 'Access denied.');
+        }
+
+        if (! \Illuminate\Support\Facades\Schema::hasColumn('announcements', 'audience_type')) {
+            return redirect()->back()->with('error', 'Please run php artisan migrate before managing announcements.');
+        }
+
+        $announcements = \App\Models\Announcement::with('author')
+            ->when(! $user->isAdmin(), fn ($query) => $query->where('user_id', $user->id))
+            ->latest()
+            ->get();
+
+        $audienceDescription = match (true) {
+            $user->isAdmin() => "Posts here appear on every user's dashboard.",
+            $user->isTeacher() => 'Posts here appear for students you are currently handling.',
+            $user->canLeadGroup() => 'Posts here appear for your group members only.',
+            default => 'Create announcements for your audience.',
+        };
+        $postTitle = match (true) {
+            $user->isTeacher() => 'Post an Announcement as an Adviser',
+            $user->canLeadGroup() => 'Post an Announcement as a Leader',
+            default => 'Post an Announcement',
+        };
+
+        $backRoute = match (true) {
+            $user->isTeacher() => route('teacher.dashboard'),
+            default => route('dashboard'),
+        };
+
+        $pageTitle = 'Announcements';
+
+        return view('admin.announcements', compact('announcements', 'audienceDescription', 'backRoute', 'pageTitle', 'postTitle'));
+    })->name('announcements.manage');
+    Route::post('/announcements', function (Request $request) {
+        $user = Auth::user();
+
+        if (! $user->isAdmin() && ! $user->isTeacher() && ! $user->canLeadGroup()) {
+            abort(403, 'Access denied.');
+        }
+
+        if (! \Illuminate\Support\Facades\Schema::hasColumn('announcements', 'audience_type')) {
+            return back()->with('error', 'Please run php artisan migrate before posting announcements.');
+        }
+
+        $validated = $request->validate([
+            'message' => 'required|string|max:5000',
+            'attachment' => 'nullable|file|max:10240',
+        ]);
+
+        $audienceType = 'global';
+        $projectId = null;
+
+        if ($user->isTeacher()) {
+            $audienceType = 'adviser_students';
+        } elseif ($user->canLeadGroup()) {
+            $project = $user->ownedProjects()->latest()->first();
+
+            if (! $project) {
+                return back()->with('error', 'Create a group before posting announcements.');
+            }
+
+            $audienceType = 'project';
+            $projectId = $project->id;
+        }
+
+        $attachmentPath = null;
+        $attachmentName = null;
+        if ($request->hasFile('attachment')) {
+            $attachmentPath = $request->file('attachment')->store('announcements', 'public');
+            $attachmentName = $request->file('attachment')->getClientOriginalName();
+        }
+
+        $announcement = \App\Models\Announcement::create([
+            'user_id' => $user->id,
+            'audience_type' => $audienceType,
+            'project_id' => $projectId,
+            'message' => $validated['message'],
+            'attachment_path' => $attachmentPath,
+            'attachment_name' => $attachmentName,
+        ]);
+        app(EmailNotificationService::class)->sendAnnouncementPosted($announcement);
+
+        return back()->with('success', 'Announcement posted successfully.');
+    })->name('announcements.store');
+    Route::patch('/announcements/{announcement}', function (Request $request, \App\Models\Announcement $announcement) {
+        $user = Auth::user();
+
+        if (! $announcement->isManageableBy($user)) {
+            abort(403, 'Access denied.');
+        }
+
+        $validated = $request->validate([
+            'message' => 'required|string|max:5000',
+            'attachment' => 'nullable|file|max:10240',
+        ]);
+
+        $data = ['message' => $validated['message']];
+        if ($request->hasFile('attachment')) {
+            if ($announcement->attachment_path) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($announcement->attachment_path);
+            }
+
+            $data['attachment_path'] = $request->file('attachment')->store('announcements', 'public');
+            $data['attachment_name'] = $request->file('attachment')->getClientOriginalName();
+        }
+
+        $announcement->update($data);
+
+        return back()->with('success', 'Announcement updated successfully.');
+    })->name('announcements.update');
+    Route::delete('/announcements/{announcement}', function (\App\Models\Announcement $announcement) {
+        if (! $announcement->isManageableBy(Auth::user())) {
+            abort(403, 'Access denied.');
+        }
+
+        if ($announcement->attachment_path) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($announcement->attachment_path);
+        }
+
+        $announcement->delete();
+
+        return back()->with('success', 'Announcement deleted successfully.');
+    })->name('announcements.destroy');
     Route::get('/announcements/{announcement}/attachment', function (\App\Models\Announcement $announcement) {
+        if (! \App\Models\Announcement::visibleTo(Auth::user())->whereKey($announcement->id)->exists()) {
+            abort(403, 'Access denied.');
+        }
+
         if (! $announcement->attachment_path || ! \Illuminate\Support\Facades\Storage::disk('public')->exists($announcement->attachment_path)) {
             abort(404);
         }
@@ -292,6 +428,10 @@ Route::middleware('auth')->group(function () {
             }
         }
 
+        foreach ($projects as $project) {
+            app(EmailNotificationService::class)->sendTaskAssigned($project, Auth::user(), (int) $validated['chapter'], $validated['tasks']);
+        }
+
         return back()->with('success', 'To-do list assigned successfully.');
     })->name('todo.store');
     Route::patch('/teacher/tasks/{task}', function (Request $request, \App\Models\ProjectTask $task) {
@@ -393,79 +533,25 @@ Route::middleware('auth')->group(function () {
     
     // Admin routes
     Route::get('/admin/announcements', function () {
-        if (!Auth::user() || Auth::user()->role !== 'Admin') {
+        if (!Auth::user() || !Auth::user()->isAdmin()) {
             abort(403, 'Access denied. Admins only.');
+        }
+
+        if (! \Illuminate\Support\Facades\Schema::hasColumn('announcements', 'audience_type')) {
+            return redirect()->route('admin.dashboard')->with('error', 'Please run php artisan migrate before managing announcements.');
         }
 
         $announcements = \App\Models\Announcement::with('author')
+            ->where('audience_type', 'global')
             ->latest()
             ->get();
+        $audienceDescription = "Admin announcements appear on every user's dashboard.";
+        $backRoute = route('admin.dashboard');
+        $pageTitle = 'Admin Announcements';
+        $postTitle = 'Post an Announcement as an Admin';
 
-        return view('admin.announcements', compact('announcements'));
+        return view('admin.announcements', compact('announcements', 'audienceDescription', 'backRoute', 'pageTitle', 'postTitle'));
     })->name('admin.announcements');
-    Route::post('/admin/announcements', function (Request $request) {
-        if (!Auth::user() || Auth::user()->role !== 'Admin') {
-            abort(403, 'Access denied. Admins only.');
-        }
-
-        $validated = $request->validate([
-            'message' => 'required|string|max:5000',
-            'attachment' => 'nullable|file|max:10240',
-        ]);
-
-        $attachmentPath = null;
-        $attachmentName = null;
-        if ($request->hasFile('attachment')) {
-            $attachmentPath = $request->file('attachment')->store('announcements', 'public');
-            $attachmentName = $request->file('attachment')->getClientOriginalName();
-        }
-
-        \App\Models\Announcement::create([
-            'user_id' => Auth::id(),
-            'message' => $validated['message'],
-            'attachment_path' => $attachmentPath,
-            'attachment_name' => $attachmentName,
-        ]);
-
-        return back()->with('success', 'Announcement posted successfully.');
-    })->name('admin.announcements.store');
-    Route::patch('/admin/announcements/{announcement}', function (Request $request, \App\Models\Announcement $announcement) {
-        if (!Auth::user() || Auth::user()->role !== 'Admin') {
-            abort(403, 'Access denied. Admins only.');
-        }
-
-        $validated = $request->validate([
-            'message' => 'required|string|max:5000',
-            'attachment' => 'nullable|file|max:10240',
-        ]);
-
-        $data = ['message' => $validated['message']];
-        if ($request->hasFile('attachment')) {
-            if ($announcement->attachment_path) {
-                \Illuminate\Support\Facades\Storage::disk('public')->delete($announcement->attachment_path);
-            }
-
-            $data['attachment_path'] = $request->file('attachment')->store('announcements', 'public');
-            $data['attachment_name'] = $request->file('attachment')->getClientOriginalName();
-        }
-
-        $announcement->update($data);
-
-        return back()->with('success', 'Announcement updated successfully.');
-    })->name('admin.announcements.update');
-    Route::delete('/admin/announcements/{announcement}', function (\App\Models\Announcement $announcement) {
-        if (!Auth::user() || Auth::user()->role !== 'Admin') {
-            abort(403, 'Access denied. Admins only.');
-        }
-
-        if ($announcement->attachment_path) {
-            \Illuminate\Support\Facades\Storage::disk('public')->delete($announcement->attachment_path);
-        }
-
-        $announcement->delete();
-
-        return back()->with('success', 'Announcement deleted successfully.');
-    })->name('admin.announcements.destroy');
     Route::get('/admin/pending-users', [AdminController::class, 'pendingUsers'])->name('admin.pending-users');
     Route::get('/admin/users/{user}', [AdminController::class, 'viewUser'])->name('admin.view-user');
     Route::post('/admin/users/{user}/verify', [AdminController::class, 'verifyUser'])->name('admin.verify-user');

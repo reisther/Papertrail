@@ -49,11 +49,11 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path>
                                 </svg>
                             </div>
-                            <h3 class="text-xl font-bold text-gray-800 mb-1">Announcements</h3>
-                            <p class="text-sm text-gray-500 mb-4">Create announcements and template updates for student-researchers.</p>
+                            <h3 class="text-xl font-bold text-gray-800 mb-1">Admin Announcements</h3>
+                            <p class="text-sm text-gray-500 mb-4">Create important system-wide announcements for every user.</p>
 
                             <span class="text-xs font-semibold text-purple-600 bg-purple-100 group-hover:bg-purple-200 px-4 py-2 rounded-lg transition">
-                                View my announcements
+                                Manage admin announcements
                             </span>
                         </a>
                     </div>

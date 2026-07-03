@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Admin Announcements') }}
+            {{ __($pageTitle ?? 'Announcements') }}
         </h2>
     </x-slot>
 
@@ -9,10 +9,10 @@
         <div class="max-w-5xl mx-auto">
             <div class="mb-6 flex items-start justify-between gap-4">
                 <div>
-                    <h1 class="text-3xl font-bold text-gray-900 tracking-tight leading-none">Admin Announcements</h1>
-                    <p class="text-sm text-gray-500 mt-2">Posts here appear on every user's dashboard.</p>
+                    <h1 class="text-3xl font-bold text-gray-900 tracking-tight leading-none">{{ $pageTitle ?? 'Announcements' }}</h1>
+                    <p class="text-sm text-gray-500 mt-2">{{ $audienceDescription ?? 'Create announcements for your audience.' }}</p>
                 </div>
-                <a href="{{ route('admin.dashboard') }}" class="inline-flex items-center bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-xs font-semibold transition">
+                <a href="{{ $backRoute ?? route('dashboard') }}" class="inline-flex items-center bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-xs font-semibold transition">
                     Back
                 </a>
             </div>
@@ -23,13 +23,20 @@
                 </div>
             @endif
 
+            @if(session('error'))
+                <div class="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800">
+                    {{ session('error') }}
+                </div>
+            @endif
+
             <div class="mb-8 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-                <h3 class="mb-4 text-lg font-bold text-gray-900">New Announcement</h3>
-                <form method="POST" action="{{ route('admin.announcements.store') }}" enctype="multipart/form-data" class="space-y-4">
+                <h3 class="mb-4 text-lg font-bold text-gray-900">{{ $postTitle ?? 'Post an Announcement' }}</h3>
+                <form method="POST" action="{{ route('announcements.store') }}" enctype="multipart/form-data" class="space-y-4">
                     @csrf
                     <div>
                         <label for="message" class="block text-sm font-semibold text-gray-700">Message</label>
-                        <textarea id="message" name="message" rows="4" required class="mt-1 block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="Announce something important...">{{ old('message') }}</textarea>
+                        <textarea id="message" name="message" rows="4" maxlength="5000" required class="mt-1 block max-h-64 w-full overflow-y-auto rounded-lg border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="Announce something important...">{{ old('message') }}</textarea>
+                        <p class="mt-1 text-xs text-gray-400">Maximum 5,000 characters. Longer text scrolls inside the announcement viewer.</p>
                         @error('message') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                     </div>
 
@@ -55,7 +62,7 @@
                                 <p class="text-sm font-bold text-gray-900">{{ $announcement->author?->name ?? 'Admin' }}</p>
                                 <p class="text-xs text-gray-400">{{ $announcement->created_at->diffForHumans() }}</p>
                             </div>
-                            <form method="POST" action="{{ route('admin.announcements.destroy', $announcement) }}">
+                            <form method="POST" action="{{ route('announcements.destroy', $announcement) }}">
                                 @csrf
                                 @method('DELETE')
                                 <button type="submit" class="text-xs font-semibold text-red-600 hover:text-red-800">
@@ -64,10 +71,10 @@
                             </form>
                         </div>
 
-                        <form method="POST" action="{{ route('admin.announcements.update', $announcement) }}" enctype="multipart/form-data" class="space-y-4">
+                        <form method="POST" action="{{ route('announcements.update', $announcement) }}" enctype="multipart/form-data" class="space-y-4">
                             @csrf
                             @method('PATCH')
-                            <textarea name="message" rows="3" required class="block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">{{ old("message_{$announcement->id}", $announcement->message) }}</textarea>
+                            <textarea name="message" rows="3" maxlength="5000" required class="block max-h-56 w-full overflow-y-auto rounded-lg border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">{{ old("message_{$announcement->id}", $announcement->message) }}</textarea>
 
                             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                 <div class="min-w-0">

@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use App\Models\TitleSubmission;
+use App\Services\EmailNotificationService;
 
 class AdviserController extends Controller
 {
@@ -81,12 +82,13 @@ class AdviserController extends Controller
                 ->withErrors(['adviser_id' => 'You already have a request with this adviser.']);
         }
 
-        AdviserStudent::create([
+        $adviserRequest = AdviserStudent::create([
             'student_id' => Auth::id(),
             'adviser_id' => $request->adviser_id,
             'message' => $request->message,
             'status' => 'pending'
         ]);
+        app(EmailNotificationService::class)->sendAdviserRequestReceived($adviserRequest);
 
         return redirect()
             ->route('advisers.title-submission')

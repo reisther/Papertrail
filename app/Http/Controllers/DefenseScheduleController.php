@@ -6,6 +6,7 @@ use App\Models\DefenseSchedule;
 use App\Models\User;
 use App\Models\Project;
 use App\Services\GoogleMeetService;
+use App\Services\EmailNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -236,7 +237,10 @@ class DefenseScheduleController extends Controller
             }
         }
 
-        DefenseSchedule::create($data);
+        $defenseSchedule = DefenseSchedule::create($data);
+        if ($defenseSchedule->usesGoogleMeet() && $defenseSchedule->meeting_link) {
+            app(EmailNotificationService::class)->sendGoogleMeetCreated($defenseSchedule);
+        }
         
         return redirect()->route('defense-schedule.index')
                         ->with('success', 'Defense schedule created successfully!');
@@ -395,6 +399,7 @@ class DefenseScheduleController extends Controller
                 'meeting_platform' => 'google_meet',
                 'auto_create_meet' => true,
             ]);
+            app(EmailNotificationService::class)->sendGoogleMeetCreated($defenseSchedule->fresh());
 
             return redirect()->back()->with('success', 'Google Meet created successfully! Calendar invites have been sent to all participants.');
 
