@@ -10,6 +10,7 @@ use App\Http\Controllers\ProjectController;
 use App\Jobs\SendAnnouncementEmailNotifications;
 use App\Services\EmailNotificationService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Http\Controllers\TitleSubmissionController;
@@ -206,7 +207,27 @@ Route::middleware('auth')->group(function () {
             'attachment_name' => $attachmentName,
         ]);
 
-        SendAnnouncementEmailNotifications::dispatch($announcement->id)->onQueue('emails');
+        if (app()->environment('local')) {
+            app()->terminating(function () use ($announcement) {
+                try {
+                    app(EmailNotificationService::class)->sendAnnouncementPosted($announcement);
+                } catch (\Throwable $exception) {
+                    Log::warning('Failed to send local announcement email notifications.', [
+                        'announcement_id' => $announcement->id,
+                        'error' => $exception->getMessage(),
+                    ]);
+                }
+            });
+        } else {
+            try {
+                SendAnnouncementEmailNotifications::dispatch($announcement->id)->onQueue('emails');
+            } catch (\Throwable $exception) {
+                Log::warning('Failed to queue announcement email notifications.', [
+                    'announcement_id' => $announcement->id,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        }
 
         return back()->with('success', 'Announcement posted successfully.');
     })->name('announcements.store');
