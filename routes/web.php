@@ -7,9 +7,9 @@ use App\Http\Controllers\DefenseScheduleController;
 use App\Http\Controllers\GroupController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectController;
+use App\Jobs\SendAnnouncementEmailNotifications;
 use App\Services\EmailNotificationService;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Http\Controllers\TitleSubmissionController;
@@ -206,16 +206,7 @@ Route::middleware('auth')->group(function () {
             'attachment_name' => $attachmentName,
         ]);
 
-        app()->terminating(function () use ($announcement) {
-            try {
-                app(EmailNotificationService::class)->sendAnnouncementPosted($announcement);
-            } catch (\Throwable $exception) {
-                Log::warning('Failed to send announcement email notifications.', [
-                    'announcement_id' => $announcement->id,
-                    'error' => $exception->getMessage(),
-                ]);
-            }
-        });
+        SendAnnouncementEmailNotifications::dispatch($announcement->id)->onQueue('emails');
 
         return back()->with('success', 'Announcement posted successfully.');
     })->name('announcements.store');
