@@ -208,7 +208,11 @@ Route::middleware('auth')->group(function () {
 
         $projects = $user->isTeacher()
             ? \App\Models\Project::where('adviser_id', $user->id)->orderBy('title')->get()
-            : $user->ownedProjects()->whereNotNull('adviser_id')->orderBy('title')->get();
+            : $user->ownedProjects()
+                ->with(['owner', 'members'])
+                ->whereNotNull('adviser_id')
+                ->orderBy('title')
+                ->get();
         $selectedProjectId = $request->integer('project_id') ?: $projects->first()?->id;
         $selectedProject = $projects->firstWhere('id', $selectedProjectId);
         $todos = \App\Models\ProjectTask::query()
@@ -231,8 +235,17 @@ Route::middleware('auth')->group(function () {
         $canManageTasks = $user->isTeacher();
         $canToggleTasks = $user->canLeadGroup();
         $courses = ['Information Technology', 'Information Systems', 'Computer Science'];
+        $completionUsers = collect();
 
-        return view('teacher.todo-list', compact('todos', 'chapterName', 'projects', 'selectedProject', 'canManageTasks', 'canToggleTasks', 'courses', 'selectedChapter'));
+        if ($canToggleTasks && $selectedProject) {
+            $completionUsers = collect([$selectedProject->owner])
+                ->filter()
+                ->merge($selectedProject->members->reject(fn ($member) => $member->isLeader()))
+                ->unique('id')
+                ->values();
+        }
+
+        return view('teacher.todo-list', compact('todos', 'chapterName', 'projects', 'selectedProject', 'canManageTasks', 'canToggleTasks', 'courses', 'selectedChapter', 'completionUsers'));
     })->name('todo.index');
     Route::post('/teacher/todo-list', function (Request $request) {
         if (!Auth::user()->isTeacher()) {
@@ -337,22 +350,35 @@ Route::middleware('auth')->group(function () {
         return back()->with('success', 'Task deleted successfully.');
     })->name('todo.destroy');
     Route::patch('/teacher/tasks/{task}/toggle', function (Request $request, \App\Models\ProjectTask $task) {
-        $task->load('project');
+        $task->load('project.owner', 'project.members');
 
         if (!Auth::user()->canLeadGroup() || $task->project?->owner_id !== Auth::id()) {
             abort(403, 'Access denied.');
         }
 
+        $completionUsers = collect([$task->project->owner])
+            ->filter()
+            ->merge($task->project->members->reject(fn ($member) => $member->isLeader()))
+            ->unique('id')
+            ->values();
+
         $validated = $request->validate([
             'is_completed' => 'nullable|boolean',
-            'completion_note' => 'nullable|string|max:255',
+            'completion_user_id' => [
+                $request->boolean('is_completed') ? 'required' : 'nullable',
+                'integer',
+                \Illuminate\Validation\Rule::in($completionUsers->pluck('id')->all()),
+            ],
         ]);
         $isCompleted = $request->boolean('is_completed');
+        $completedBy = $isCompleted
+            ? $completionUsers->firstWhere('id', (int) $validated['completion_user_id'])
+            : null;
 
         $task->update([
             'is_completed' => $isCompleted,
             'completed_at' => $isCompleted ? now() : null,
-            'completion_note' => $validated['completion_note'] ?? null,
+            'completion_note' => $completedBy?->name,
         ]);
 
         return back();

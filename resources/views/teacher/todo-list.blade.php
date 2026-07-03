@@ -123,7 +123,14 @@
                                                             <input type="checkbox" name="is_completed" value="1" @checked($task->is_completed) class="rounded border-gray-300 text-blue-600">
                                                             <span class="{{ $task->is_completed ? 'text-gray-400 line-through' : 'text-gray-700' }}">{{ $task->title }}</span>
                                                         </label>
-                                                        <input type="text" name="completion_note" value="{{ $task->completion_note }}" class="rounded-md border-gray-200 bg-gray-50 text-sm" placeholder="Who finished this?">
+                                                        <select name="completion_user_id" class="rounded-md border-gray-200 bg-gray-50 text-sm">
+                                                            <option value="">Who finished this?</option>
+                                                            @foreach($completionUsers ?? collect() as $completionUser)
+                                                                <option value="{{ $completionUser->id }}" @selected($task->completion_note === $completionUser->name)>
+                                                                    {{ $completionUser->name }}
+                                                                </option>
+                                                            @endforeach
+                                                        </select>
                                                         <button type="submit" class="rounded-md bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">Update</button>
                                                     </form>
                                                 @else
