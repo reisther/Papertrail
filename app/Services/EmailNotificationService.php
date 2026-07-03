@@ -119,11 +119,22 @@ class EmailNotificationService
             ->unique()
             ->values();
 
+        Log::info('Preparing email notifications.', [
+            'subject' => $subject,
+            'recipient_count' => $emails->count(),
+            'mailer' => config('mail.default'),
+            'smtp_host' => config('mail.mailers.smtp.host'),
+            'smtp_port' => config('mail.mailers.smtp.port'),
+            'from' => config('mail.from.address'),
+        ]);
+
+        $sentCount = 0;
         foreach ($emails as $email) {
             try {
                 Mail::send(['html' => 'emails.papertrail-notification', 'text' => 'emails.papertrail-notification-text'], $emailData, function ($message) use ($email, $subject) {
                     $message->to($email)->subject($subject);
                 });
+                $sentCount++;
             } catch (\Throwable $exception) {
                 Log::warning('Failed to send email notification.', [
                     'email' => $email,
@@ -132,6 +143,12 @@ class EmailNotificationService
                 ]);
             }
         }
+
+        Log::info('Finished email notifications.', [
+            'subject' => $subject,
+            'recipient_count' => $emails->count(),
+            'sent_count' => $sentCount,
+        ]);
     }
 
     private function adviserStudentRecipients(?User $adviser): Collection
