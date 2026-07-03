@@ -326,6 +326,7 @@ Route::middleware('auth')->group(function () {
             ->when($selectedProject, fn ($query) => $query->where('project_id', $selectedProject->id))
             ->orderBy('chapter')
             ->orderBy('created_at')
+            ->orderBy('id')
             ->get()
             ->groupBy('chapter');
         $canManageTasks = true;
@@ -357,6 +358,7 @@ Route::middleware('auth')->group(function () {
             ->when($selectedProject, fn ($query) => $query->where('project_id', $selectedProject->id))
             ->orderBy('chapter')
             ->orderBy('created_at')
+            ->orderBy('id')
             ->get()
             ->groupBy('chapter');
         $selectedChapter = null;

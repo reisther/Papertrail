@@ -8,9 +8,9 @@
             $defaultChapter = (int) filter_var($chapterName ?? '', FILTER_SANITIZE_NUMBER_INT);
             $defaultChapter = $defaultChapter >= 1 && $defaultChapter <= 5 ? $defaultChapter : 1;
         @endphp
-        <div class="py-12">
+        <div class="py-8 sm:py-12">
             <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
-                <div class="bg-white shadow-sm sm:rounded-lg p-8">
+                <div class="bg-white shadow-sm sm:rounded-lg p-5 sm:p-8">
                     <div class="flex flex-col gap-4 mb-8 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                             <h2 class="text-2xl font-bold text-gray-900">
@@ -24,15 +24,15 @@
                                 @endif
                             </p>
                         </div>
-                        <a href="{{ $canManageTasks ? route('teacher.dashboard') : route('dashboard') }}" class="inline-flex items-center px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-semibold rounded-md transition">Back</a>
+                        <a href="{{ $canManageTasks ? route('teacher.dashboard') : route('dashboard') }}" class="inline-flex w-full items-center justify-center rounded-md bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-300 sm:w-auto">Back</a>
                     </div>
 
                     @if($projects->isNotEmpty())
-                        <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div class="mb-8 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                             @if($canToggleTasks)
-                                <form method="GET" action="{{ route('todo.index') }}" class="flex min-w-0 flex-1 items-center gap-3">
+                                <form method="GET" action="{{ route('todo.index') }}" class="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                                     <label for="chapter" class="shrink-0 text-sm font-semibold text-gray-700">Chapter</label>
-                                    <select id="chapter" name="chapter" onchange="this.form.submit()" class="min-w-0 flex-1 rounded-md border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500">
+                                    <select id="chapter" name="chapter" onchange="this.form.submit()" class="w-full min-w-0 rounded-md border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500 sm:flex-1">
                                         @foreach(range(1, 5) as $chapterOption)
                                             <option value="{{ $chapterOption }}" @selected(($selectedChapter ?? 1) === $chapterOption)>
                                                 Chapter {{ $chapterOption }}
@@ -41,9 +41,9 @@
                                     </select>
                                 </form>
                             @else
-                                <form method="GET" action="{{ route('todo.index') }}" class="flex min-w-0 flex-1 items-center gap-3">
+                                <form method="GET" action="{{ route('todo.index') }}" class="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                                     <label for="project_id" class="shrink-0 text-sm font-semibold text-gray-700">Group Code</label>
-                                    <select id="project_id" name="project_id" onchange="this.form.submit()" class="min-w-0 flex-1 rounded-md border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500">
+                                    <select id="project_id" name="project_id" onchange="this.form.submit()" class="w-full min-w-0 rounded-md border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500 sm:flex-1">
                                         @foreach($projects as $project)
                                             <option value="{{ $project->id }}" @selected($selectedProject && $selectedProject->id === $project->id)>
                                                 {{ $project->title }}
@@ -54,7 +54,7 @@
                             @endif
 
                             @if($canManageTasks)
-                                <button @click="showModal = true" class="inline-flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-md shadow-sm transition">
+                                <button @click="showModal = true" class="inline-flex w-full items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 sm:w-auto">
                                     + Create List
                                 </button>
                             @endif
@@ -73,12 +73,12 @@
                                 $chapterProgress = $total > 0 ? round(($completed / $total) * 100, 2) : 0;
                                 $chapterContribution = $total > 0 ? round(($completed / $total) * 20, 2) : 0;
                             @endphp
-                            <div class="mb-4 flex items-end justify-between gap-4">
+                            <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
                                 <div>
                                     <h3 class="text-lg font-bold text-gray-900">Chapter {{ $chapter }}</h3>
                                     <p class="text-sm text-gray-500">{{ $completed }}/{{ $total }} tasks completed</p>
                                 </div>
-                                <span class="rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-700">
+                                <span class="w-fit rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-700">
                                     @if($canToggleTasks)
                                         {{ $chapterProgress }}% completed
                                     @else
@@ -86,32 +86,32 @@
                                     @endif
                                 </span>
                             </div>
-                            <div class="bg-white border border-gray-200 rounded-lg p-6 mb-8 shadow-sm">
+                            <div class="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
                                 <div class="space-y-3">
                                     @foreach($tasks as $task)
                                         <div class="p-4 border border-gray-100 rounded-md">
                                             @if($canManageTasks)
-                                                <form method="POST" action="{{ route('todo.update', $task) }}" class="grid grid-cols-1 gap-3 sm:grid-cols-[8rem_1fr_auto_auto] sm:items-center">
+                                                <form method="POST" action="{{ route('todo.update', $task) }}" class="grid grid-cols-1 gap-3 lg:grid-cols-[8rem_minmax(0,1fr)_8rem_5rem] lg:items-center">
                                                     @csrf
                                                     @method('PATCH')
-                                                    <select name="chapter" class="rounded-md border-gray-200 bg-gray-50 text-sm">
+                                                    <select name="chapter" class="w-full min-w-0 rounded-md border-gray-200 bg-gray-50 text-sm">
                                                         @foreach(range(1, 5) as $editChapter)
                                                             <option value="{{ $editChapter }}" @selected($task->chapter === $editChapter)>Chapter {{ $editChapter }}</option>
                                                         @endforeach
                                                     </select>
-                                                    <input type="text" name="title" value="{{ $task->title }}" class="rounded-md border-gray-200 bg-gray-50 text-sm" required>
+                                                    <input type="text" name="title" value="{{ $task->title }}" class="w-full min-w-0 rounded-md border-gray-200 bg-gray-50 text-sm" required>
                                                     <div class="text-xs {{ $task->is_completed ? 'text-emerald-600' : 'text-gray-400 italic' }}">
                                                         <span>{{ $task->is_completed ? 'Completed by leader' : 'Waiting for leader' }}</span>
                                                         @if($task->completion_note)
                                                             <span class="block text-gray-500 not-italic">{{ $task->completion_note }}</span>
                                                         @endif
                                                     </div>
-                                                    <button type="submit" class="w-20 rounded-md bg-blue-600 px-3 py-2 text-center text-xs font-semibold text-white hover:bg-blue-700">Save</button>
+                                                    <button type="submit" class="w-full rounded-md bg-blue-600 px-3 py-2 text-center text-xs font-semibold text-white hover:bg-blue-700 lg:w-20">Save</button>
                                                 </form>
                                                 <form method="POST" action="{{ route('todo.destroy', $task) }}" class="mt-2 flex justify-end">
                                                     @csrf
                                                     @method('DELETE')
-                                                    <button type="submit" class="w-20 rounded-md bg-red-600 px-3 py-2 text-center text-xs font-semibold text-white hover:bg-red-700">
+                                                    <button type="submit" class="w-full rounded-md bg-red-600 px-3 py-2 text-center text-xs font-semibold text-white hover:bg-red-700 lg:w-20">
                                                         Delete
                                                     </button>
                                                 </form>
@@ -149,7 +149,7 @@
                                 </div>
                             </div>
                             @if($canManageTasks && $selectedProject)
-                                <form method="POST" action="{{ route('todo.store') }}" class="mt-4 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4">
+                                <form method="POST" action="{{ route('todo.store') }}" class="mb-12 mt-6 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4">
                                     @csrf
                                     @if($selectedProject->group_course)
                                         <input type="hidden" name="assignment_scope" value="course">
@@ -159,10 +159,10 @@
                                         <input type="hidden" name="project_id" value="{{ $selectedProject->id }}">
                                     @endif
                                     <input type="hidden" name="chapter" value="{{ $chapter }}">
-                                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                                        <label class="text-xs font-bold text-gray-600 sm:w-24 sm:shrink-0">Add Task</label>
+                                    <div class="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
+                                        <label class="text-xs font-bold text-gray-600 md:w-24 md:shrink-0">Add Task</label>
                                         <input type="text" name="tasks[]" class="w-full min-w-0 rounded-md border-gray-200 bg-white text-sm sm:flex-1" placeholder="New task for Chapter {{ $chapter }}" required>
-                                        <button type="submit" class="w-full rounded-md bg-gray-800 px-3 py-2 text-xs font-semibold text-white hover:bg-gray-900 sm:w-auto">Add</button>
+                                        <button type="submit" class="w-full rounded-md bg-gray-800 px-3 py-2 text-xs font-semibold text-white hover:bg-gray-900 md:w-auto">Add</button>
                                     </div>
                                 </form>
                             @endif
