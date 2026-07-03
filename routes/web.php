@@ -12,6 +12,7 @@ use App\Services\EmailNotificationService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Http\Request;
 use App\Http\Controllers\TitleSubmissionController;
 use App\Http\Controllers\SuggestedAIController;
@@ -166,7 +167,11 @@ Route::middleware('auth')->group(function () {
             abort(403, 'Access denied.');
         }
 
-        if (! \Illuminate\Support\Facades\Schema::hasColumn('announcements', 'audience_type')) {
+        if (! Schema::hasTable('announcements')) {
+            return back()->with('error', 'Please run php artisan migrate before posting announcements.');
+        }
+
+        if (! Schema::hasColumn('announcements', 'audience_type')) {
             return back()->with('error', 'Please run php artisan migrate before posting announcements.');
         }
 
@@ -194,18 +199,52 @@ Route::middleware('auth')->group(function () {
         $attachmentPath = null;
         $attachmentName = null;
         if ($request->hasFile('attachment')) {
-            $attachmentPath = $request->file('attachment')->store('announcements', 'public');
-            $attachmentName = $request->file('attachment')->getClientOriginalName();
+            try {
+                $attachmentPath = $request->file('attachment')->store('announcements', 'public');
+                $attachmentName = $request->file('attachment')->getClientOriginalName();
+            } catch (\Throwable $exception) {
+                Log::error('Failed to store announcement attachment.', [
+                    'user_id' => $user->id,
+                    'error' => $exception->getMessage(),
+                ]);
+
+                return back()->withInput()->with('error', 'The announcement attachment could not be uploaded. Try posting without an attachment first.');
+            }
         }
 
-        $announcement = \App\Models\Announcement::create([
+        $announcementData = [
             'user_id' => $user->id,
-            'audience_type' => $audienceType,
-            'project_id' => $projectId,
             'message' => $validated['message'],
-            'attachment_path' => $attachmentPath,
-            'attachment_name' => $attachmentName,
-        ]);
+        ];
+
+        if (Schema::hasColumn('announcements', 'audience_type')) {
+            $announcementData['audience_type'] = $audienceType;
+        }
+
+        if (Schema::hasColumn('announcements', 'project_id')) {
+            $announcementData['project_id'] = $projectId;
+        }
+
+        if (Schema::hasColumn('announcements', 'attachment_path')) {
+            $announcementData['attachment_path'] = $attachmentPath;
+        }
+
+        if (Schema::hasColumn('announcements', 'attachment_name')) {
+            $announcementData['attachment_name'] = $attachmentName;
+        }
+
+        try {
+            $announcement = \App\Models\Announcement::create($announcementData);
+        } catch (\Throwable $exception) {
+            Log::error('Failed to create announcement.', [
+                'user_id' => $user->id,
+                'audience_type' => $audienceType,
+                'project_id' => $projectId,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return back()->withInput()->with('error', 'The announcement could not be posted. Please run migrations and check Railway logs.');
+        }
 
         if (app()->environment('local')) {
             app()->terminating(function () use ($announcement) {
@@ -219,12 +258,20 @@ Route::middleware('auth')->group(function () {
                 }
             });
         } else {
-            try {
-                SendAnnouncementEmailNotifications::dispatch($announcement->id)->onQueue('emails');
-            } catch (\Throwable $exception) {
-                Log::warning('Failed to queue announcement email notifications.', [
+            if (Schema::hasTable('jobs')) {
+                try {
+                    app(\Illuminate\Contracts\Bus\Dispatcher::class)->dispatch(
+                        (new SendAnnouncementEmailNotifications($announcement->id))->onQueue('emails')
+                    );
+                } catch (\Throwable $exception) {
+                    Log::warning('Failed to queue announcement email notifications.', [
+                        'announcement_id' => $announcement->id,
+                        'error' => $exception->getMessage(),
+                    ]);
+                }
+            } else {
+                Log::warning('Skipped announcement email queue because the jobs table does not exist.', [
                     'announcement_id' => $announcement->id,
-                    'error' => $exception->getMessage(),
                 ]);
             }
         }
