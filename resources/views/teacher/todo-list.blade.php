@@ -106,12 +106,14 @@
                                                             <span class="block text-gray-500 not-italic">{{ $task->completion_note }}</span>
                                                         @endif
                                                     </div>
-                                                    <button type="submit" class="rounded-md bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">Save</button>
+                                                    <button type="submit" class="w-20 rounded-md bg-blue-600 px-3 py-2 text-center text-xs font-semibold text-white hover:bg-blue-700">Save</button>
                                                 </form>
                                                 <form method="POST" action="{{ route('todo.destroy', $task) }}" class="mt-2 flex justify-end">
                                                     @csrf
                                                     @method('DELETE')
-                                                    <button type="submit" class="text-xs font-semibold text-red-600 hover:text-red-800">Delete task</button>
+                                                    <button type="submit" class="w-20 rounded-md bg-red-600 px-3 py-2 text-center text-xs font-semibold text-white hover:bg-red-700">
+                                                        Delete
+                                                    </button>
                                                 </form>
                                             @else
                                                 @if($canToggleTasks)
@@ -157,10 +159,10 @@
                                         <input type="hidden" name="project_id" value="{{ $selectedProject->id }}">
                                     @endif
                                     <input type="hidden" name="chapter" value="{{ $chapter }}">
-                                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-                                        <label class="text-xs font-bold text-gray-600 sm:w-24">Add Task</label>
-                                        <input type="text" name="tasks[]" class="min-w-0 flex-1 rounded-md border-gray-200 bg-white text-sm" placeholder="New task for Chapter {{ $chapter }}" required>
-                                        <button type="submit" class="rounded-md bg-gray-800 px-3 py-2 text-xs font-semibold text-white hover:bg-gray-900">Add</button>
+                                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                                        <label class="text-xs font-bold text-gray-600 sm:w-24 sm:shrink-0">Add Task</label>
+                                        <input type="text" name="tasks[]" class="w-full min-w-0 rounded-md border-gray-200 bg-white text-sm sm:flex-1" placeholder="New task for Chapter {{ $chapter }}" required>
+                                        <button type="submit" class="w-full rounded-md bg-gray-800 px-3 py-2 text-xs font-semibold text-white hover:bg-gray-900 sm:w-auto">Add</button>
                                     </div>
                                 </form>
                             @endif
@@ -175,42 +177,42 @@
         @if($canManageTasks)
         <div x-show="showModal" style="display: none;" class="fixed inset-0 z-50 flex items-center justify-center px-4 bg-gray-900/40 backdrop-blur-sm" x-transition>
             <div @click="showModal = false" class="fixed inset-0"></div>
-            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 relative z-10 max-h-[85vh] overflow-y-auto">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5 sm:p-6 relative z-10 max-h-[85vh] overflow-y-auto">
                 <h3 class="text-lg font-bold text-gray-900 mb-6">Create To-Do List</h3>
                 <form action="{{ route('todo.store') }}" method="POST">
                     @csrf
                     <input type="hidden" name="assignment_scope" value="course">
                     <div class="space-y-4">
-                        <div class="flex items-center gap-4">
-                            <label class="w-24 text-xs font-bold text-gray-700 shrink-0">Assign To</label>
-                            <select name="course" class="flex-1 border-gray-200 bg-gray-50 rounded-lg py-2 px-3 text-sm" required>
+                        <div class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-4">
+                            <label class="text-xs font-bold text-gray-700 sm:w-24 sm:shrink-0">Assign To</label>
+                            <select name="course" class="w-full min-w-0 border-gray-200 bg-gray-50 rounded-lg py-2 px-3 text-sm sm:flex-1" required>
                                 @foreach($courses as $course)
                                     <option value="{{ $course }}">{{ $course }}</option>
                                 @endforeach
                             </select>
                         </div>
-                        <div class="flex items-center gap-4">
-                            <label class="w-24 text-xs font-bold text-gray-700 shrink-0">Chapter</label>
-                            <select name="chapter" class="flex-1 border-gray-200 bg-gray-50 rounded-lg py-2 px-3 text-sm" required>
+                        <div class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-4">
+                            <label class="text-xs font-bold text-gray-700 sm:w-24 sm:shrink-0">Chapter</label>
+                            <select name="chapter" class="w-full min-w-0 border-gray-200 bg-gray-50 rounded-lg py-2 px-3 text-sm sm:flex-1" required>
                                 @foreach(range(1, 5) as $chapter)
                                     <option value="{{ $chapter }}" @selected($chapter === $defaultChapter)>Chapter {{ $chapter }}</option>
                                 @endforeach
                             </select>
                         </div>
-                        <div class="flex items-center gap-4">
-                            <label class="w-24 text-xs font-bold text-gray-700 shrink-0"># of Tasks</label>
-                            <input type="number" x-model="taskCount" min="1" class="flex-1 border-gray-200 bg-gray-50 rounded-lg py-2 px-3 text-sm">
+                        <div class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-4">
+                            <label class="text-xs font-bold text-gray-700 sm:w-24 sm:shrink-0"># of Tasks</label>
+                            <input type="number" x-model="taskCount" min="1" class="w-full min-w-0 border-gray-200 bg-gray-50 rounded-lg py-2 px-3 text-sm sm:flex-1">
                         </div>
                         <div class="space-y-3 pt-2 border-t mt-4">
                             <template x-for="i in tasks" :key="i">
-                                <div class="flex items-center gap-4">
-                                    <label class="w-24 text-xs font-bold text-gray-700 shrink-0">Task <span x-text="i"></span></label>
-                                    <input type="text" name="tasks[]" class="flex-1 border-gray-200 bg-gray-50 rounded-lg py-1.5 px-3 text-sm" required>
+                                <div class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-4">
+                                    <label class="text-xs font-bold text-gray-700 sm:w-24 sm:shrink-0">Task <span x-text="i"></span></label>
+                                    <input type="text" name="tasks[]" class="w-full min-w-0 border-gray-200 bg-gray-50 rounded-lg py-2 px-3 text-sm sm:flex-1" required>
                                 </div>
                             </template>
                         </div>
                     </div>
-                    <div class="flex items-center justify-end gap-2 border-t mt-6 pt-4">
+                    <div class="flex flex-col-reverse gap-2 border-t mt-6 pt-4 sm:flex-row sm:items-center sm:justify-end">
                         <button type="button" @click="showModal = false" class="px-4 py-2 bg-gray-100 text-gray-700 text-xs font-bold rounded-lg">Cancel</button>
                         <button type="submit" class="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg">Create</button>
                     </div>
