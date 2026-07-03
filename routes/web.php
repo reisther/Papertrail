@@ -9,6 +9,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectController;
 use App\Services\EmailNotificationService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Http\Controllers\TitleSubmissionController;
@@ -204,7 +205,17 @@ Route::middleware('auth')->group(function () {
             'attachment_path' => $attachmentPath,
             'attachment_name' => $attachmentName,
         ]);
-        app(EmailNotificationService::class)->sendAnnouncementPosted($announcement);
+
+        app()->terminating(function () use ($announcement) {
+            try {
+                app(EmailNotificationService::class)->sendAnnouncementPosted($announcement);
+            } catch (\Throwable $exception) {
+                Log::warning('Failed to send announcement email notifications.', [
+                    'announcement_id' => $announcement->id,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        });
 
         return back()->with('success', 'Announcement posted successfully.');
     })->name('announcements.store');
