@@ -1,5 +1,23 @@
 <?php
 
+$smtpPort = (int) env('MAIL_PORT', 2525);
+$smtpScheme = env('MAIL_SCHEME', env('MAIL_ENCRYPTION'));
+$smtpUrl = env('MAIL_URL');
+
+$smtpScheme = match (strtolower((string) $smtpScheme)) {
+    '', 'null', '(null)', 'tls', 'starttls' => null,
+    'ssl' => 'smtps',
+    default => $smtpScheme,
+};
+
+if ($smtpPort === 587) {
+    $smtpScheme = 'smtp';
+
+    if (is_string($smtpUrl) && str_starts_with(strtolower($smtpUrl), 'ssl://')) {
+        $smtpUrl = null;
+    }
+}
+
 return [
 
     /*
@@ -39,10 +57,10 @@ return [
 
         'smtp' => [
             'transport' => 'smtp',
-            'scheme' => env('MAIL_SCHEME'),
-            'url' => env('MAIL_URL'),
+            'scheme' => $smtpScheme,
+            'url' => $smtpUrl,
             'host' => env('MAIL_HOST', '127.0.0.1'),
-            'port' => env('MAIL_PORT', 2525),
+            'port' => $smtpPort,
             'username' => env('MAIL_USERNAME'),
             'password' => env('MAIL_PASSWORD'),
             'timeout' => env('MAIL_TIMEOUT', 10),
