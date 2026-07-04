@@ -1,6 +1,6 @@
 @php
     $user = Auth::user();
-    $canConnectGoogleCalendar = $user && ($user->isAdmin() || $user->isTeacher() || $user->canLeadGroup());
+    $canConnectGoogleCalendar = $user && ($user->isTeacher() || $user->canLeadGroup());
     $googleCalendarConnected = false;
 
     if ($canConnectGoogleCalendar && \Illuminate\Support\Facades\Schema::hasTable('google_oauth_tokens')) {

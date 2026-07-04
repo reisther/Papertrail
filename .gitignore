@@ -14,6 +14,8 @@ __pycache__/
 /.vscode
 /.zed
 /auth.json
+/bootstrap/cache/*.php
+!/bootstrap/cache/.gitignore
 google-credentials.json
 /node_modules
 /public/build

@@ -9,7 +9,7 @@
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                 Meeting Calendar
             </h2>
-            @if(Auth::user()->isTeacher() || Auth::user()->canLeadGroup() || Auth::user()->role === 'Admin')
+            @if(Auth::user()->isTeacher() || Auth::user()->canLeadGroup())
                 <a href="{{ route('defense-schedule.create') }}" 
                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center">
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -132,8 +132,8 @@
                 },
                 dateClick: function(info) {
                     console.log('Date clicked: ' + info.dateStr);
-                    @if(Auth::user()->isTeacher() || Auth::user()->canLeadGroup() || Auth::user()->role === 'Admin')
-                        // For teachers/admins, clicking a date can create a new event
+                    @if(Auth::user()->isTeacher() || Auth::user()->canLeadGroup())
+                        // For advisers and leaders, clicking a date can create a new event
                         const createUrl = '{{ route("defense-schedule.create") }}';
                         const selectedDate = info.dateStr;
                         // You can pass the selected date as a parameter
@@ -287,10 +287,10 @@
                 detailsElement.innerHTML = detailsHtml;
             }
             
-            // Add action buttons for teachers/admins
+            // Add action buttons for advisers and leaders.
             const actionsElement = document.getElementById('eventActions');
             if (actionsElement) {
-                @if(Auth::user()->isTeacher() || Auth::user()->canLeadGroup() || Auth::user()->role === 'Admin')
+                @if(Auth::user()->isTeacher() || Auth::user()->canLeadGroup())
                     const actionsHtml = `
                         <a href="/defense-schedule/${event.id}" class="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm">
                             View Details

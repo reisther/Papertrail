@@ -22,6 +22,10 @@ class DefenseScheduleController extends Controller
     public function index()
     {
         $user = Auth::user();
+
+        if ($user->isAdmin()) {
+            abort(403, 'Admins do not have access to meeting schedules.');
+        }
         
         // Get accessible schedules based on user role
         $query = DefenseSchedule::with(['student', 'adviser', 'project', 'creator']);
@@ -40,8 +44,6 @@ class DefenseScheduleController extends Controller
                   ->orWhereHas('project', fn ($project) => $project->where('adviser_id', $user->id));
             });
         }
-        // Admin can see all schedules
-        
         return view('defense-schedule.index');
     }
 
@@ -51,6 +53,10 @@ class DefenseScheduleController extends Controller
     public function getEvents(Request $request)
     {
         $user = Auth::user();
+
+        if ($user->isAdmin()) {
+            abort(403, 'Admins do not have access to meeting schedules.');
+        }
         
         $query = DefenseSchedule::with(['student', 'adviser', 'project']);
         
@@ -112,8 +118,8 @@ class DefenseScheduleController extends Controller
      */
     public function create()
     {
-        if (!Auth::user()->isTeacher() && !Auth::user()->canLeadGroup() && Auth::user()->role !== 'Admin') {
-            abort(403, 'Only leaders, advisers, and admins can create meetings.');
+        if (!Auth::user()->isTeacher() && !Auth::user()->canLeadGroup()) {
+            abort(403, 'Only leaders and advisers can create meetings.');
         }
         
         $user = Auth::user();
@@ -130,8 +136,6 @@ class DefenseScheduleController extends Controller
                 ->whereNotNull('adviser_id')
                 ->orderBy('title')
                 ->get();
-        } elseif ($user->role === 'Admin') {
-            $projects = Project::with(['owner', 'members', 'adviser'])->orderBy('title')->get();
         }
         
         return view('defense-schedule.create', compact('projects'));
@@ -142,8 +146,8 @@ class DefenseScheduleController extends Controller
      */
     public function store(Request $request)
     {
-        if (!Auth::user()->isTeacher() && !Auth::user()->canLeadGroup() && Auth::user()->role !== 'Admin') {
-            abort(403, 'Only leaders, advisers, and admins can create meetings.');
+        if (!Auth::user()->isTeacher() && !Auth::user()->canLeadGroup()) {
+            abort(403, 'Only leaders and advisers can create meetings.');
         }
         
         $normalizedMeetingLink = $this->normalizeMeetingLink($request->meeting_link);
@@ -172,7 +176,7 @@ class DefenseScheduleController extends Controller
             if ($project->adviser_id !== Auth::id()) {
                 abort(403, 'Advisers can only schedule meetings for accepted student groups.');
             }
-        } elseif ($user->role !== 'Admin') {
+        } else {
             abort(403, 'Access denied.');
         }
 
@@ -287,8 +291,6 @@ class DefenseScheduleController extends Controller
                 ->whereNotNull('adviser_id')
                 ->orderBy('title')
                 ->get();
-        } elseif ($user->role === 'Admin') {
-            $projects = Project::with(['owner', 'members', 'adviser'])->orderBy('title')->get();
         }
         
         return view('defense-schedule.edit', compact('defenseSchedule', 'projects'));
@@ -328,7 +330,7 @@ class DefenseScheduleController extends Controller
             if ($project->adviser_id !== Auth::id()) {
                 abort(403, 'Advisers can only update meetings for accepted student groups.');
             }
-        } elseif ($user->role !== 'Admin') {
+        } else {
             abort(403, 'Access denied.');
         }
         
@@ -372,6 +374,10 @@ class DefenseScheduleController extends Controller
      */
     public function getStudentProjects(User $student)
     {
+        if (!Auth::user()->isTeacher() && !Auth::user()->canLeadGroup()) {
+            abort(403, 'Only leaders and advisers can load group projects.');
+        }
+
         $projects = Project::where('owner_id', $student->id)->get(['id', 'title']);
         return response()->json($projects);
     }
@@ -483,7 +489,7 @@ class DefenseScheduleController extends Controller
     public function setupGoogleAuth()
     {
         if (! $this->canConnectGoogleCalendar(Auth::user())) {
-            abort(403, 'Only admins, advisers, and group leaders can connect Google Calendar.');
+            abort(403, 'Only advisers and group leaders can connect Google Calendar.');
         }
 
         try {
@@ -502,7 +508,7 @@ class DefenseScheduleController extends Controller
     public function handleGoogleCallback(Request $request)
     {
         if (! $this->canConnectGoogleCalendar(Auth::user())) {
-            abort(403, 'Only admins, advisers, and group leaders can connect Google Calendar.');
+            abort(403, 'Only advisers and group leaders can connect Google Calendar.');
         }
 
         $code = $request->get('code');
@@ -527,7 +533,7 @@ class DefenseScheduleController extends Controller
     public function disconnectGoogleAuth()
     {
         if (! $this->canConnectGoogleCalendar(Auth::user())) {
-            abort(403, 'Only admins, advisers, and group leaders can disconnect Google Calendar.');
+            abort(403, 'Only advisers and group leaders can disconnect Google Calendar.');
         }
 
         if (Schema::hasTable('google_oauth_tokens')) {
@@ -643,6 +649,6 @@ class DefenseScheduleController extends Controller
 
     private function canConnectGoogleCalendar(?User $user): bool
     {
-        return $user && ($user->isAdmin() || $user->isTeacher() || $user->canLeadGroup());
+        return $user && ($user->isTeacher() || $user->canLeadGroup());
     }
 }

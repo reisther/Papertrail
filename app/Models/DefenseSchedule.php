@@ -84,8 +84,7 @@ class DefenseSchedule extends Model
      */
     public function canView(User $user): bool
     {
-        return $user->role === 'Admin' ||
-               $this->student_id === $user->id ||
+        return $this->student_id === $user->id ||
                $this->adviser_id === $user->id ||
                $this->created_by === $user->id ||
                ($this->project && $this->project->adviser_id === $user->id) ||
@@ -97,8 +96,7 @@ class DefenseSchedule extends Model
      */
     public function canEdit(User $user): bool
     {
-        return $user->role === 'Admin' ||
-               $this->adviser_id === $user->id ||
+        return $this->adviser_id === $user->id ||
                $this->created_by === $user->id ||
                ($this->project && $this->project->owner_id === $user->id && $user->canLeadGroup());
     }

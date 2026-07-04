@@ -79,7 +79,7 @@
                                 class="whitespace-nowrap px-2 py-2 text-sm font-medium text-gray-500 transition-colors hover:text-blue-600 xl:px-3">User Management</a>
                         @endif
 
-                        @if(Auth::user()->isStudentGroupRole() || Auth::user()->isTeacher() || Auth::user()->isAdmin())
+                        @if(Auth::user()->isStudentGroupRole() || Auth::user()->isTeacher())
                             <a href="{{ route('defense-schedule.index') }}"
                                 class="whitespace-nowrap px-2 py-2 text-sm font-medium text-gray-500 transition-colors hover:text-blue-600 xl:px-3">Meeting Schedule</a>
                         @endif
@@ -134,7 +134,7 @@
                         <!-- Dropdown Menu -->
                         <div x-show="open" @click.away="open = false" x-transition class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
                             <a href="{{ route('profile.edit') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Profile</a>
-                            @if(Auth::user()->isAdmin() || Auth::user()->isTeacher() || Auth::user()->canLeadGroup())
+                            @if(Auth::user()->isTeacher() || Auth::user()->canLeadGroup())
                                 <a href="{{ route('setup-google-auth') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Connect Google Calendar</a>
                             @endif
                             <div class="border-t border-gray-100"></div>
@@ -169,7 +169,6 @@
                         <a href="{{ route('admin.dashboard') }}" class="block px-3 py-2 text-sm font-medium text-gray-900 hover:text-blue-600">Dashboard</a>
                         <a href="{{ route('admin.pending-users') }}" class="block px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">Verify Users</a>
                         <a href="{{ route('admin.all-users') }}" class="block px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">User Management</a>
-                        <a href="{{ route('defense-schedule.index') }}" class="block px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">Meeting Schedule</a>
                         <a href="{{ route('notifications.index') }}" class="flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">
                             <span>Notifications</span>
                             @if($notificationUnreadCount > 0)
