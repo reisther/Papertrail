@@ -62,7 +62,7 @@
                                 <p class="text-sm font-bold text-gray-900">{{ $announcement->author?->name ?? 'Admin' }}</p>
                                 <p class="text-xs text-gray-400">{{ $announcement->created_at->diffForHumans() }}</p>
                             </div>
-                            <form method="POST" action="{{ route('announcements.destroy', $announcement) }}">
+                            <form method="POST" action="{{ route('announcements.destroy', $announcement) }}" onsubmit="return confirm('Delete this announcement? This action cannot be undone.');">
                                 @csrf
                                 @method('DELETE')
                                 <button type="submit" class="text-xs font-semibold text-red-600 hover:text-red-800">

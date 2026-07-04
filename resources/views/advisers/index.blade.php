@@ -24,6 +24,11 @@
                                             @if ($request->response_message)
                                                 <p class="text-sm text-gray-700 mt-1 font-medium">Response: "{{ $request->response_message }}"</p>
                                             @endif
+                                            @include('partials.adviser-schedule', [
+                                                'adviser' => $request->adviser,
+                                                'class' => 'mt-3 rounded-lg border border-green-100 bg-green-50 p-3',
+                                                'collapsed' => true,
+                                            ])
                                         </div>
                                         <div class="text-right">
                                             <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
@@ -33,6 +38,13 @@
                                                 {{ ucfirst($request->status) }}
                                             </span>
                                             <p class="text-xs text-gray-500 mt-1">{{ $request->created_at->format('M j, Y') }}</p>
+                                            <form method="POST" action="{{ route('advisers.requests.remove', $request) }}" class="mt-3" onsubmit="return confirm('Remove this adviser request?');">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="text-xs font-semibold text-red-600 hover:text-red-800">
+                                                    Remove Request
+                                                </button>
+                                            </form>
                                         </div>
                                     </div>
                                 @endforeach

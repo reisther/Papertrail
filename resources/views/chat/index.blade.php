@@ -44,10 +44,25 @@
                     @if($chatRooms->isNotEmpty() && $showFolderSidebar)
                         <div class="divide-y divide-gray-100">
                             @foreach($chatRoomGroups as $projectName => $rooms)
-                                <details class="chat-room-folder" open>
-                                    <summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50">
-                                        <span class="text-sm font-semibold text-gray-900 truncate">{{ $projectName }}</span>
-                                        <span class="text-xs rounded-full bg-blue-100 text-blue-700 px-2 py-1">{{ $rooms->count() }}</span>
+                                @php($folderUnreadCount = $rooms->sum(fn ($room) => $room->unread_count ?? 0))
+                                <details class="chat-room-folder">
+                                    <summary class="flex items-center justify-between gap-3 bg-blue-50/70 p-4 cursor-pointer hover:bg-blue-100/70">
+                                        <span class="min-w-0 inline-flex items-center gap-2 text-sm font-semibold text-blue-800">
+                                            <svg class="h-4 w-4 shrink-0 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"></path>
+                                            </svg>
+                                            <span class="truncate">{{ $projectName }}</span>
+                                        </span>
+                                        <span class="flex shrink-0 items-center gap-2">
+                                            @if($folderUnreadCount > 0)
+                                                <span class="text-xs rounded-full bg-red-600 px-2 py-1 font-semibold text-white" title="Unread chats">
+                                                    {{ $folderUnreadCount > 99 ? '99+' : $folderUnreadCount }}
+                                                </span>
+                                            @endif
+                                            <span class="text-xs rounded-full bg-blue-100 text-blue-700 px-2 py-1" title="Chat rooms">
+                                                {{ $rooms->count() }}
+                                            </span>
+                                        </span>
                                     </summary>
 
                                     <div class="pb-2">
@@ -179,11 +194,12 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path>
                                     </svg>
                                 </button>
-                                <div class="min-w-0 flex-1">
+                                <div class="relative min-w-0 flex-1">
                                     <textarea id="messageText" name="message" rows="1" 
                                               class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 resize-none"
                                               placeholder="Type your message..." 
                                               onkeydown="handleMessageKeydown(event)"></textarea>
+                                    <div id="mentionSuggestions" class="absolute bottom-full left-0 z-50 mb-2 hidden max-h-52 w-72 overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg"></div>
                                     <input type="file" id="fileInput" name="file" class="hidden" onchange="handleFileSelect(event)">
                                 </div>
                             </div>
@@ -503,6 +519,9 @@ let selectedReplyMessage = null;
 let currentMessagesById = {};
 let currentPinnedMessages = [];
 let currentChatRoomDetails = null;
+let selectedMentionIds = new Set();
+let mentionParticipantsLoadedForRoomId = null;
+let mentionParticipantsLoading = false;
 
 // Modal functions
 function showNotification(title, message, type = 'info') {
@@ -591,6 +610,9 @@ document.addEventListener('DOMContentLoaded', function() {
 // Select and load a chat room
 function selectChatRoom(roomId) {
     currentRoomId = roomId;
+    selectedMentionIds.clear();
+    mentionParticipantsLoadedForRoomId = null;
+    hideMentionSuggestions();
     
     // Update UI
     document.querySelectorAll('.chat-room-item').forEach(item => {
@@ -1135,6 +1157,182 @@ function linkifyMessageText(value, isOwnMessage = false) {
     });
 }
 
+function currentMentionSearch(textarea) {
+    const cursor = textarea.selectionStart ?? textarea.value.length;
+    const beforeCursor = textarea.value.slice(0, cursor);
+    const match = beforeCursor.match(/(^|\s)@([^\s@]*)$/);
+
+    if (!match) return null;
+
+    return {
+        start: beforeCursor.length - match[2].length - 1,
+        end: cursor,
+        query: match[2].toLowerCase(),
+    };
+}
+
+function mentionableParticipants() {
+    const currentUserId = {{ Auth::id() }};
+
+    return (currentChatRoomDetails?.mention_participants || currentChatRoomDetails?.participants || [])
+        .filter(participant => participant.id !== currentUserId);
+}
+
+async function ensureMentionParticipantsLoaded() {
+    if (!currentRoomId || mentionParticipantsLoadedForRoomId === currentRoomId || mentionParticipantsLoading) {
+        return;
+    }
+
+    mentionParticipantsLoading = true;
+
+    try {
+        const response = await fetch(`/chat/rooms/${currentRoomId}`);
+        const data = await response.json();
+
+        if (data.chat_room) {
+            currentChatRoomDetails = data.chat_room;
+            mentionParticipantsLoadedForRoomId = currentRoomId;
+        }
+    } catch (error) {
+        console.error('Error refreshing mention participants:', error);
+    } finally {
+        mentionParticipantsLoading = false;
+    }
+}
+
+async function updateMentionSuggestions() {
+    const textarea = document.getElementById('messageText');
+    const suggestions = document.getElementById('mentionSuggestions');
+    if (!textarea || !suggestions) return;
+
+    const search = currentMentionSearch(textarea);
+    if (!search) {
+        hideMentionSuggestions();
+        return;
+    }
+
+    if (mentionParticipantsLoadedForRoomId !== currentRoomId) {
+        const existingParticipants = mentionableParticipants();
+
+        if (!existingParticipants.length) {
+            suggestions.innerHTML = '<div class="px-3 py-2 text-sm text-gray-500">Loading people...</div>';
+            suggestions.classList.remove('hidden');
+        }
+
+        await ensureMentionParticipantsLoaded();
+    }
+
+    const latestSearch = currentMentionSearch(textarea);
+    if (!latestSearch) {
+        hideMentionSuggestions();
+        return;
+    }
+
+    const participants = mentionableParticipants();
+    const matches = participants
+        .filter(participant => participant.name.toLowerCase().includes(latestSearch.query))
+        .slice(0, 8);
+    const showEveryone = participants.length > 0 && 'everyone'.includes(latestSearch.query);
+
+    if (!matches.length && !showEveryone) {
+        hideMentionSuggestions();
+        return;
+    }
+
+    const everyoneHtml = showEveryone ? `
+        <button type="button"
+                class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-gray-800 hover:bg-blue-50 hover:text-blue-700"
+                data-mention-everyone="true">
+            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-amber-100 bg-amber-50 text-xs font-semibold text-amber-700">
+                @
+            </div>
+            <span class="min-w-0 flex-1 truncate">Everyone</span>
+        </button>
+    ` : '';
+
+    const participantHtml = matches.map(participant => `
+        <button type="button"
+                class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700"
+                data-mention-id="${participant.id}"
+                data-mention-name="${escapeHtml(participant.name)}">
+            ${renderParticipantFallbackAvatar(participant.name, participant.initials)}
+            <span class="min-w-0 flex-1 truncate">${escapeHtml(participant.name)}</span>
+        </button>
+    `).join('');
+
+    suggestions.innerHTML = everyoneHtml + participantHtml;
+
+    suggestions.querySelectorAll('button[data-mention-everyone]').forEach(button => {
+        button.addEventListener('mousedown', event => {
+            event.preventDefault();
+            insertEveryoneMention();
+        });
+    });
+
+    suggestions.querySelectorAll('button[data-mention-id]').forEach(button => {
+        button.addEventListener('mousedown', event => {
+            event.preventDefault();
+            insertMention(Number(button.dataset.mentionId), button.dataset.mentionName || '');
+        });
+    });
+
+    suggestions.classList.remove('hidden');
+}
+
+function insertMention(userId, name) {
+    const textarea = document.getElementById('messageText');
+    if (!textarea) return;
+
+    const search = currentMentionSearch(textarea);
+    if (!search) return;
+
+    const before = textarea.value.slice(0, search.start);
+    const after = textarea.value.slice(search.end);
+    const mentionText = `@${name} `;
+
+    textarea.value = `${before}${mentionText}${after}`;
+    selectedMentionIds.add(userId);
+    hideMentionSuggestions();
+    textarea.focus();
+    const cursor = before.length + mentionText.length;
+    textarea.setSelectionRange(cursor, cursor);
+}
+
+function insertEveryoneMention() {
+    const textarea = document.getElementById('messageText');
+    if (!textarea) return;
+
+    const search = currentMentionSearch(textarea);
+    if (!search) return;
+
+    const before = textarea.value.slice(0, search.start);
+    const after = textarea.value.slice(search.end);
+    const mentionText = '@everyone ';
+
+    textarea.value = `${before}${mentionText}${after}`;
+    hideMentionSuggestions();
+    textarea.focus();
+    const cursor = before.length + mentionText.length;
+    textarea.setSelectionRange(cursor, cursor);
+}
+
+function hideMentionSuggestions() {
+    const suggestions = document.getElementById('mentionSuggestions');
+    if (suggestions) {
+        suggestions.classList.add('hidden');
+        suggestions.innerHTML = '';
+    }
+}
+
+function selectedMentionIdsForMessage(messageText) {
+    const normalizedMessage = messageText.toLowerCase();
+
+    return mentionableParticipants()
+        .filter(participant => selectedMentionIds.has(participant.id))
+        .filter(participant => normalizedMessage.includes(`@${participant.name.toLowerCase()}`))
+        .map(participant => participant.id);
+}
+
 function renderMessageAvatar(user) {
     const initials = escapeHtml(user?.initials || '?');
     const name = escapeHtml(user?.name || 'User');
@@ -1213,6 +1411,9 @@ document.getElementById('sendMessageForm').addEventListener('submit', async func
     if (messageText) formData.append('message', messageText);
     if (fileInput.files[0]) formData.append('file', fileInput.files[0]);
     if (selectedReplyMessage) formData.append('reply_to_id', selectedReplyMessage.id);
+    selectedMentionIdsForMessage(messageText).forEach(userId => {
+        formData.append('mention_user_ids[]', userId);
+    });
     
     try {
         const sentRoomId = currentRoomId;
@@ -1231,6 +1432,8 @@ document.getElementById('sendMessageForm').addEventListener('submit', async func
         
         if (data.success) {
             document.getElementById('messageText').value = '';
+            selectedMentionIds.clear();
+            hideMentionSuggestions();
             clearFileSelection();
             clearReply();
             shouldScrollToBottom = true; // Force scroll after sending message
@@ -1257,8 +1460,14 @@ document.getElementById('sendMessageForm').addEventListener('submit', async func
 
 // Handle Enter key in message input
 function handleMessageKeydown(event) {
+    if (event.key === 'Escape') {
+        hideMentionSuggestions();
+        return;
+    }
+
     if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
+        hideMentionSuggestions();
         document.getElementById('sendMessageForm').dispatchEvent(new Event('submit'));
     }
 }
@@ -1448,12 +1657,13 @@ async function loadParticipants() {
                             <div class="flex min-w-0 items-center gap-2">
                                 <span class="truncate font-medium text-gray-900">${escapeHtml(participant.name)}</span>
                                 ${participant.is_admin ? '<span class="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">Admin</span>' : ''}
+                                ${participant.is_chat_participant === false ? '<span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">Group member</span>' : ''}
                             </div>
                             <div class="text-sm text-gray-500">${participant.is_admin ? 'Can manage this chat' : escapeHtml(participant.pivot.role)}</div>
                         </div>
                     </div>
                     <div class="ml-3 flex shrink-0 items-center gap-2">
-                        ${canManageParticipants && !participant.is_admin ? `
+                        ${canManageParticipants && participant.is_chat_participant !== false && !participant.is_admin ? `
                             <button onclick="updateParticipantRole(${participant.id}, 'admin')" class="text-xs font-medium text-blue-600 hover:text-blue-800">
                                 Make admin
                             </button>
@@ -1461,12 +1671,12 @@ async function loadParticipants() {
                                 Remove
                             </button>
                         ` : ''}
-                        ${canManageParticipants && participant.is_admin ? `
+                        ${canManageParticipants && participant.is_chat_participant !== false && participant.is_admin ? `
                             <button onclick="updateParticipantRole(${participant.id}, 'member')" class="text-xs font-medium text-gray-600 hover:text-gray-800">
                                 Remove admin
                             </button>
                         ` : ''}
-                        ${canManageParticipants && participant.is_admin && participant.id !== currentUserId ? `
+                        ${canManageParticipants && participant.is_chat_participant !== false && participant.is_admin && participant.id !== currentUserId ? `
                             <button onclick="removeParticipant(${participant.id})" class="text-xs font-medium text-red-500 hover:text-red-700">
                                 Remove
                             </button>
@@ -1942,6 +2152,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const messageInput = document.getElementById('messageText');
     if (messageInput) {
         messageInput.addEventListener('input', handleTyping);
+        messageInput.addEventListener('input', updateMentionSuggestions);
+        messageInput.addEventListener('blur', () => setTimeout(hideMentionSuggestions, 150));
         messageInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' && !e.shiftKey) {
                 // Stop typing when sending message

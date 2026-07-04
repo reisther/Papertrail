@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Models\AdviserStudent;
+use App\Models\Project;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -35,6 +37,40 @@ class ProfileController extends Controller
         return response()->file(Storage::disk('public')->path($user->profile_picture_path));
     }
 
+    public function adviserSchedule(User $user)
+    {
+        abort_unless(Auth::check(), 403);
+        abort_unless($user->isTeacher(), 404);
+        abort_unless($this->canViewAdviserSchedule($user), 403);
+        abort_unless($user->adviser_schedule_path, 404);
+        abort_unless(Storage::disk('public')->exists($user->adviser_schedule_path), 404);
+
+        return response()->file(Storage::disk('public')->path($user->adviser_schedule_path), [
+            'Content-Type' => $user->adviser_schedule_mime ?: 'application/octet-stream',
+            'Content-Disposition' => 'inline; filename="' . addslashes($user->adviser_schedule_name ?: 'schedule') . '"',
+        ]);
+    }
+
+    public function destroyAdviserSchedule(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        abort_unless($user->isTeacher(), 403);
+
+        if ($user->adviser_schedule_path) {
+            Storage::disk('public')->delete($user->adviser_schedule_path);
+        }
+
+        $user->update([
+            'adviser_schedule_path' => null,
+            'adviser_schedule_name' => null,
+            'adviser_schedule_mime' => null,
+        ]);
+
+        return Redirect::route('profile.edit')->with('success', 'Schedule deleted successfully.');
+    }
+
+
     /**
      * Update the user's profile information.
      */
@@ -52,6 +88,8 @@ class ProfileController extends Controller
         unset($validated['expertise']);
         unset($validated['custom_expertise']);
         unset($validated['profile_picture']);
+        unset($validated['adviser_schedule']);
+        unset($validated['delete_adviser_schedule']);
 
         if ($request->hasFile('profile_picture')) {
             if ($request->user()->profile_picture_path) {
@@ -60,6 +98,17 @@ class ProfileController extends Controller
 
             $validated['profile_picture_path'] = $request->file('profile_picture')
                 ->store('profile_pictures', 'public');
+        }
+
+        if ($request->user()->isTeacher() && $request->hasFile('adviser_schedule')) {
+            if ($request->user()->adviser_schedule_path) {
+                Storage::disk('public')->delete($request->user()->adviser_schedule_path);
+            }
+
+            $scheduleFile = $request->file('adviser_schedule');
+            $validated['adviser_schedule_path'] = $scheduleFile->store('adviser_schedules', 'public');
+            $validated['adviser_schedule_name'] = $scheduleFile->getClientOriginalName();
+            $validated['adviser_schedule_mime'] = $scheduleFile->getMimeType();
         }
 
         $request->user()->fill($validated);
@@ -113,11 +162,43 @@ class ProfileController extends Controller
             Storage::disk('public')->delete($user->profile_picture_path);
         }
 
+        if ($user->adviser_schedule_path) {
+            Storage::disk('public')->delete($user->adviser_schedule_path);
+        }
+
         $user->delete();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
         return Redirect::to('/');
+    }
+
+    private function canViewAdviserSchedule(User $adviser): bool
+    {
+        $viewer = Auth::user();
+
+        if (! $viewer || $viewer->isAdmin()) {
+            return false;
+        }
+
+        if ($viewer->id === $adviser->id) {
+            return true;
+        }
+
+        if ($viewer->canLeadGroup()) {
+            return AdviserStudent::where('student_id', $viewer->id)
+                ->where('adviser_id', $adviser->id)
+                ->whereIn('status', ['pending', 'approved'])
+                ->exists();
+        }
+
+        if ($viewer->isStudent()) {
+            return Project::where('adviser_id', $adviser->id)
+                ->whereHas('members', fn ($members) => $members->where('users.id', $viewer->id))
+                ->exists();
+        }
+
+        return false;
     }
 }

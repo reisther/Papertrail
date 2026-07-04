@@ -35,7 +35,7 @@ This guide will help you set up Google Meet integration for the PaperTrail MS de
 4. Choose "Web application" as application type
 5. Add authorized redirect URIs:
    - `http://localhost:8000/auth/google/callback` (for local development)
-   - `https://yourdomain.com/auth/google/callback` (for production)
+   - `https://papertrailpsu.com/auth/google/callback` (for production)
 6. Download the JSON credentials file
 
 ### Step 3: Laravel Configuration
@@ -56,7 +56,7 @@ This guide will help you set up Google Meet integration for the PaperTrail MS de
    GOOGLE_CALENDAR_ID=primary
    GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
    GOOGLE_CLIENT_SECRET=your-client-secret
-   GOOGLE_REDIRECT_URI=http://localhost:8000/auth/google/callback
+   GOOGLE_REDIRECT_URI="${APP_URL}/auth/google/callback"
    GOOGLE_CREDENTIALS_PATH=storage/app/google-credentials.json
    ```
 

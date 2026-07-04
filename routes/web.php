@@ -8,6 +8,8 @@ use App\Http\Controllers\GroupController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectController;
 use App\Jobs\SendAnnouncementEmailNotifications;
+use App\Models\AppNotification;
+use App\Models\DefenseSchedule;
 use App\Services\EmailNotificationService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -85,40 +87,134 @@ Route::get('/login-test', function () {
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::get('/profile-picture/{user}', [ProfileController::class, 'picture'])->name('profile.picture');
+    Route::get('/adviser-schedule/{user}', [ProfileController::class, 'adviserSchedule'])->name('profile.adviser-schedule');
+    Route::delete('/adviser-schedule', [ProfileController::class, 'destroyAdviserSchedule'])->name('profile.adviser-schedule.destroy');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     Route::get('/notifications', function () {
         $user = Auth::user();
 
-        $chatNotifications = $user->chatRooms()
-            ->where('chat_rooms.is_active', true)
-            ->with(['latestMessage.user', 'project'])
-            ->get()
-            ->map(function ($room) use ($user) {
-                $unreadCount = $room->getUnreadCountForUser($user);
-                $latestMessage = $room->latestMessage->first();
-
-                return [
-                    'room' => $room,
-                    'unread_count' => $unreadCount,
-                    'latest_message' => $latestMessage,
-                ];
-            })
-            ->filter(fn ($notification) => $notification['unread_count'] > 0)
-            ->sortByDesc(fn ($notification) => optional($notification['latest_message'])->created_at)
-            ->values();
-
-        $studentRequestNotifications = collect();
-        if ($user->isTeacher()) {
-            $studentRequestNotifications = $user->studentRequests()
-                ->pending()
-                ->with(['student.ownedProjects' => fn ($query) => $query->latest()])
-                ->latest()
-                ->get();
+        if (! Schema::hasTable('app_notifications')) {
+            return view('notifications.index', [
+                'chatNotifications' => collect(),
+                'studentRequestNotifications' => collect(),
+                'meetingNotifications' => collect(),
+                'adminNotifications' => collect(),
+            ]);
         }
 
-        return view('notifications.index', compact('chatNotifications', 'studentRequestNotifications'));
+        if ($user->isAdmin()) {
+            \App\Models\User::where('status', 'Pending')
+                ->latest()
+                ->get()
+                ->each(function ($pendingUser) use ($user) {
+                    AppNotification::firstOrCreate(
+                        [
+                            'user_id' => $user->id,
+                            'type' => 'admin_signup',
+                            'source_type' => 'user',
+                            'source_id' => $pendingUser->id,
+                        ],
+                        [
+                            'title' => 'New sign-up pending',
+                            'body' => "{$pendingUser->name} submitted an account verification request.",
+                            'action_url' => route('admin.view-user', $pendingUser),
+                            'created_at' => $pendingUser->created_at ?? now(),
+                            'updated_at' => now(),
+                        ]
+                    );
+                });
+        }
+
+        if ($user->isTeacher()) {
+            $user->studentRequests()
+                ->pending()
+                ->with(['student.ownedProjects' => fn ($query) => $query->latest()])
+                ->get()
+                ->each(function ($requestNotification) use ($user) {
+                    $student = $requestNotification->student;
+                    $project = $student?->ownedProjects?->first();
+
+                    AppNotification::firstOrCreate(
+                        [
+                            'user_id' => $user->id,
+                            'type' => 'student_request',
+                            'source_type' => 'adviser_student',
+                            'source_id' => $requestNotification->id,
+                        ],
+                        [
+                            'title' => 'New adviser request',
+                            'body' => ($student?->name ?? 'A student') . ' from ' . ($project?->title ?? 'Student group') . ' requested you as adviser.',
+                            'action_url' => route('advisers.pending-requests'),
+                            'created_at' => $requestNotification->created_at ?? now(),
+                            'updated_at' => now(),
+                        ]
+                    );
+                });
+        }
+
+        if (! $user->isAdmin()) {
+            DefenseSchedule::with(['project.members', 'project.owner', 'project.adviser'])
+                ->where('start_time', '>=', now()->subDay())
+                ->where(function ($query) use ($user) {
+                    $query->where('student_id', $user->id)
+                        ->orWhere('adviser_id', $user->id)
+                        ->orWhere('created_by', $user->id)
+                        ->orWhereHas('project.members', fn ($members) => $members->where('users.id', $user->id))
+                        ->orWhereHas('project', fn ($project) => $project->where('owner_id', $user->id)->orWhere('adviser_id', $user->id));
+                })
+                ->latest('start_time')
+                ->limit(20)
+                ->get()
+                ->each(function ($schedule) use ($user) {
+                    AppNotification::firstOrCreate(
+                        [
+                            'user_id' => $user->id,
+                            'type' => 'meeting_schedule',
+                            'source_type' => 'defense_schedule',
+                            'source_id' => $schedule->id,
+                        ],
+                        [
+                            'title' => 'Meeting scheduled',
+                            'body' => $schedule->title . ' is scheduled for ' . $schedule->start_time->format('M j, Y g:i A') . '.',
+                            'action_url' => route('defense-schedule.show', $schedule),
+                            'created_at' => $schedule->created_at ?? now(),
+                            'updated_at' => now(),
+                        ]
+                    );
+                });
+        }
+
+        $notifications = AppNotification::where('user_id', $user->id)
+            ->latest()
+            ->get()
+            ->groupBy('type');
+
+        $chatNotifications = $notifications->get('chat_mention', collect());
+        $studentRequestNotifications = $user->isTeacher()
+            ? $notifications->get('student_request', collect())
+            : collect();
+        $meetingNotifications = $user->isAdmin()
+            ? collect()
+            : $notifications->get('meeting_schedule', collect());
+        $adminNotifications = $user->isAdmin()
+            ? $notifications->get('admin_signup', collect())
+            : collect();
+
+        return view('notifications.index', compact('chatNotifications', 'studentRequestNotifications', 'meetingNotifications', 'adminNotifications'));
     })->name('notifications.index');
+    Route::patch('/notifications/{notification}/read', function (AppNotification $notification) {
+        abort_unless($notification->user_id === Auth::id(), 403);
+        $notification->markRead();
+
+        return back();
+    })->name('notifications.read');
+    Route::patch('/notifications/{notification}/unread', function (AppNotification $notification) {
+        abort_unless($notification->user_id === Auth::id(), 403);
+        $notification->markUnread();
+
+        return back();
+    })->name('notifications.unread');
     Route::get('/announcements/manage', function () {
         $user = Auth::user();
 
@@ -332,6 +428,7 @@ Route::middleware('auth')->group(function () {
     // Adviser routes
     Route::get('/advisers/title-submission', [AdviserController::class, 'TitleSubmission'])->name('advisers.title-submission');
     Route::post('/advisers/send-request', [AdviserController::class, 'sendRequest'])->name('advisers.send-request');
+    Route::delete('/advisers/requests/{adviserStudent}', [AdviserController::class, 'removeRequest'])->name('advisers.requests.remove');
     Route::get('/advisers/pending-requests', [AdviserController::class, 'pendingRequests'])->name('advisers.pending-requests');
     Route::post('/advisers/respond/{adviserStudent}', [AdviserController::class, 'respondToRequest'])->name('advisers.respond');
     Route::patch('/advisers/{adviserStudent}/archive', [AdviserController::class, 'archiveStudentGroup'])->name('advisers.archive');
@@ -637,7 +734,9 @@ Route::middleware('auth')->group(function () {
     // Project routes
     Route::resource('projects', ProjectController::class);
     Route::post('/projects/{project}/invitations', [ProjectController::class, 'generateInvitation'])->name('projects.invitations.generate');
-    Route::get('/project-invitations/{token}', [ProjectController::class, 'acceptInvitation'])->name('projects.accept-invitation');
+    Route::get('/project-invitations/{token}', [ProjectController::class, 'showInvitation'])->name('projects.accept-invitation');
+    Route::post('/project-invitations/{token}/accept', [ProjectController::class, 'acceptInvitation'])->name('projects.accept-invitation.store');
+    Route::post('/project-invitations/{token}/decline', [ProjectController::class, 'declineInvitation'])->name('projects.decline-invitation');
     Route::post('/projects/{project}/folders', [ProjectController::class, 'createFolder'])->name('projects.create-folder');
     Route::post('/projects/{project}/upload', [ProjectController::class, 'uploadDocuments'])->name('projects.upload-documents');
     Route::get('/projects/{project}/documents/{document}/preview', [ProjectController::class, 'previewDocument'])->name('projects.preview-document');
@@ -653,6 +752,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/defense-schedule/{defenseSchedule}/update-google-meet', [DefenseScheduleController::class, 'updateGoogleMeet'])->name('defense-schedule.update-google-meet');
     Route::get('/setup-google-auth', [DefenseScheduleController::class, 'setupGoogleAuth'])->name('setup-google-auth');
     Route::get('/auth/google/callback', [DefenseScheduleController::class, 'handleGoogleCallback'])->name('google-auth-callback');
+    Route::delete('/google-calendar', [DefenseScheduleController::class, 'disconnectGoogleAuth'])->name('google-calendar.disconnect');
     
     // Chat routes
     Route::prefix('chat')->name('chat.')->middleware('auth')->group(function () {

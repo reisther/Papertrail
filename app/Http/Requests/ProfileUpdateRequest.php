@@ -24,6 +24,8 @@ class ProfileUpdateRequest extends FormRequest
             'section' => ['required', 'string', 'max:255'],
             'student_number' => ['nullable', 'string', 'max:50'],
             'profile_picture' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'adviser_schedule' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx', 'max:10240'],
+            'delete_adviser_schedule' => ['nullable', 'boolean'],
             'email' => [
                 'required',
                 'string',

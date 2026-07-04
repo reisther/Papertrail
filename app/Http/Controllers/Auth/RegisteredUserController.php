@@ -3,12 +3,16 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\AppNotification;
 use App\Models\User;
+use App\Services\EmailNotificationService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
@@ -68,6 +72,35 @@ class RegisteredUserController extends Controller
         $user->syncRoleProfile();
 
         event(new Registered($user));
+
+        if (Schema::hasTable('app_notifications')) {
+            User::where('role', 'Admin')->get()->each(function (User $admin) use ($user) {
+                AppNotification::firstOrCreate(
+                    [
+                        'user_id' => $admin->id,
+                        'type' => 'admin_signup',
+                        'source_type' => 'user',
+                        'source_id' => $user->id,
+                    ],
+                    [
+                        'title' => 'New sign-up pending',
+                        'body' => "{$user->name} submitted an account verification request.",
+                        'action_url' => route('admin.view-user', $user),
+                        'created_at' => $user->created_at ?? now(),
+                        'updated_at' => now(),
+                    ]
+                );
+            });
+        }
+
+        try {
+            app(EmailNotificationService::class)->sendUserRegistrationPending($user);
+        } catch (\Throwable $exception) {
+            Log::warning('Failed to send admin registration notification email.', [
+                'user_id' => $user->id,
+                'error' => $exception->getMessage(),
+            ]);
+        }
 
         // Don't auto-login since account needs admin verification
         // Auth::login($user);

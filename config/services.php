@@ -37,6 +37,7 @@ return [
 
     'google' => [
         'application_name' => env('GOOGLE_APPLICATION_NAME', 'PaperTrail MS'),
+        'credentials_json' => env('GOOGLE_CREDENTIALS_JSON'),
         'credentials_path' => env('GOOGLE_CREDENTIALS_PATH', 'storage/app/google-credentials.json') === 'storage/app/google-credentials.json' ? 
             storage_path('app/google-credentials.json') : 
             (str_starts_with(env('GOOGLE_CREDENTIALS_PATH'), '/') || str_contains(env('GOOGLE_CREDENTIALS_PATH'), ':\\') ? 

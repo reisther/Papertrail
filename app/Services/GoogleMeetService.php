@@ -11,15 +11,20 @@ use Google\Service\Calendar\CreateConferenceRequest;
 use Google\Service\Calendar\ConferenceSolutionKey;
 use Carbon\Carbon;
 use Exception;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class GoogleMeetService
 {
     private $client;
     private $calendar;
+    private ?int $userId;
 
-    public function __construct()
+    public function __construct(?User $user = null)
     {
+        $this->userId = $user?->id;
         $this->initializeClient();
     }
 
@@ -29,31 +34,21 @@ class GoogleMeetService
     private function initializeClient()
     {
         try {
-            $credentialsPath = config('services.google.credentials_path');
-            
-            // Check if credentials file exists
-            if (!file_exists($credentialsPath)) {
-                throw new Exception('Google credentials file not found at: ' . $credentialsPath);
-            }
-
             $this->client = new Client();
             $this->client->setApplicationName(config('services.google.application_name', 'PaperTrail MS'));
             $this->client->setScopes([Calendar::CALENDAR]);
             
-            // Validate credentials file format
-            $credentialsContent = json_decode(file_get_contents($credentialsPath), true);
-            if (!$credentialsContent) {
-                throw new Exception('Invalid Google credentials file format. Please ensure it\'s valid JSON.');
-            }
+            $credentialsContent = $this->getCredentialsConfig();
             
             // Check if it's a web application credentials file
             if (!isset($credentialsContent['web']) && !isset($credentialsContent['installed'])) {
                 throw new Exception('Google credentials file must be for a web application or installed application. Please download the correct OAuth 2.0 Client ID credentials from Google Cloud Console.');
             }
             
-            $this->client->setAuthConfig($credentialsPath);
+            $this->client->setAuthConfig($credentialsContent);
             $this->client->setAccessType('offline');
             $this->client->setPrompt('select_account consent');
+            $this->client->setIncludeGrantedScopes(true);
             
             // Set redirect URI for OAuth flow
             $redirectUri = config('services.google.redirect_uri');
@@ -105,9 +100,18 @@ class GoogleMeetService
                 'sendUpdates' => 'all'
             ]);
 
+            $entryPoints = $createdEvent->getConferenceData()?->getEntryPoints() ?? [];
+            $meetLink = collect($entryPoints)
+                ->first(fn ($entryPoint) => method_exists($entryPoint, 'getEntryPointType') && $entryPoint->getEntryPointType() === 'video')
+                ?->getUri();
+
+            if (! $meetLink) {
+                throw new Exception('Google Calendar did not return a usable Google Meet link.');
+            }
+
             return [
                 'event_id' => $createdEvent->getId(),
-                'meet_link' => $createdEvent->getConferenceData()->getEntryPoints()[0]->getUri(),
+                'meet_link' => $meetLink,
                 'calendar_link' => $createdEvent->getHtmlLink(),
             ];
 
@@ -142,9 +146,18 @@ class GoogleMeetService
                 'sendUpdates' => 'all'
             ]);
 
+            $entryPoints = $updatedEvent->getConferenceData()?->getEntryPoints() ?? [];
+            $meetLink = collect($entryPoints)
+                ->first(fn ($entryPoint) => method_exists($entryPoint, 'getEntryPointType') && $entryPoint->getEntryPointType() === 'video')
+                ?->getUri();
+
+            if (! $meetLink) {
+                throw new Exception('Google Calendar did not return a usable Google Meet link.');
+            }
+
             return [
                 'event_id' => $updatedEvent->getId(),
-                'meet_link' => $updatedEvent->getConferenceData()->getEntryPoints()[0]->getUri(),
+                'meet_link' => $meetLink,
                 'calendar_link' => $updatedEvent->getHtmlLink(),
             ];
 
@@ -192,7 +205,11 @@ class GoogleMeetService
      */
     public function isConfigured()
     {
-        return config('services.google.credentials_path') && 
+        if (config('services.google.credentials_json')) {
+            return true;
+        }
+
+        return config('services.google.credentials_path') &&
                file_exists(config('services.google.credentials_path'));
     }
 
@@ -209,6 +226,8 @@ class GoogleMeetService
         
         // Force set the redirect URI to ensure it's correct
         $this->client->setRedirectUri($redirectUri);
+        $this->client->setAccessType('offline');
+        $this->client->setPrompt('consent select_account');
         
         // Verify what redirect URI the client is actually using
         Log::info('Google OAuth redirect URI from config: ' . $redirectUri);
@@ -232,9 +251,7 @@ class GoogleMeetService
                 throw new Exception('Error fetching access token: ' . $token['error']);
             }
 
-            // Store the token (you might want to store this in database or cache)
-            $tokenPath = storage_path('app/google_token.json');
-            file_put_contents($tokenPath, json_encode($token));
+            $this->storeToken($token);
 
             return true;
         } catch (Exception $e) {
@@ -248,16 +265,15 @@ class GoogleMeetService
      */
     private function loadToken()
     {
-        $tokenPath = storage_path('app/google_token.json');
-        if (file_exists($tokenPath)) {
-            $token = json_decode(file_get_contents($tokenPath), true);
+        $token = $this->getStoredToken();
+        if ($token) {
             $this->client->setAccessToken($token);
 
             // Refresh token if expired
             if ($this->client->isAccessTokenExpired()) {
                 if ($this->client->getRefreshToken()) {
                     $this->client->fetchAccessTokenWithRefreshToken($this->client->getRefreshToken());
-                    file_put_contents($tokenPath, json_encode($this->client->getAccessToken()));
+                    $this->storeToken($this->client->getAccessToken());
                 }
             }
         } else {
@@ -271,24 +287,167 @@ class GoogleMeetService
      */
     public function hasValidToken()
     {
-        $tokenPath = storage_path('app/google_token.json');
-        if (!file_exists($tokenPath)) {
+        $token = $this->getStoredToken();
+        if (! $token) {
             return false;
         }
 
         try {
-            $token = json_decode(file_get_contents($tokenPath), true);
             $this->client->setAccessToken($token);
-            
-            // Check if token is expired and can't be refreshed
-            if ($this->client->isAccessTokenExpired() && !$this->client->getRefreshToken()) {
+
+            if (! $this->client->isAccessTokenExpired()) {
+                return true;
+            }
+
+            $refreshToken = $this->client->getRefreshToken() ?? ($token['refresh_token'] ?? null);
+            if (! $refreshToken) {
                 return false;
             }
-            
+
+            $refreshedToken = $this->client->fetchAccessTokenWithRefreshToken($refreshToken);
+            if (isset($refreshedToken['error'])) {
+                Log::error('Failed to refresh Google OAuth token: ' . $refreshedToken['error']);
+                return false;
+            }
+
+            if (! isset($refreshedToken['refresh_token'])) {
+                $refreshedToken['refresh_token'] = $refreshToken;
+            }
+
+            $this->client->setAccessToken($refreshedToken);
+            $this->storeToken($refreshedToken);
+
             return true;
         } catch (Exception $e) {
             Log::error('Invalid Google OAuth token: ' . $e->getMessage());
             return false;
         }
+    }
+
+    private function getCredentialsConfig(): array
+    {
+        $credentialsJson = config('services.google.credentials_json');
+
+        if ($credentialsJson) {
+            $decoded = base64_decode($credentialsJson, true);
+            $json = $decoded !== false ? $decoded : $credentialsJson;
+            $credentials = json_decode($json, true);
+
+            if (! is_array($credentials)) {
+                throw new Exception('Invalid GOOGLE_CREDENTIALS_JSON. Paste the full Google OAuth JSON or its base64 value.');
+            }
+
+            return $credentials;
+        }
+
+        $clientId = config('services.google.client_id');
+        $clientSecret = config('services.google.client_secret');
+
+        if ($clientId && $clientSecret) {
+            return [
+                'web' => [
+                    'client_id' => $clientId,
+                    'client_secret' => $clientSecret,
+                    'auth_uri' => 'https://accounts.google.com/o/oauth2/auth',
+                    'token_uri' => 'https://oauth2.googleapis.com/token',
+                    'auth_provider_x509_cert_url' => 'https://www.googleapis.com/oauth2/v1/certs',
+                    'redirect_uris' => array_values(array_filter([config('services.google.redirect_uri')])),
+                ],
+            ];
+        }
+
+        $credentialsPath = config('services.google.credentials_path');
+
+        if (! file_exists($credentialsPath)) {
+            throw new Exception('Google credentials file not found at: ' . $credentialsPath);
+        }
+
+        $credentials = json_decode(file_get_contents($credentialsPath), true);
+
+        if (! is_array($credentials)) {
+            throw new Exception('Invalid Google credentials file format. Please ensure it is valid JSON.');
+        }
+
+        return $credentials;
+    }
+
+    private function getStoredToken(): ?array
+    {
+        if (Schema::hasTable('google_oauth_tokens')) {
+            $query = DB::table('google_oauth_tokens')
+                ->where('provider', 'google_calendar');
+
+            if ($this->hasUserScopedTokens()) {
+                if (! $this->userId) {
+                    return null;
+                }
+
+                $query->where('user_id', $this->userId);
+            }
+
+            $token = $query->value('token');
+
+            if ($token) {
+                $decoded = is_array($token) ? $token : json_decode($token, true);
+                if (is_array($decoded)) {
+                    return $decoded;
+                }
+            }
+        }
+
+        if ($this->userId) {
+            return null;
+        }
+
+        $tokenPath = storage_path('app/google_token.json');
+        if (file_exists($tokenPath)) {
+            $decoded = json_decode(file_get_contents($tokenPath), true);
+            return is_array($decoded) ? $decoded : null;
+        }
+
+        return null;
+    }
+
+    private function storeToken(array $token): void
+    {
+        if (Schema::hasTable('google_oauth_tokens')) {
+            if ($this->hasUserScopedTokens()) {
+                if (! $this->userId) {
+                    throw new Exception('A PaperTrail user is required before storing Google authorization.');
+                }
+
+                DB::table('google_oauth_tokens')->updateOrInsert(
+                    ['user_id' => $this->userId, 'provider' => 'google_calendar'],
+                    [
+                        'token' => json_encode($token),
+                        'updated_at' => now(),
+                        'created_at' => now(),
+                    ]
+                );
+
+                return;
+            }
+
+            DB::table('google_oauth_tokens')->updateOrInsert(
+                ['provider' => 'google_calendar'],
+                [
+                    'token' => json_encode($token),
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ]
+            );
+        }
+
+        if ($this->userId) {
+            return;
+        }
+
+        $tokenPath = storage_path('app/google_token.json');
+        @file_put_contents($tokenPath, json_encode($token));
+    }
+
+    private function hasUserScopedTokens(): bool
+    {
+        return Schema::hasColumn('google_oauth_tokens', 'user_id');
     }
 }

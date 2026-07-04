@@ -188,6 +188,26 @@
     </div>
 </div>
 
+<div class="mt-6">
+    <x-input-label for="adviser_schedule" :value="__('Schedule')" />
+    @if($user->adviser_schedule_path)
+        <div class="mt-2 rounded-lg border border-green-100 bg-green-50 p-3">
+            <p class="text-sm font-medium text-green-900">{{ $user->adviser_schedule_name ?? 'Uploaded schedule' }}</p>
+            <a href="{{ route('profile.adviser-schedule', $user) }}" target="_blank" rel="noopener"
+               class="mt-1 inline-flex text-sm font-medium text-green-700 hover:text-green-900">
+                View current schedule
+            </a>
+            <button type="button" onclick="openScheduleDeleteModal()" class="mt-3 inline-flex rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">
+                Delete Schedule
+            </button>
+        </div>
+    @endif
+    <input id="adviser_schedule" name="adviser_schedule" type="file" accept="image/jpeg,image/png,image/webp,application/pdf,.doc,.docx"
+           class="mt-2 block w-full text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-green-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-green-700 hover:file:bg-green-100" />
+    <p class="mt-1 text-sm text-gray-500">Upload a schedule image, PDF, or Word file up to 10MB.</p>
+    <x-input-error class="mt-2" :messages="$errors->get('adviser_schedule')" />
+</div>
+
 @endif
 
 <div>
@@ -222,4 +242,36 @@
             <x-primary-button>{{ __('Save') }}</x-primary-button>
         </div>
     </form>
+
+    @if($user->isTeacher() && $user->adviser_schedule_path)
+        <form id="deleteScheduleForm" method="POST" action="{{ route('profile.adviser-schedule.destroy') }}">
+            @csrf
+            @method('DELETE')
+        </form>
+
+        <div id="scheduleDeleteModal" class="fixed inset-0 z-50 hidden bg-gray-900/50 px-4 py-6">
+            <div class="mx-auto mt-24 max-w-md rounded-lg bg-white p-6 shadow-xl">
+                <h3 class="text-lg font-semibold text-gray-900">Delete schedule?</h3>
+                <p class="mt-2 text-sm text-gray-600">Are you sure you want to delete your uploaded schedule? This action cannot be undone.</p>
+                <div class="mt-6 flex justify-end gap-3">
+                    <button type="button" onclick="closeScheduleDeleteModal()" class="rounded-md border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                        Cancel
+                    </button>
+                    <button type="button" onclick="document.getElementById('deleteScheduleForm').submit()" class="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            function openScheduleDeleteModal() {
+                document.getElementById('scheduleDeleteModal').classList.remove('hidden');
+            }
+
+            function closeScheduleDeleteModal() {
+                document.getElementById('scheduleDeleteModal').classList.add('hidden');
+            }
+        </script>
+    @endif
 </section>

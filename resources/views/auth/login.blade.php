@@ -10,7 +10,7 @@
         <p><strong>Teacher:</strong> teacher@papertrail.com / teacher123</p>
     </div>
 
-    <form method="POST" action="{{ route('login') }}">
+    <form method="POST" action="{{ route('login', [], false) }}">
         @csrf
 
         <!-- Email Address -->

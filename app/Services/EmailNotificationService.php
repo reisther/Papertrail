@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Mail\PaperTrailNotification;
 use App\Models\AdviserStudent;
 use App\Models\Announcement;
+use App\Models\ChatRoom;
 use App\Models\DefenseSchedule;
 use App\Models\Project;
 use App\Models\User;
@@ -45,7 +47,8 @@ class EmailNotificationService
                 ($announcement->author?->name ?? 'PaperTrail') . ' posted an announcement in PaperTrail.',
                 $announcement->message,
                 $reason
-            )
+            ),
+            $this->notificationFrom()
         );
     }
 
@@ -61,7 +64,8 @@ class EmailNotificationService
                 "{$adviser->name} assigned task(s) to {$project->title}.",
                 implode("\n", array_map(fn ($title) => "- {$title}", $taskTitles)),
                 'You are receiving this because you are part of the group assigned to these tasks.'
-            )
+            ),
+            $this->notificationFrom()
         );
     }
 
@@ -88,7 +92,8 @@ class EmailNotificationService
                 "{$creatorName} created a Google Meet for {$schedule->title}.",
                 $details,
                 'You are receiving this because you are listed as a participant for this schedule.'
-            )
+            ),
+            $this->notificationFrom()
         );
     }
 
@@ -104,11 +109,77 @@ class EmailNotificationService
                 "{$request->student?->name} sent you an adviser request.",
                 $request->message ?: 'No message was included.',
                 'You are receiving this because students can send adviser requests to your PaperTrail account.'
-            )
+            ),
+            $this->notificationFrom()
         );
     }
 
-    private function sendToUsers(Collection $users, string $subject, array $emailData): void
+    public function sendUserRegistrationPending(User $user): void
+    {
+        $this->sendToUsers(
+            User::where('role', 'Admin')->whereNotNull('email')->get(),
+            'PaperTrail: New user pending verification',
+            $this->messageHtml(
+                'New user pending verification',
+                "{$user->name} submitted a PaperTrail sign-up request.",
+                collect([
+                    "Name: {$user->name}",
+                    "Email: {$user->email}",
+                    "Course: {$user->course}",
+                    "Section: {$user->section}",
+                    "Campus: {$user->campus}",
+                ])->filter()->implode("\n"),
+                'You are receiving this because admins review new PaperTrail account registrations.'
+            ),
+            $this->notificationFrom()
+        );
+    }
+
+    public function sendPasswordResetCode(User $user, string $code): bool
+    {
+        return $this->sendToUsers(
+            collect([$user]),
+            'PaperTrail: Password reset code',
+            $this->messageHtml(
+                'Password reset code',
+                'Use this code to reset your PaperTrail password.',
+                "Your password reset code is: {$code}",
+                'You are receiving this because someone requested a password reset for your PaperTrail account.'
+            )
+        ) > 0;
+    }
+
+    public function sendChatMentionReceived(User $recipient, User $sender, ChatRoom $chatRoom): void
+    {
+        $this->sendToUsers(
+            collect([$recipient]),
+            "PaperTrail: {$sender->name} mentioned you",
+            $this->messageHtml(
+                "{$sender->name} mentioned you",
+                "{$sender->name} mentioned you in {$chatRoom->name}.",
+                'You can check the message in PaperTrail.',
+                'You are receiving this because someone mentioned your PaperTrail account in chat.'
+            ),
+            $this->notificationFrom()
+        );
+    }
+
+    public function sendChatMentionDigest(User $recipient, int $mentionCount): void
+    {
+        $this->sendToUsers(
+            collect([$recipient]),
+            'PaperTrail: Someone mentioned you',
+            $this->messageHtml(
+                'Someone mentioned you',
+                "Someone mentioned you {$mentionCount} times.",
+                'You can check it in PaperTrail.',
+                'You are receiving this summary so repeated chat mentions do not send too many emails.'
+            ),
+            $this->notificationFrom()
+        );
+    }
+
+    private function sendToUsers(Collection $users, string $subject, array $emailData, ?array $from = null): int
     {
         $emails = $users
             ->filter()
@@ -125,15 +196,18 @@ class EmailNotificationService
             'mailer' => config('mail.default'),
             'smtp_host' => config('mail.mailers.smtp.host'),
             'smtp_port' => config('mail.mailers.smtp.port'),
-            'from' => config('mail.from.address'),
+            'from' => $from['address'] ?? config('mail.from.address'),
         ]);
 
         $sentCount = 0;
         foreach ($emails as $email) {
             try {
-                Mail::send(['html' => 'emails.papertrail-notification', 'text' => 'emails.papertrail-notification-text'], $emailData, function ($message) use ($email, $subject) {
-                    $message->to($email)->subject($subject);
-                });
+                Mail::to($email)->send(new PaperTrailNotification(
+                    $subject,
+                    $emailData,
+                    $from['address'] ?? null,
+                    $from['name'] ?? null
+                ));
                 $sentCount++;
             } catch (\Throwable $exception) {
                 Log::warning('Failed to send email notification.', [
@@ -149,6 +223,8 @@ class EmailNotificationService
             'recipient_count' => $emails->count(),
             'sent_count' => $sentCount,
         ]);
+
+        return $sentCount;
     }
 
     private function adviserStudentRecipients(?User $adviser): Collection
@@ -224,5 +300,13 @@ class EmailNotificationService
     private function messageHtml(string $title, string $intro, string $body, string $reason): array
     {
         return compact('title', 'intro', 'body', 'reason');
+    }
+
+    private function notificationFrom(): array
+    {
+        return [
+            'address' => config('mail.notifications.address'),
+            'name' => config('mail.notifications.name'),
+        ];
     }
 }

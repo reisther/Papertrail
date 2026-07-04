@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AdviserStudent;
+use App\Models\AppNotification;
 use App\Models\ChatRoom;
 use App\Models\Project;
 use App\Models\User;
@@ -88,6 +89,21 @@ class AdviserController extends Controller
             'message' => $request->message,
             'status' => 'pending'
         ]);
+        if (Schema::hasTable('app_notifications')) {
+            AppNotification::firstOrCreate(
+                [
+                    'user_id' => $adviser->id,
+                    'type' => 'student_request',
+                    'source_type' => 'adviser_student',
+                    'source_id' => $adviserRequest->id,
+                ],
+                [
+                    'title' => 'New adviser request',
+                    'body' => Auth::user()->name . ' sent you an adviser request.',
+                    'action_url' => route('advisers.pending-requests'),
+                ]
+            );
+        }
         app(EmailNotificationService::class)->sendAdviserRequestReceived($adviserRequest);
 
         return redirect()
@@ -147,6 +163,34 @@ class AdviserController extends Controller
 
         $statusText = $request->status === 'approved' ? 'approved' : 'rejected';
         return back()->with('success', "Request {$statusText} successfully!");
+    }
+
+    public function removeRequest(AdviserStudent $adviserStudent)
+    {
+        if ($adviserStudent->student_id !== Auth::id()) {
+            abort(403, 'Access denied.');
+        }
+
+        $adviserName = $adviserStudent->adviser?->name ?? 'The adviser';
+
+        if ($adviserStudent->status === 'approved') {
+            $projectIds = Project::where('owner_id', $adviserStudent->student_id)
+                ->where('adviser_id', $adviserStudent->adviser_id)
+                ->pluck('id');
+
+            Project::whereIn('id', $projectIds)->update(['adviser_id' => null]);
+
+            ChatRoom::whereIn('project_id', $projectIds)
+                ->where('type', 'project')
+                ->get()
+                ->each(fn (ChatRoom $room) => $room->participants()->detach($adviserStudent->adviser_id));
+        }
+
+        $adviserStudent->delete();
+
+        return redirect()
+            ->route('advisers.title-submission')
+            ->with('success', "Request to {$adviserName} removed successfully.");
     }
 
     /**

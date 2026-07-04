@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                Defense Schedule Details
+                Meeting Details
             </h2>
             <div class="flex space-x-3">
                 @if($defenseSchedule->canEdit(Auth::user()))
@@ -26,7 +26,7 @@
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6">
-                    <!-- Defense Title and Status -->
+                    <!-- Meeting Title and Status -->
                     <div class="flex justify-between items-start mb-6">
                         <div>
                             <h1 class="text-2xl font-bold text-gray-900 mb-2">{{ $defenseSchedule->title }}</h1>
@@ -39,8 +39,7 @@
                                     {{ ucfirst($defenseSchedule->status) }}
                                 </span>
                                 <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full
-                                    @if($defenseSchedule->type === 'proposal') bg-purple-100 text-purple-800
-                                    @elseif($defenseSchedule->type === 'final') bg-blue-100 text-blue-800
+                                    @if($defenseSchedule->type === 'meeting') bg-blue-100 text-blue-800
                                     @else bg-green-100 text-green-800 @endif">
                                     {{ ucwords(str_replace('_', ' ', $defenseSchedule->type)) }}
                                 </span>
@@ -82,18 +81,20 @@
                                     <svg class="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
                                     </svg>
-                                    Participants
+                                    Group
                                 </h3>
                                 <div class="space-y-3">
+                                    @if($defenseSchedule->project)
                                     <div class="flex items-center space-x-3">
                                         <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                            <span class="text-xs font-medium text-blue-600">S</span>
+                                            <span class="text-xs font-medium text-blue-600">G</span>
                                         </div>
                                         <div>
-                                            <div class="font-medium">{{ $defenseSchedule->student->name }}</div>
-                                            <div class="text-sm text-gray-600">Student</div>
+                                            <div class="font-medium">{{ $defenseSchedule->project->title }}</div>
+                                            <div class="text-sm text-gray-600">Group Code</div>
                                         </div>
                                     </div>
+                                    @endif
                                     <div class="flex items-center space-x-3">
                                         <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
                                             <span class="text-xs font-medium text-green-600">A</span>
@@ -103,45 +104,21 @@
                                             <div class="text-sm text-gray-600">Adviser</div>
                                         </div>
                                     </div>
-                                    @if($defenseSchedule->panel_members_users->count() > 0)
-                                        <div class="border-t pt-3 mt-3">
-                                            <div class="text-sm font-medium text-gray-700 mb-2">Panel Members:</div>
-                                            @foreach($defenseSchedule->panel_members_users as $panelist)
-                                                <div class="flex items-center space-x-3 mb-2">
-                                                    <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                                                        <span class="text-xs font-medium text-purple-600">P</span>
-                                                    </div>
-                                                    <div>
-                                                        <div class="font-medium">{{ $panelist->name }}</div>
-                                                        <div class="text-sm text-gray-600">Panel Member</div>
-                                                    </div>
-                                                </div>
-                                            @endforeach
-                                        </div>
-                                    @endif
                                 </div>
                             </div>
                         </div>
 
                         <!-- Right Column -->
                         <div class="space-y-6">
-                            <!-- Location and Meeting -->
+                            <!-- Meeting -->
                             <div class="bg-gray-50 rounded-lg p-4">
                                 <h3 class="text-lg font-medium text-gray-900 mb-3 flex items-center">
                                     <svg class="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
                                     </svg>
-                                    Location & Meeting
+                                    Meeting
                                 </h3>
                                 <div class="space-y-4">
-                                    @if($defenseSchedule->location)
-                                        <div>
-                                            <div class="text-sm text-gray-600">Location:</div>
-                                            <div class="font-medium">{{ $defenseSchedule->location }}</div>
-                                        </div>
-                                    @endif
-                                    
                                     <!-- Meeting Platform Info -->
                                     <div>
                                         <div class="text-sm text-gray-600 mb-1">Meeting Platform:</div>
@@ -222,8 +199,8 @@
                                         @endif
                                     @endif
                                     
-                                    @if(!$defenseSchedule->location && !$defenseSchedule->meeting_link)
-                                        <div class="text-gray-500 italic">No location or meeting link specified</div>
+                                    @if(!$defenseSchedule->meeting_link)
+                                        <div class="text-gray-500 italic">No meeting link specified</div>
                                     @endif
                                 </div>
                             </div>
@@ -235,7 +212,7 @@
                                         <svg class="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                         </svg>
-                                        Project
+                                        Group Code
                                     </h3>
                                     <div>
                                         <div class="font-medium text-lg">{{ $defenseSchedule->project->title }}</div>
@@ -291,16 +268,6 @@
                         </div>
                     @endif
 
-                    <!-- Notes (Only for creators/advisers) -->
-                    @if($defenseSchedule->notes && $defenseSchedule->canEdit(Auth::user()))
-                        <div class="mt-8">
-                            <h3 class="text-lg font-medium text-gray-900 mb-3">Internal Notes</h3>
-                            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                                <p class="text-gray-700 whitespace-pre-wrap">{{ $defenseSchedule->notes }}</p>
-                            </div>
-                        </div>
-                    @endif
-
                     <!-- Actions -->
                     @if($defenseSchedule->canEdit(Auth::user()))
                         <div class="mt-8 pt-6 border-t border-gray-200">
@@ -308,12 +275,12 @@
                                 <div class="flex space-x-3">
                                     <a href="{{ route('defense-schedule.edit', $defenseSchedule) }}" 
                                        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
-                                        Edit Schedule
+                                        Edit Meeting
                                     </a>
                                 </div>
                                 <button onclick="confirmDelete()" 
                                         class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
-                                    Delete Schedule
+                                    Delete Meeting
                                 </button>
                             </div>
                         </div>
@@ -332,9 +299,9 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
                     </svg>
                 </div>
-                <h3 class="text-lg font-medium text-gray-900 text-center mb-2">Delete Defense Schedule</h3>
+                <h3 class="text-lg font-medium text-gray-900 text-center mb-2">Delete Meeting</h3>
                 <p class="text-sm text-gray-500 text-center mb-6">
-                    Are you sure you want to delete this defense schedule? This action cannot be undone.
+                    Are you sure you want to delete this meeting? This action cannot be undone.
                 </p>
                 
                 <div class="flex justify-center space-x-3">
@@ -347,7 +314,7 @@
                         @method('DELETE')
                         <button type="submit" 
                                 class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors">
-                            Delete Schedule
+                            Delete Meeting
                         </button>
                     </form>
                 </div>

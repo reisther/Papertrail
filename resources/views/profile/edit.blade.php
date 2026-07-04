@@ -19,6 +19,14 @@
                 </div>
             </div>
 
+            @if(Auth::user()->isAdmin() || Auth::user()->isTeacher() || Auth::user()->canLeadGroup())
+                <div class="p-4 sm:p-8 bg-white shadow sm:rounded-lg">
+                    <div class="max-w-xl">
+                        @include('profile.partials.google-calendar-form')
+                    </div>
+                </div>
+            @endif
+
             @if(!Auth::user()->isAdmin())
                 <div class="p-4 sm:p-8 bg-white shadow sm:rounded-lg">
                     <div class="max-w-xl">

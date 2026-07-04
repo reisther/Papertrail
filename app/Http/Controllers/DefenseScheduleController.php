@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\DefenseSchedule;
+use App\Models\AppNotification;
 use App\Models\User;
 use App\Models\Project;
 use App\Services\GoogleMeetService;
@@ -10,6 +11,7 @@ use App\Services\EmailNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Carbon\Carbon;
 
 class DefenseScheduleController extends Controller
@@ -35,7 +37,7 @@ class DefenseScheduleController extends Controller
             $query->where(function($q) use ($user) {
                 $q->where('adviser_id', $user->id)
                   ->orWhere('created_by', $user->id)
-                  ->orWhereJsonContains('panel_members', $user->id);
+                  ->orWhereHas('project', fn ($project) => $project->where('adviser_id', $user->id));
             });
         }
         // Admin can see all schedules
@@ -64,7 +66,7 @@ class DefenseScheduleController extends Controller
             $query->where(function($q) use ($user) {
                 $q->where('adviser_id', $user->id)
                   ->orWhere('created_by', $user->id)
-                  ->orWhereJsonContains('panel_members', $user->id);
+                  ->orWhereHas('project', fn ($project) => $project->where('adviser_id', $user->id));
             });
         }
         
@@ -88,9 +90,9 @@ class DefenseScheduleController extends Controller
                 'borderColor' => $this->getEventColor($schedule),
                 'extendedProps' => [
                     'description' => $schedule->description,
-                    'student' => $schedule->student->name,
-                    'adviser' => $schedule->adviser->name,
-                    'location' => $schedule->location,
+                    'student' => $schedule->student?->name,
+                    'adviser' => $schedule->adviser?->name,
+                    'location' => null,
                     'status' => $schedule->status,
                     'type' => $schedule->type,
                     'duration' => $schedule->duration,
@@ -106,40 +108,42 @@ class DefenseScheduleController extends Controller
     }
 
     /**
-     * Show form to create new defense schedule
+     * Show form to create a new meeting schedule
      */
     public function create()
     {
         if (!Auth::user()->isTeacher() && !Auth::user()->canLeadGroup() && Auth::user()->role !== 'Admin') {
-            abort(403, 'Only leaders, teachers, and admins can create defense schedules.');
+            abort(403, 'Only leaders, advisers, and admins can create meetings.');
         }
         
         $user = Auth::user();
         
-        // Get students for this teacher
-        $students = collect();
+        $projects = collect();
         if ($user->role === 'Teacher') {
-            $studentIds = $user->students()->where('status', 'approved')->pluck('student_id');
-            $students = User::whereIn('id', $studentIds)->orderBy('firstname')->get();
+            $projects = Project::with(['owner', 'members'])
+                ->where('adviser_id', $user->id)
+                ->orderBy('title')
+                ->get();
         } elseif ($user->canLeadGroup()) {
-            $students = collect([$user]);
+            $projects = $user->ownedProjects()
+                ->with(['owner', 'members', 'adviser'])
+                ->whereNotNull('adviser_id')
+                ->orderBy('title')
+                ->get();
         } elseif ($user->role === 'Admin') {
-            $students = User::whereIn('role', ['Student', 'Leader'])->orderBy('firstname')->get();
+            $projects = Project::with(['owner', 'members', 'adviser'])->orderBy('title')->get();
         }
         
-        // Get all teachers for panel selection
-        $teachers = User::where('role', 'Teacher')->orderBy('firstname')->get();
-        
-        return view('defense-schedule.create', compact('students', 'teachers'));
+        return view('defense-schedule.create', compact('projects'));
     }
 
     /**
-     * Store new defense schedule
+     * Store a new meeting schedule
      */
     public function store(Request $request)
     {
         if (!Auth::user()->isTeacher() && !Auth::user()->canLeadGroup() && Auth::user()->role !== 'Admin') {
-            abort(403, 'Only leaders, teachers, and admins can create defense schedules.');
+            abort(403, 'Only leaders, advisers, and admins can create meetings.');
         }
         
         $normalizedMeetingLink = $this->normalizeMeetingLink($request->meeting_link);
@@ -148,71 +152,62 @@ class DefenseScheduleController extends Controller
         $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'student_id' => 'required|exists:users,id',
-            'adviser_id' => 'required|exists:users,id',
-            'project_id' => 'nullable|exists:projects,id',
+            'project_id' => 'required|exists:projects,id',
             'start_time' => 'required|date|after:now',
             'end_time' => 'required|date|after:start_time',
-            'location' => 'nullable|string|max:255',
-            'type' => 'required|in:proposal,final,oral_exam',
-            'panel_members' => 'nullable|array',
-            'panel_members.*' => 'exists:users,id',
-            'notes' => 'nullable|string',
+            'type' => 'required|in:meeting,consultation',
             'meeting_link' => 'nullable|url',
             'meeting_platform' => 'required|in:manual,google_meet,zoom,teams',
             'auto_create_meet' => 'nullable|boolean',
         ]);
 
-        if (Auth::user()->canLeadGroup() && (int) $request->student_id !== Auth::id()) {
-            abort(403, 'Leaders can only schedule for their own group.');
-        }
+        $project = Project::with(['owner', 'members', 'adviser'])->findOrFail($request->project_id);
+        $user = Auth::user();
 
-        if (Auth::user()->canLeadGroup() && $request->project_id) {
-            $project = Project::findOrFail($request->project_id);
+        if ($user->canLeadGroup()) {
             if ($project->owner_id !== Auth::id()) {
                 abort(403, 'Leaders can only schedule their own group project.');
             }
+        } elseif ($user->isTeacher()) {
+            if ($project->adviser_id !== Auth::id()) {
+                abort(403, 'Advisers can only schedule meetings for accepted student groups.');
+            }
+        } elseif ($user->role !== 'Admin') {
+            abort(403, 'Access denied.');
+        }
+
+        if (! $project->adviser_id) {
+            return redirect()->back()->withInput()->with('error', 'This group does not have an accepted adviser yet.');
         }
         
-        // Prepare data for defense schedule
+        // Prepare data for meeting schedule.
         $data = [
             'title' => $request->title,
             'description' => $request->description,
-            'student_id' => $request->student_id,
-            'adviser_id' => $request->adviser_id,
-            'project_id' => $request->project_id,
+            'student_id' => $project->owner_id,
+            'adviser_id' => $project->adviser_id,
+            'project_id' => $project->id,
             'start_time' => $request->start_time,
             'end_time' => $request->end_time,
-            'location' => $request->location,
+            'location' => null,
             'type' => $request->type,
-            'panel_members' => $request->panel_members,
-            'notes' => $request->notes,
+            'panel_members' => null,
+            'notes' => null,
             'meeting_link' => $request->meeting_link,
             'meeting_platform' => $request->meeting_platform,
-            'auto_create_meet' => $request->boolean('auto_create_meet'),
+            'auto_create_meet' => $request->meeting_platform === 'google_meet',
             'created_by' => Auth::id(),
         ];
 
         // Handle Google Meet integration
-        if ($request->meeting_platform === 'google_meet' && $request->boolean('auto_create_meet')) {
+        if ($request->meeting_platform === 'google_meet') {
             try {
-                $googleMeetService = new GoogleMeetService();
+                $googleMeetService = new GoogleMeetService(Auth::user());
+                if (!$googleMeetService->hasValidToken()) {
+                    return redirect()->back()->withInput()->with('error', 'Connect your Google Calendar first, or choose Manual Link Entry for now.');
+                }
                 
-                // Get attendee emails
-                $attendees = [];
-                if ($student = User::find($request->student_id)) {
-                    $attendees[] = $student->email;
-                }
-                if ($adviser = User::find($request->adviser_id)) {
-                    $attendees[] = $adviser->email;
-                }
-                if ($request->panel_members) {
-                    $panelEmails = User::whereIn('id', $request->panel_members)
-                        ->pluck('email')
-                        ->filter()
-                        ->toArray();
-                    $attendees = array_merge($attendees, $panelEmails);
-                }
+                $attendees = $this->projectMeetingAttendees($project);
 
                 // Create Google Meet event
                 $meetResult = $googleMeetService->createMeetingEvent(
@@ -233,17 +228,26 @@ class DefenseScheduleController extends Controller
                 
                 return redirect()->back()
                     ->withInput()
-                    ->with('error', 'Defense schedule created, but Google Meet integration failed. Please <a href="' . route('setup-google-auth') . '" class="underline text-blue-600">setup Google authorization</a> first, or manually add a meeting link after creating the schedule.');
+                    ->with('error', $this->googleMeetFailureMessage($e));
             }
         }
 
         $defenseSchedule = DefenseSchedule::create($data);
+        $this->notifyMeetingParticipants($defenseSchedule->fresh(['project.owner', 'project.members', 'project.adviser']));
+
         if ($defenseSchedule->usesGoogleMeet() && $defenseSchedule->meeting_link) {
-            app(EmailNotificationService::class)->sendGoogleMeetCreated($defenseSchedule);
+            try {
+                app(EmailNotificationService::class)->sendGoogleMeetCreated($defenseSchedule);
+            } catch (\Throwable $exception) {
+                Log::warning('Failed to send Google Meet email notification.', [
+                    'defense_schedule_id' => $defenseSchedule->id,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
         }
         
         return redirect()->route('defense-schedule.index')
-                        ->with('success', 'Defense schedule created successfully!');
+                        ->with('success', 'Meeting scheduled successfully!');
     }
 
     /**
@@ -252,7 +256,7 @@ class DefenseScheduleController extends Controller
     public function show(DefenseSchedule $defenseSchedule)
     {
         if (!$defenseSchedule->canView(Auth::user())) {
-            abort(403, 'You do not have permission to view this defense schedule.');
+            abort(403, 'You do not have permission to view this meeting.');
         }
         
         $defenseSchedule->load(['student', 'adviser', 'project', 'creator']);
@@ -266,29 +270,28 @@ class DefenseScheduleController extends Controller
     public function edit(DefenseSchedule $defenseSchedule)
     {
         if (!$defenseSchedule->canEdit(Auth::user())) {
-            abort(403, 'You do not have permission to edit this defense schedule.');
+            abort(403, 'You do not have permission to edit this meeting.');
         }
         
         $user = Auth::user();
         
-        // Get students for this teacher
-        $students = collect();
+        $projects = collect();
         if ($user->role === 'Teacher') {
-            $studentIds = $user->students()->where('status', 'approved')->pluck('student_id');
-            $students = User::whereIn('id', $studentIds)->orderBy('firstname')->get();
+            $projects = Project::with(['owner', 'members', 'adviser'])
+                ->where('adviser_id', $user->id)
+                ->orderBy('title')
+                ->get();
         } elseif ($user->canLeadGroup()) {
-            $students = collect([$user]);
+            $projects = $user->ownedProjects()
+                ->with(['owner', 'members', 'adviser'])
+                ->whereNotNull('adviser_id')
+                ->orderBy('title')
+                ->get();
         } elseif ($user->role === 'Admin') {
-            $students = User::whereIn('role', ['Student', 'Leader'])->orderBy('firstname')->get();
+            $projects = Project::with(['owner', 'members', 'adviser'])->orderBy('title')->get();
         }
         
-        // Get all teachers for panel selection
-        $teachers = User::where('role', 'Teacher')->orderBy('firstname')->get();
-        
-        // Get projects for the selected student
-        $projects = Project::where('owner_id', $defenseSchedule->student_id)->get();
-        
-        return view('defense-schedule.edit', compact('defenseSchedule', 'students', 'teachers', 'projects'));
+        return view('defense-schedule.edit', compact('defenseSchedule', 'projects'));
     }
 
     /**
@@ -297,7 +300,7 @@ class DefenseScheduleController extends Controller
     public function update(Request $request, DefenseSchedule $defenseSchedule)
     {
         if (!$defenseSchedule->canEdit(Auth::user())) {
-            abort(403, 'You do not have permission to edit this defense schedule.');
+            abort(403, 'You do not have permission to edit this meeting.');
         }
         
         $normalizedMeetingLink = $this->normalizeMeetingLink($request->meeting_link);
@@ -306,35 +309,47 @@ class DefenseScheduleController extends Controller
         $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'student_id' => 'required|exists:users,id',
-            'adviser_id' => 'required|exists:users,id',
-            'project_id' => 'nullable|exists:projects,id',
+            'project_id' => 'required|exists:projects,id',
             'start_time' => 'required|date',
             'end_time' => 'required|date|after:start_time',
-            'location' => 'nullable|string|max:255',
             'status' => 'required|in:scheduled,completed,cancelled,rescheduled',
-            'type' => 'required|in:proposal,final,oral_exam',
-            'panel_members' => 'nullable|array',
-            'panel_members.*' => 'exists:users,id',
-            'notes' => 'nullable|string',
+            'type' => 'required|in:meeting,consultation',
             'meeting_link' => 'nullable|url',
         ]);
 
-        if (Auth::user()->canLeadGroup() && (int) $request->student_id !== Auth::id()) {
-            abort(403, 'Leaders can only update schedules for their own group.');
-        }
+        $project = Project::with(['owner', 'members', 'adviser'])->findOrFail($request->project_id);
+        $user = Auth::user();
 
-        if (Auth::user()->canLeadGroup() && $request->project_id) {
-            $project = Project::findOrFail($request->project_id);
+        if ($user->canLeadGroup()) {
             if ($project->owner_id !== Auth::id()) {
                 abort(403, 'Leaders can only update their own group project schedule.');
             }
+        } elseif ($user->isTeacher()) {
+            if ($project->adviser_id !== Auth::id()) {
+                abort(403, 'Advisers can only update meetings for accepted student groups.');
+            }
+        } elseif ($user->role !== 'Admin') {
+            abort(403, 'Access denied.');
         }
         
-        $defenseSchedule->update($request->all());
+        $defenseSchedule->update([
+            'title' => $request->title,
+            'description' => $request->description,
+            'student_id' => $project->owner_id,
+            'adviser_id' => $project->adviser_id,
+            'project_id' => $project->id,
+            'start_time' => $request->start_time,
+            'end_time' => $request->end_time,
+            'location' => null,
+            'status' => $request->status,
+            'type' => $request->type,
+            'panel_members' => null,
+            'notes' => null,
+            'meeting_link' => $request->meeting_link,
+        ]);
         
         return redirect()->route('defense-schedule.index')
-                        ->with('success', 'Defense schedule updated successfully!');
+                        ->with('success', 'Meeting updated successfully!');
     }
 
     /**
@@ -343,13 +358,13 @@ class DefenseScheduleController extends Controller
     public function destroy(DefenseSchedule $defenseSchedule)
     {
         if (!$defenseSchedule->canEdit(Auth::user())) {
-            abort(403, 'You do not have permission to delete this defense schedule.');
+            abort(403, 'You do not have permission to delete this meeting.');
         }
         
         $defenseSchedule->delete();
         
         return redirect()->route('defense-schedule.index')
-                        ->with('success', 'Defense schedule deleted successfully!');
+                        ->with('success', 'Meeting deleted successfully!');
     }
 
     /**
@@ -368,15 +383,15 @@ class DefenseScheduleController extends Controller
     public function createGoogleMeet(DefenseSchedule $defenseSchedule)
     {
         if (!$defenseSchedule->canEdit(Auth::user())) {
-            abort(403, 'You do not have permission to modify this defense schedule.');
+            abort(403, 'You do not have permission to modify this meeting.');
         }
 
         try {
-            $googleMeetService = new GoogleMeetService();
+            $googleMeetService = new GoogleMeetService(Auth::user());
             
             // Check if Google OAuth is properly setup
             if (!$googleMeetService->hasValidToken()) {
-                return redirect()->back()->with('error', 'Google Meet integration is not setup. Please <a href="' . route('setup-google-auth') . '" class="underline text-blue-600">setup Google authorization</a> first.');
+                return redirect()->back()->with('error', 'Connect your Google Calendar first. <a href="' . route('setup-google-auth') . '" class="underline text-blue-600">Connect Google Calendar</a>');
             }
             
             // Get attendee emails
@@ -391,7 +406,7 @@ class DefenseScheduleController extends Controller
                 $attendees
             );
 
-            // Update defense schedule with Google Meet information
+            // Update meeting schedule with Google Meet information.
             $defenseSchedule->update([
                 'meeting_link' => $meetResult['meet_link'],
                 'google_event_id' => $meetResult['event_id'],
@@ -399,13 +414,20 @@ class DefenseScheduleController extends Controller
                 'meeting_platform' => 'google_meet',
                 'auto_create_meet' => true,
             ]);
-            app(EmailNotificationService::class)->sendGoogleMeetCreated($defenseSchedule->fresh());
+            try {
+                app(EmailNotificationService::class)->sendGoogleMeetCreated($defenseSchedule->fresh());
+            } catch (\Throwable $exception) {
+                Log::warning('Failed to send Google Meet email notification.', [
+                    'defense_schedule_id' => $defenseSchedule->id,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
 
             return redirect()->back()->with('success', 'Google Meet created successfully! Calendar invites have been sent to all participants.');
 
         } catch (\Exception $e) {
-            Log::error('Failed to create Google Meet for defense schedule: ' . $e->getMessage());
-            return redirect()->back()->with('error', 'Failed to create Google Meet. Please <a href="' . route('setup-google-auth') . '" class="underline text-blue-600">setup Google authorization</a> first, or manually add a meeting link by editing the schedule.');
+            Log::error('Failed to create Google Meet for meeting schedule: ' . $e->getMessage());
+            return redirect()->back()->with('error', $this->googleMeetFailureMessage($e));
         }
     }
 
@@ -415,7 +437,7 @@ class DefenseScheduleController extends Controller
     public function updateGoogleMeet(DefenseSchedule $defenseSchedule)
     {
         if (!$defenseSchedule->canEdit(Auth::user())) {
-            abort(403, 'You do not have permission to modify this defense schedule.');
+            abort(403, 'You do not have permission to modify this meeting.');
         }
 
         if (!$defenseSchedule->google_event_id) {
@@ -423,7 +445,10 @@ class DefenseScheduleController extends Controller
         }
 
         try {
-            $googleMeetService = new GoogleMeetService();
+            $googleMeetService = new GoogleMeetService(Auth::user());
+            if (!$googleMeetService->hasValidToken()) {
+                return redirect()->back()->with('error', 'Connect your Google Calendar first before updating this Google Meet event.');
+            }
             
             // Get attendee emails
             $attendees = $defenseSchedule->getAttendeeEmails();
@@ -438,7 +463,7 @@ class DefenseScheduleController extends Controller
                 $attendees
             );
 
-            // Update defense schedule with new Google Meet information
+            // Update meeting schedule with new Google Meet information.
             $defenseSchedule->update([
                 'meeting_link' => $meetResult['meet_link'],
                 'google_calendar_link' => $meetResult['calendar_link'],
@@ -447,7 +472,7 @@ class DefenseScheduleController extends Controller
             return redirect()->back()->with('success', 'Google Meet updated successfully! Updated calendar invites have been sent to all participants.');
 
         } catch (\Exception $e) {
-            Log::error('Failed to update Google Meet for defense schedule: ' . $e->getMessage());
+            Log::error('Failed to update Google Meet for meeting schedule: ' . $e->getMessage());
             return redirect()->back()->with('error', 'Failed to update Google Meet. Please try again or contact support.');
         }
     }
@@ -457,12 +482,12 @@ class DefenseScheduleController extends Controller
      */
     public function setupGoogleAuth()
     {
-        if (!Auth::user()->isAdmin()) {
-            abort(403, 'Only administrators can setup Google integration.');
+        if (! $this->canConnectGoogleCalendar(Auth::user())) {
+            abort(403, 'Only admins, advisers, and group leaders can connect Google Calendar.');
         }
 
         try {
-            $googleMeetService = new GoogleMeetService();
+            $googleMeetService = new GoogleMeetService(Auth::user());
             $authUrl = $googleMeetService->getAuthUrl();
             
             return redirect($authUrl);
@@ -476,8 +501,8 @@ class DefenseScheduleController extends Controller
      */
     public function handleGoogleCallback(Request $request)
     {
-        if (!Auth::user()->isAdmin()) {
-            abort(403, 'Only administrators can setup Google integration.');
+        if (! $this->canConnectGoogleCalendar(Auth::user())) {
+            abort(403, 'Only admins, advisers, and group leaders can connect Google Calendar.');
         }
 
         $code = $request->get('code');
@@ -486,17 +511,37 @@ class DefenseScheduleController extends Controller
         }
 
         try {
-            $googleMeetService = new GoogleMeetService();
+            $googleMeetService = new GoogleMeetService(Auth::user());
             $success = $googleMeetService->handleCallback($code);
             
             if ($success) {
-                return redirect()->route('defense-schedule.index')->with('success', 'Google Meet integration setup successfully! You can now create Google Meet links.');
+                return redirect()->route('profile.edit')->with('status', 'Google Calendar connected successfully. You can now create Google Meet links from your account.');
             } else {
-                return redirect()->route('defense-schedule.index')->with('error', 'Failed to complete Google authorization.');
+                return redirect()->route('profile.edit')->with('error', 'Failed to complete Google authorization.');
             }
         } catch (\Exception $e) {
-            return redirect()->route('defense-schedule.index')->with('error', 'Google authorization failed: ' . $e->getMessage());
+            return redirect()->route('profile.edit')->with('error', 'Google authorization failed: ' . $e->getMessage());
         }
+    }
+
+    public function disconnectGoogleAuth()
+    {
+        if (! $this->canConnectGoogleCalendar(Auth::user())) {
+            abort(403, 'Only admins, advisers, and group leaders can disconnect Google Calendar.');
+        }
+
+        if (Schema::hasTable('google_oauth_tokens')) {
+            $query = \Illuminate\Support\Facades\DB::table('google_oauth_tokens')
+                ->where('provider', 'google_calendar');
+
+            if (Schema::hasColumn('google_oauth_tokens', 'user_id')) {
+                $query->where('user_id', Auth::id());
+            }
+
+            $query->delete();
+        }
+
+        return redirect()->route('profile.edit')->with('status', 'Google Calendar disconnected.');
     }
 
     /**
@@ -509,11 +554,57 @@ class DefenseScheduleController extends Controller
         }
         
         return match($schedule->type) {
-            'proposal' => '#8b5cf6', // purple
-            'final' => '#3b82f6',    // blue
-            'oral_exam' => '#10b981', // green
-            default => '#6b7280'      // gray
+            'meeting' => '#3b82f6',
+            'consultation' => '#10b981',
+            default => '#6b7280'
         };
+    }
+
+    private function projectMeetingAttendees(Project $project): array
+    {
+        $project->loadMissing(['owner', 'members', 'adviser']);
+
+        return collect([$project->owner, $project->adviser])
+            ->filter()
+            ->merge($project->members)
+            ->pluck('email')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function notifyMeetingParticipants(DefenseSchedule $schedule): void
+    {
+        if (!Schema::hasTable('app_notifications')) {
+            return;
+        }
+
+        $schedule->loadMissing(['project.owner', 'project.members', 'project.adviser']);
+
+        $users = collect([$schedule->project?->owner, $schedule->project?->adviser])
+            ->filter()
+            ->merge($schedule->project?->members ?? collect())
+            ->unique('id')
+            ->reject(fn (User $user) => $user->id === Auth::id() || $user->isAdmin());
+
+        foreach ($users as $user) {
+            AppNotification::firstOrCreate(
+                [
+                    'user_id' => $user->id,
+                    'type' => 'meeting_schedule',
+                    'source_type' => 'defense_schedule',
+                    'source_id' => $schedule->id,
+                ],
+                [
+                    'title' => 'Meeting scheduled',
+                    'body' => $schedule->title . ' is scheduled for ' . $schedule->start_time->format('M j, Y g:i A') . '.',
+                    'action_url' => route('defense-schedule.show', $schedule),
+                    'created_at' => $schedule->created_at ?? now(),
+                    'updated_at' => now(),
+                ]
+            );
+        }
     }
 
     private function normalizeMeetingLink(?string $link): ?string
@@ -529,5 +620,29 @@ class DefenseScheduleController extends Controller
         }
 
         return $link;
+    }
+
+    private function googleMeetFailureMessage(\Throwable $exception): string
+    {
+        $message = $exception->getMessage();
+
+        if (str_contains($message, 'SERVICE_DISABLED') || str_contains($message, 'calendar-json.googleapis.com')) {
+            return 'Google Meet could not be created because Google Calendar API is disabled in your Google Cloud project. Enable Google Calendar API, wait a few minutes, then try again.';
+        }
+
+        if (str_contains($message, 'invalid_grant')) {
+            return 'Google Meet authorization expired or was changed. Ask an admin to setup Google authorization again.';
+        }
+
+        if (str_contains($message, 'insufficient') || str_contains($message, 'PERMISSION_DENIED')) {
+            return 'Google Meet could not be created because the authorized Gmail does not have enough Calendar permission. Ask an admin to authorize Google again and allow Calendar access.';
+        }
+
+        return 'Google Meet could not be created. Please try again, or choose Manual Link Entry for now.';
+    }
+
+    private function canConnectGoogleCalendar(?User $user): bool
+    {
+        return $user && ($user->isAdmin() || $user->isTeacher() || $user->canLeadGroup());
     }
 }

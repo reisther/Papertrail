@@ -58,6 +58,12 @@
                         </div>
                     @endif
 
+                    @include('partials.adviser-schedule', [
+                        'adviser' => $activeRequest->adviser,
+                        'class' => 'mt-6 rounded-lg border border-green-100 bg-green-50 p-4',
+                        'collapsed' => true,
+                    ])
+
                     @if($activeRequest->response_message)
                         <div class="mt-6">
                             <p class="text-sm font-medium text-gray-700">Adviser response</p>
@@ -68,6 +74,14 @@
                     <p class="mt-6 text-sm text-gray-500">
                         Requested on {{ $activeRequest->created_at->format('M j, Y \a\t g:i A') }}.
                     </p>
+
+                    <form method="POST" action="{{ route('advisers.requests.remove', $activeRequest) }}" class="mt-6" onsubmit="return confirm('Remove this adviser request?');">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="rounded-md bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">
+                            Remove Request
+                        </button>
+                    </form>
                 </div>
             @else
                 @if($latestRejectedRequest)

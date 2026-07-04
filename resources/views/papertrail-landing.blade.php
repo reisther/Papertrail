@@ -135,7 +135,7 @@
                         </svg>
                     </button>
                 </div>
-                <form action="{{ route('login') }}" method="POST" class="space-y-4">
+                <form action="{{ route('login', [], false) }}" method="POST" class="space-y-4">
                     @csrf
 
                     <div class="rounded-md bg-blue-50 border border-blue-100 p-3 text-sm text-blue-900">
@@ -198,7 +198,7 @@
                             <label for="remember" class="ml-2 block text-sm text-gray-900">Remember me</label>
                         </div>
                         <div class="text-sm">
-                            <a href="#" class="font-medium text-blue-600 hover:text-blue-500">Forgot password?</a>
+                            <a href="{{ route('password.request') }}" class="font-medium text-blue-600 hover:text-blue-500">Forgot password?</a>
                         </div>
                     </div>
                     <div>
@@ -229,7 +229,7 @@
                         </svg>
                     </button>
                 </div>
-                <form action="{{ route('register') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                <form action="{{ route('register', [], false) }}" method="POST" enctype="multipart/form-data" class="space-y-4">
                     @csrf
                     
                     <!-- Display validation errors -->

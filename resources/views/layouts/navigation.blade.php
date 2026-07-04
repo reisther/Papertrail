@@ -15,7 +15,9 @@
                 ->count();
         }
 
-        $notificationUnreadCount = $chatUnreadCount + $studentRequestPendingCount;
+        $notificationUnreadCount = \Illuminate\Support\Facades\Schema::hasTable('app_notifications')
+            ? \App\Models\AppNotification::where('user_id', Auth::id())->whereNull('read_at')->count()
+            : $studentRequestPendingCount;
     }
 @endphp
 
@@ -77,9 +79,9 @@
                                 class="whitespace-nowrap px-2 py-2 text-sm font-medium text-gray-500 transition-colors hover:text-blue-600 xl:px-3">User Management</a>
                         @endif
 
-                        @if(Auth::user()->isStudentGroupRole() || Auth::user()->isTeacher())
+                        @if(Auth::user()->isStudentGroupRole() || Auth::user()->isTeacher() || Auth::user()->isAdmin())
                             <a href="{{ route('defense-schedule.index') }}"
-                                class="whitespace-nowrap px-2 py-2 text-sm font-medium text-gray-500 transition-colors hover:text-blue-600 xl:px-3">Defense Schedule</a>
+                                class="whitespace-nowrap px-2 py-2 text-sm font-medium text-gray-500 transition-colors hover:text-blue-600 xl:px-3">Meeting Schedule</a>
                         @endif
 
                         @if(Auth::user()->isStudentGroupRole() || Auth::user()->isTeacher())
@@ -132,8 +134,11 @@
                         <!-- Dropdown Menu -->
                         <div x-show="open" @click.away="open = false" x-transition class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
                             <a href="{{ route('profile.edit') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Profile</a>
+                            @if(Auth::user()->isAdmin() || Auth::user()->isTeacher() || Auth::user()->canLeadGroup())
+                                <a href="{{ route('setup-google-auth') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Connect Google Calendar</a>
+                            @endif
                             <div class="border-t border-gray-100"></div>
-                            <form method="POST" action="{{ route('logout') }}">
+                            <form method="POST" action="{{ route('logout', [], false) }}">
                                 @csrf
                                 <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                     Logout
@@ -164,6 +169,7 @@
                         <a href="{{ route('admin.dashboard') }}" class="block px-3 py-2 text-sm font-medium text-gray-900 hover:text-blue-600">Dashboard</a>
                         <a href="{{ route('admin.pending-users') }}" class="block px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">Verify Users</a>
                         <a href="{{ route('admin.all-users') }}" class="block px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">User Management</a>
+                        <a href="{{ route('defense-schedule.index') }}" class="block px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">Meeting Schedule</a>
                         <a href="{{ route('notifications.index') }}" class="flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">
                             <span>Notifications</span>
                             @if($notificationUnreadCount > 0)
@@ -183,7 +189,7 @@
                                 </span>
                             @endif
                         </a>
-                        <a href="{{ route('defense-schedule.index') }}" class="block px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">Defense Schedule</a>
+                        <a href="{{ route('defense-schedule.index') }}" class="block px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">Meeting Schedule</a>
                         <a href="{{ route('chat.index') }}" class="flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">
                             <span>Chat</span>
                             @if($chatUnreadCount > 0)
@@ -206,7 +212,7 @@
                         @if(Auth::user()->canLeadGroup())
                             <a href="{{ route('advisers.title-submission') }}" class="block px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">Find Advisers</a>
                         @endif
-                        <a href="{{ route('defense-schedule.index') }}" class="block px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">Defense Schedule</a>
+                        <a href="{{ route('defense-schedule.index') }}" class="block px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">Meeting Schedule</a>
                         <a href="{{ route('chat.index') }}" class="flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">
                             <span>Chat</span>
                             @if($chatUnreadCount > 0)

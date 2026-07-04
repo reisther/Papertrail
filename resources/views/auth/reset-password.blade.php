@@ -1,15 +1,25 @@
 <x-guest-layout>
-    <form method="POST" action="{{ route('password.store') }}">
-        @csrf
+    <div class="mb-4 text-sm text-gray-600">
+        {{ __('Enter your OTP sent in your email, then choose your new password.') }}
+    </div>
 
-        <!-- Password Reset Token -->
-        <input type="hidden" name="token" value="{{ $request->route('token') }}">
+    <x-auth-session-status class="mb-4" :status="session('status')" />
+
+    <form method="POST" action="{{ route('password.store', [], false) }}">
+        @csrf
 
         <!-- Email Address -->
         <div>
             <x-input-label for="email" :value="__('Email')" />
             <x-text-input id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email', $request->email)" required autofocus autocomplete="username" />
             <x-input-error :messages="$errors->get('email')" class="mt-2" />
+        </div>
+
+        <!-- Reset Code -->
+        <div class="mt-4">
+            <x-input-label for="code" :value="__('OTP Code')" />
+            <x-text-input id="code" class="block mt-1 w-full" type="text" name="code" :value="old('code')" required inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" />
+            <x-input-error :messages="$errors->get('code')" class="mt-2" />
         </div>
 
         <!-- Password -->

@@ -2,17 +2,22 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\SendChatMentionDigestEmail;
 use App\Models\ChatRoom;
 use App\Models\ChatMessage;
+use App\Models\AppNotification;
 use App\Models\MessageReaction;
 use App\Models\Project;
 use App\Models\User;
+use App\Services\EmailNotificationService;
 use App\Services\GoogleChatService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -382,6 +387,8 @@ class ChatController extends BaseController
             'message' => 'required_without:file|string|max:2000',
             'file' => 'nullable|file|max:10240', // 10MB max
             'reply_to_id' => 'nullable|exists:chat_messages,id',
+            'mention_user_ids' => 'nullable|array',
+            'mention_user_ids.*' => 'integer|exists:users,id',
         ]);
 
         if ($validator->fails()) {
@@ -432,6 +439,8 @@ class ChatController extends BaseController
                 $message->update(['reply_to_id' => $replyToId]);
                 $message->load(['replyTo.user']);
             }
+
+            $this->createMentionNotifications($chatRoom, $message, $user, $request->input('mention_user_ids', []));
 
             $chatRoom->touch();
 
@@ -497,7 +506,7 @@ class ChatController extends BaseController
             return response()->json(['error' => 'Access denied'], 403);
         }
 
-        $chatRoom->load(['participants:id,firstname,lastname,profile_picture_path,updated_at', 'project:id,title']);
+        $chatRoom->load(['participants:id,firstname,lastname,profile_picture_path,updated_at', 'project:id,title,owner_id,adviser_id']);
         $currentUser = Auth::user();
         $canManageParticipants = $this->isChatAdmin($chatRoom, $currentUser);
         $isRoomPinned = Schema::hasTable('chat_room_pins')
@@ -505,6 +514,26 @@ class ChatController extends BaseController
                 ->where('chat_room_id', $chatRoom->id)
                 ->where('user_id', $currentUser->id)
                 ->exists();
+        $mentionParticipants = $this->mentionableUsersForRoom($chatRoom);
+        $chatParticipantsById = $chatRoom->participants->keyBy('id');
+        $displayParticipants = $mentionParticipants
+            ->map(function (User $user) use ($chatParticipantsById) {
+                $chatParticipant = $chatParticipantsById->get($user->id);
+
+                if ($chatParticipant) {
+                    return $chatParticipant;
+                }
+
+                $user->setRelation('pivot', (object) [
+                    'role' => 'member',
+                ]);
+                $user->is_group_only_participant = true;
+
+                return $user;
+            })
+            ->merge($chatRoom->participants->reject(fn (User $user) => $mentionParticipants->contains('id', $user->id)))
+            ->unique('id')
+            ->values();
 
         return response()->json([
             'chat_room' => [
@@ -519,7 +548,7 @@ class ChatController extends BaseController
                 'can_delete' => $canManageParticipants,
                 'is_pinned' => $isRoomPinned,
                 'project' => $chatRoom->project,
-                'participants' => $chatRoom->participants->map(function ($user) use ($chatRoom) {
+                'participants' => $displayParticipants->map(function ($user) use ($chatRoom) {
                     $initials = strtoupper(substr($user->firstname ?? '', 0, 1) . substr($user->lastname ?? '', 0, 1));
                     $isParticipantAdmin = ($user->pivot->role ?? 'member') === 'admin';
 
@@ -532,11 +561,24 @@ class ChatController extends BaseController
                             : null,
                         'is_owner' => $isParticipantAdmin,
                         'is_admin' => $isParticipantAdmin,
+                        'is_chat_participant' => ! ($user->is_group_only_participant ?? false),
                         'pivot' => [
                             'role' => $isParticipantAdmin ? 'admin' : ($user->pivot->role ?? 'member')
                         ]
                     ];
                 }),
+                'mention_participants' => $mentionParticipants->map(function ($user) {
+                    $initials = strtoupper(substr($user->firstname ?? '', 0, 1) . substr($user->lastname ?? '', 0, 1));
+
+                    return [
+                        'id' => $user->id,
+                        'name' => $user->firstname . ' ' . $user->lastname,
+                        'initials' => $initials ?: '?',
+                        'avatar_url' => $user->profile_picture_path
+                            ? route('profile.picture', $user) . '?v=' . optional($user->updated_at)->timestamp
+                            : null,
+                    ];
+                })->values(),
                 'unread_count' => $chatRoom->getUnreadCountForUser(Auth::user()),
             ]
         ]);
@@ -690,17 +732,159 @@ class ChatController extends BaseController
             return;
         }
 
+        $lastReadAt = $chatRoom->participants()
+            ->where('users.id', $user->id)
+            ->first()
+            ?->pivot
+            ?->last_read_at;
+
         DB::table('chat_participant_leaves')->updateOrInsert(
             [
                 'chat_room_id' => $chatRoom->id,
                 'user_id' => $user->id,
             ],
             [
-                'left_at' => now(),
+                'left_at' => $lastReadAt ?? now(),
                 'created_at' => now(),
                 'updated_at' => now(),
             ]
         );
+    }
+
+    private function createMentionNotifications(ChatRoom $chatRoom, ChatMessage $message, User $sender, array $mentionUserIds = []): void
+    {
+        if (!Schema::hasTable('app_notifications')) {
+            return;
+        }
+
+        $mentionedUsers = $this->mentionedUsers($chatRoom, (string) $message->message, $sender, $mentionUserIds);
+
+        foreach ($mentionedUsers as $mentionedUser) {
+            AppNotification::updateOrCreate(
+                [
+                    'user_id' => $mentionedUser->id,
+                    'type' => 'chat_mention',
+                    'source_type' => 'chat_message',
+                    'source_id' => $message->id,
+                ],
+                [
+                    'title' => 'You were mentioned in chat',
+                    'body' => $sender->name . ' mentioned you in ' . $chatRoom->name . '.',
+                    'action_url' => route('chat.index', ['room' => $chatRoom->id]),
+                    'data' => [
+                        'chat_room_id' => $chatRoom->id,
+                        'chat_message_id' => $message->id,
+                        'sender_id' => $sender->id,
+                    ],
+                    'read_at' => null,
+                ]
+            );
+
+            $this->sendMentionEmailNotification($mentionedUser, $sender, $chatRoom);
+        }
+    }
+
+    private function sendMentionEmailNotification(User $recipient, User $sender, ChatRoom $chatRoom): void
+    {
+        if (! $recipient->email) {
+            return;
+        }
+
+        $cacheKey = "chat_mention_email_window:{$recipient->id}";
+        $window = Cache::get($cacheKey);
+
+        if (! $window) {
+            Cache::put($cacheKey, [
+                'count' => 1,
+                'digest_scheduled' => false,
+            ], now()->addMinutes(20));
+
+            app(EmailNotificationService::class)->sendChatMentionReceived($recipient, $sender, $chatRoom);
+
+            return;
+        }
+
+        $window['count'] = ((int) ($window['count'] ?? 0)) + 1;
+        $shouldScheduleDigest = empty($window['digest_scheduled']);
+        $window['digest_scheduled'] = true;
+
+        Cache::put($cacheKey, $window, now()->addMinutes(20));
+
+        if (! $shouldScheduleDigest) {
+            return;
+        }
+
+        if (! Schema::hasTable('jobs')) {
+            Log::warning('Skipped chat mention digest scheduling because the jobs table is missing.', [
+                'recipient_id' => $recipient->id,
+            ]);
+
+            return;
+        }
+
+        SendChatMentionDigestEmail::dispatch($recipient->id)
+            ->delay(now()->addMinutes(15))
+            ->onQueue('emails');
+    }
+
+    private function mentionedUsers(ChatRoom $chatRoom, string $message, User $sender, array $mentionUserIds = [])
+    {
+        $normalizedMessage = str($message)->lower()->squish()->toString();
+        $explicitMentionIds = collect($mentionUserIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique();
+        $mentionsEveryone = preg_match('/(^|[\s(])@everyone(?=$|[\s.,!?;:)])/u', $normalizedMessage) === 1;
+
+        return $this->mentionableUsersForRoom($chatRoom)
+            ->where('id', '!=', $sender->id)
+            ->filter(function (User $participant) use ($normalizedMessage, $explicitMentionIds, $mentionsEveryone) {
+                if ($mentionsEveryone) {
+                    return true;
+                }
+
+                if ($explicitMentionIds->contains($participant->id)) {
+                    return true;
+                }
+
+                $tokens = collect([
+                    $participant->firstname,
+                    $participant->lastname,
+                    $participant->name,
+                    str_replace(' ', '', $participant->name),
+                    str_replace(' ', '.', $participant->name),
+                    str_replace(' ', '_', $participant->name),
+                    str($participant->email)->before('@')->toString(),
+                ])
+                    ->filter()
+                    ->map(fn ($token) => '@' . str((string) $token)->lower()->squish()->toString())
+                    ->unique();
+
+                return $tokens->contains(function ($token) use ($normalizedMessage) {
+                    $pattern = '/(^|[\s(])' . preg_quote($token, '/') . '(?=$|[\s.,!?;:)])/u';
+
+                    return preg_match($pattern, $normalizedMessage) === 1;
+                });
+            })
+            ->values();
+    }
+
+    private function mentionableUsersForRoom(ChatRoom $chatRoom)
+    {
+        $chatRoom->loadMissing(['participants']);
+
+        if ($chatRoom->project_id) {
+            $project = Project::with(['owner', 'adviser', 'members'])->find($chatRoom->project_id);
+
+            if (! $project) {
+                return $chatRoom->participants;
+            }
+
+            return $this->getProjectChatParticipants($project)
+                ->values();
+        }
+
+        return $chatRoom->participants;
     }
 
     private function isChatAdmin(ChatRoom $chatRoom, User $user): bool

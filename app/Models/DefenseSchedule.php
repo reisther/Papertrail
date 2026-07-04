@@ -88,8 +88,8 @@ class DefenseSchedule extends Model
                $this->student_id === $user->id ||
                $this->adviser_id === $user->id ||
                $this->created_by === $user->id ||
-               ($this->project && $this->project->members()->where('users.id', $user->id)->exists()) ||
-               ($this->panel_members && in_array($user->id, $this->panel_members));
+               ($this->project && $this->project->adviser_id === $user->id) ||
+               ($this->project && $this->project->members()->where('users.id', $user->id)->exists());
     }
 
     /**
@@ -139,9 +139,8 @@ class DefenseSchedule extends Model
     public function getTypeColorAttribute(): string
     {
         return match($this->type) {
-            'proposal' => 'purple',
-            'final' => 'blue',
-            'oral_exam' => 'green',
+            'meeting' => 'blue',
+            'consultation' => 'green',
             default => 'gray'
         };
     }
@@ -191,13 +190,12 @@ class DefenseSchedule extends Model
             $emails[] = $this->adviser->email;
         }
         
-        // Add panel member emails
-        if ($this->panel_members) {
-            $panelEmails = User::whereIn('id', $this->panel_members)
-                ->pluck('email')
+        if ($this->project) {
+            $memberEmails = $this->project->members()
+                ->pluck('users.email')
                 ->filter()
                 ->toArray();
-            $emails = array_merge($emails, $panelEmails);
+            $emails = array_merge($emails, $memberEmails);
         }
         
         return array_unique($emails);

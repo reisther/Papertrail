@@ -147,7 +147,7 @@
                                     </div>
                                 </div>
                                 @if($canManageGroup && $isEditing && $approvedAdviserRelationship)
-                                    <form method="POST" action="{{ route('advisers.release', $approvedAdviserRelationship) }}">
+                                    <form method="POST" action="{{ route('advisers.release', $approvedAdviserRelationship) }}" onsubmit="return confirm('Remove this adviser from the group?');">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="bg-red-50 hover:bg-red-100 text-red-700 px-3 py-2 rounded-md text-sm font-medium">
@@ -157,6 +157,10 @@
                                 @endif
                             </div>
                         </div>
+                        @include('partials.adviser-schedule', [
+                            'adviser' => $approvedAdviser,
+                            'class' => 'mt-4 rounded-lg border border-green-100 bg-white/70 p-4',
+                        ])
                     @else
                         <p class="text-sm text-gray-600">
                             No approved adviser yet.
@@ -219,7 +223,7 @@
                                     </div>
                                 </div>
                                 @if($canManageGroup && $isEditing)
-                                    <form method="POST" action="{{ route('group-description.members.remove', $member) }}">
+                                    <form method="POST" action="{{ route('group-description.members.remove', $member) }}" onsubmit="return confirm('Remove this member from the group?');">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit"

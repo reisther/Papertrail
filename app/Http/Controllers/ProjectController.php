@@ -213,6 +213,35 @@ class ProjectController extends Controller
             ->with('invite_link', route('projects.accept-invitation', $invitation->token));
     }
 
+    public function showInvitation(string $token)
+    {
+        $invitation = ProjectInvitation::where('token', $token)
+            ->with(['project.owner', 'project.members'])
+            ->firstOrFail();
+
+        if (!$invitation->isActive()) {
+            abort(403, 'This invitation link is no longer active.');
+        }
+
+        $project = $invitation->project;
+        $user = Auth::user();
+
+        if ($user->role !== 'Student') {
+            abort(403, 'Only student members can accept group invitation links. Leaders and advisers cannot join through invite links.');
+        }
+
+        $alreadyInGroup = $project->owner_id === $user->id || $project->members()->where('users.id', $user->id)->exists();
+        $alreadyInAnotherGroup = $user->joinedProjects()
+            ->where('projects.id', '!=', $project->id)
+            ->exists();
+
+        if ($alreadyInAnotherGroup) {
+            abort(403, 'You are already a member of another group.');
+        }
+
+        return view('projects.invitation', compact('invitation', 'project', 'alreadyInGroup'));
+    }
+
     /**
      * Accept a project invite link
      */
@@ -257,6 +286,18 @@ class ProjectController extends Controller
 
         return redirect()->route('projects.show', $project)
             ->with('success', 'You joined the group project successfully.');
+    }
+
+    public function declineInvitation(string $token)
+    {
+        $invitation = ProjectInvitation::where('token', $token)->with('project')->firstOrFail();
+
+        if (!$invitation->isActive()) {
+            abort(403, 'This invitation link is no longer active.');
+        }
+
+        return redirect()->route('dashboard')
+            ->with('success', 'Group invitation declined.');
     }
 
     /**

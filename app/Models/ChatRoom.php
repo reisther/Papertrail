@@ -81,9 +81,19 @@ class ChatRoom extends Model
         $existingParticipant = $this->participants()->where('user_id', $user->id)->first();
 
         if (!$existingParticipant) {
+            $lastReadAt = null;
+
+            if (\Illuminate\Support\Facades\Schema::hasTable('chat_participant_leaves')) {
+                $lastReadAt = \Illuminate\Support\Facades\DB::table('chat_participant_leaves')
+                    ->where('chat_room_id', $this->id)
+                    ->where('user_id', $user->id)
+                    ->value('left_at');
+            }
+
             $this->participants()->attach($user->id, [
                 'role' => $role,
                 'joined_at' => now(),
+                'last_read_at' => $lastReadAt,
             ]);
 
             return;

@@ -7,7 +7,7 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                Defense Schedule Calendar
+                Meeting Calendar
             </h2>
             @if(Auth::user()->isTeacher() || Auth::user()->canLeadGroup() || Auth::user()->role === 'Admin')
                 <a href="{{ route('defense-schedule.create') }}" 
@@ -15,7 +15,7 @@
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                     </svg>
-                    Schedule Defense
+                    Schedule Meeting
                 </a>
             @endif
         </div>
@@ -41,16 +41,12 @@
                 <h3 class="text-lg font-medium text-gray-900 mb-4">Calendar Legend</h3>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div class="flex items-center">
-                        <div class="w-4 h-4 rounded bg-purple-500 mr-2"></div>
-                        <span class="text-sm text-gray-700">Proposal Defense</span>
-                    </div>
-                    <div class="flex items-center">
                         <div class="w-4 h-4 rounded bg-blue-500 mr-2"></div>
-                        <span class="text-sm text-gray-700">Final Defense</span>
+                        <span class="text-sm text-gray-700">Meeting</span>
                     </div>
                     <div class="flex items-center">
                         <div class="w-4 h-4 rounded bg-green-500 mr-2"></div>
-                        <span class="text-sm text-gray-700">Oral Exam</span>
+                        <span class="text-sm text-gray-700">Consultation</span>
                     </div>
                     <div class="flex items-center">
                         <div class="w-4 h-4 rounded bg-red-500 mr-2"></div>
@@ -165,7 +161,7 @@
                 },
                 eventDidMount: function(info) {
                     // Add tooltip to events
-                    info.el.setAttribute('title', info.event.title + ' - ' + info.event.extendedProps.student);
+                    info.el.setAttribute('title', info.event.title + ' - ' + (info.event.extendedProps.project_title || 'Group'));
                 }
             });
 
@@ -188,7 +184,7 @@
             // Set the title
             const titleElement = document.getElementById('eventTitle');
             if (titleElement) {
-                titleElement.textContent = event.title || 'Defense Schedule';
+                titleElement.textContent = event.title || 'Meeting';
             }
             
             // Format dates safely
@@ -214,31 +210,12 @@
                     </div>
                 </div>
                 
-                ${props.student ? `
+                ${props.project_title ? `
                     <div class="flex items-center text-gray-600 mb-2">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m8-8a4 4 0 11-8 0 4 4 0 018 0z"></path>
                         </svg>
-                        <span><strong>Student:</strong> ${props.student}</span>
-                    </div>
-                ` : ''}
-                
-                ${props.adviser ? `
-                    <div class="flex items-center text-gray-600 mb-2">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                        </svg>
-                        <span><strong>Adviser:</strong> ${props.adviser}</span>
-                    </div>
-                ` : ''}
-                
-                ${props.location ? `
-                    <div class="flex items-center text-gray-600 mb-2">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                        </svg>
-                        <span><strong>Location:</strong> ${props.location}</span>
+                        <span><strong>Group Code:</strong> ${props.project_title}</span>
                     </div>
                 ` : ''}
                 
@@ -247,7 +224,7 @@
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
                         </svg>
-                        <span><strong>Type:</strong> ${props.type ? props.type.replace('_', ' ').toUpperCase() : 'Not specified'}</span>
+                        <span><strong>Type of Meeting:</strong> ${props.type ? props.type.replace('_', ' ').toUpperCase() : 'Not specified'}</span>
                     </div>
                 ` : ''}
                 
@@ -257,15 +234,6 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
                         <span><strong>Status:</strong> ${props.status.toUpperCase()}</span>
-                    </div>
-                ` : ''}
-                
-                ${props.project_title ? `
-                    <div class="flex items-center text-gray-600 mb-2">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                        </svg>
-                        <span><strong>Project:</strong> ${props.project_title}</span>
                     </div>
                 ` : ''}
                 
