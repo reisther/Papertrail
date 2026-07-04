@@ -341,22 +341,23 @@ Route::middleware('auth')->group(function () {
             return back()->withInput()->with('error', 'The announcement could not be posted. Please run migrations and check Railway logs.');
         }
 
-        try {
-            $sentCount = app(EmailNotificationService::class)->sendAnnouncementPosted($announcement);
-        } catch (\Throwable $exception) {
-            Log::warning('Failed to send announcement email notifications.', [
-                'announcement_id' => $announcement->id,
-                'error' => $exception->getMessage(),
-            ]);
+        app()->terminating(function () use ($announcement) {
+            try {
+                $sentCount = app(EmailNotificationService::class)->sendAnnouncementPosted($announcement);
 
-            return back()->with('warning', 'Announcement posted, but the email notification could not be sent. Check Railway logs for the mail error.');
-        }
+                Log::info('Announcement email notification finished.', [
+                    'announcement_id' => $announcement->id,
+                    'sent_count' => $sentCount,
+                ]);
+            } catch (\Throwable $exception) {
+                Log::warning('Failed to send announcement email notifications.', [
+                    'announcement_id' => $announcement->id,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        });
 
-        if ($sentCount === 0) {
-            return back()->with('warning', 'Announcement posted, but no email recipients were found or accepted by the mail provider.');
-        }
-
-        return back()->with('success', "Announcement posted and emailed to {$sentCount} recipient(s).");
+        return back()->with('success', 'Announcement posted. Email notifications are being sent.');
     })->name('announcements.store');
     Route::patch('/announcements/{announcement}', function (Request $request, \App\Models\Announcement $announcement) {
         $user = Auth::user();
