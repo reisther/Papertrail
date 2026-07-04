@@ -7,7 +7,6 @@ use App\Http\Controllers\DefenseScheduleController;
 use App\Http\Controllers\GroupController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectController;
-use App\Jobs\SendAnnouncementEmailNotifications;
 use App\Models\AppNotification;
 use App\Models\DefenseSchedule;
 use App\Services\EmailNotificationService;
@@ -342,35 +341,16 @@ Route::middleware('auth')->group(function () {
             return back()->withInput()->with('error', 'The announcement could not be posted. Please run migrations and check Railway logs.');
         }
 
-        if (app()->environment('local') && ! env('RAILWAY_ENVIRONMENT')) {
-            app()->terminating(function () use ($announcement) {
-                try {
-                    app(EmailNotificationService::class)->sendAnnouncementPosted($announcement);
-                } catch (\Throwable $exception) {
-                    Log::warning('Failed to send local announcement email notifications.', [
-                        'announcement_id' => $announcement->id,
-                        'error' => $exception->getMessage(),
-                    ]);
-                }
-            });
-        } else {
-            if (Schema::hasTable('jobs')) {
-                try {
-                    app(\Illuminate\Contracts\Bus\Dispatcher::class)->dispatch(
-                        (new SendAnnouncementEmailNotifications($announcement->id))->onQueue('emails')
-                    );
-                } catch (\Throwable $exception) {
-                    Log::warning('Failed to queue announcement email notifications.', [
-                        'announcement_id' => $announcement->id,
-                        'error' => $exception->getMessage(),
-                    ]);
-                }
-            } else {
-                Log::warning('Skipped announcement email queue because the jobs table does not exist.', [
+        app()->terminating(function () use ($announcement) {
+            try {
+                app(EmailNotificationService::class)->sendAnnouncementPosted($announcement);
+            } catch (\Throwable $exception) {
+                Log::warning('Failed to send announcement email notifications.', [
                     'announcement_id' => $announcement->id,
+                    'error' => $exception->getMessage(),
                 ]);
             }
-        }
+        });
 
         return back()->with('success', 'Announcement posted successfully.');
     })->name('announcements.store');
