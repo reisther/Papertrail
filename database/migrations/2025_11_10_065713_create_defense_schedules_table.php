@@ -25,7 +25,7 @@ return new class extends Migration
             $table->json('panel_members')->nullable(); // Array of user IDs for panel members
             $table->text('notes')->nullable();
             $table->string('meeting_link')->nullable(); // For online defenses
-            $table->enum('type', ['proposal', 'final', 'oral_exam'])->default('final');
+            $table->string('type')->default('meeting');
             $table->foreignId('created_by')->constrained('users');
             $table->timestamps();
         });
