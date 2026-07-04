@@ -29,6 +29,12 @@
                 </div>
             @endif
 
+            @if(session('warning'))
+                <div class="mb-6 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm font-medium text-yellow-800">
+                    {{ session('warning') }}
+                </div>
+            @endif
+
             <div class="mb-8 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
                 <h3 class="mb-4 text-lg font-bold text-gray-900">{{ $postTitle ?? 'Post an Announcement' }}</h3>
                 <form method="POST" action="{{ route('announcements.store') }}" enctype="multipart/form-data" class="space-y-4">

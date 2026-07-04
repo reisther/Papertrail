@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Mail;
 
 class EmailNotificationService
 {
-    public function sendAnnouncementPosted(Announcement $announcement): void
+    public function sendAnnouncementPosted(Announcement $announcement): int
     {
         $announcement->loadMissing('author', 'project.owner', 'project.members');
 
@@ -39,7 +39,7 @@ class EmailNotificationService
             default => collect(),
         };
 
-        $this->sendToUsers(
+        return $this->sendToUsers(
             $recipients,
             $subject,
             $this->messageHtml(
