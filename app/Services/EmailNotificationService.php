@@ -10,6 +10,7 @@ use App\Models\DefenseSchedule;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -202,12 +203,13 @@ class EmailNotificationService
         $sentCount = 0;
         foreach ($emails as $email) {
             try {
-                Mail::to($email)->send(new PaperTrailNotification(
-                    $subject,
-                    $emailData,
-                    $from['address'] ?? null,
-                    $from['name'] ?? null
-                ));
+                if ($this->sendViaBrevoApi($email, $subject, $emailData, $from)) {
+                    $sentCount++;
+
+                    continue;
+                }
+
+                $this->sendViaLaravelMail($email, $subject, $emailData, $from);
                 $sentCount++;
             } catch (\Throwable $exception) {
                 Log::warning('Failed to send email notification.', [
@@ -225,6 +227,61 @@ class EmailNotificationService
         ]);
 
         return $sentCount;
+    }
+
+    private function sendViaBrevoApi(string $email, string $subject, array $emailData, ?array $from = null): bool
+    {
+        $apiKey = config('services.brevo.key');
+
+        if (! $apiKey) {
+            return false;
+        }
+
+        $senderAddress = $from['address'] ?? config('mail.from.address');
+        $senderName = $from['name'] ?? config('mail.from.name');
+        $htmlBody = view('emails.papertrail-notification', $emailData)->render();
+        $textBody = view('emails.papertrail-notification-text', $emailData)->render();
+
+        $response = Http::withHeaders([
+            'accept' => 'application/json',
+            'api-key' => $apiKey,
+            'content-type' => 'application/json',
+        ])->timeout((int) config('mail.mailers.smtp.timeout', 10))
+            ->post(config('services.brevo.endpoint'), [
+                'sender' => [
+                    'name' => $senderName,
+                    'email' => $senderAddress,
+                ],
+                'to' => [
+                    ['email' => $email],
+                ],
+                'subject' => $subject,
+                'htmlContent' => $htmlBody,
+                'textContent' => $textBody,
+            ]);
+
+        if ($response->successful()) {
+            return true;
+        }
+
+        Log::warning('Brevo API email notification failed.', [
+            'email' => $email,
+            'subject' => $subject,
+            'status' => $response->status(),
+            'response' => $response->json() ?? $response->body(),
+        ]);
+
+        return false;
+    }
+
+    private function sendViaLaravelMail(string $email, string $subject, array $emailData, ?array $from = null): void
+    {
+        Mail::to($email)->send(new PaperTrailNotification(
+            $subject,
+            $emailData,
+            $from['address'] ?? null,
+            $from['name'] ?? null
+        ));
     }
 
     private function adviserStudentRecipients(?User $adviser): Collection
