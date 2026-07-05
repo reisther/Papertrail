@@ -149,11 +149,14 @@
                                                         <button type="submit" class="rounded-md bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">Update</button>
                                                     </form>
                                                 @else
-                                                    <div class="flex items-center justify-between gap-4">
+                                                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                                                         <span class="{{ $task->is_completed ? 'text-gray-400 line-through' : 'text-gray-700' }}">{{ $task->title }}</span>
-                                                        <span class="text-xs {{ $task->is_completed ? 'text-emerald-600' : 'text-gray-400 italic' }}">
-                                                            {{ $task->is_completed ? 'Completed' : 'Not yet checked' }}
-                                                        </span>
+                                                        <div class="text-xs sm:text-right {{ $task->is_completed ? 'text-emerald-600' : 'text-gray-400 italic' }}">
+                                                            <span>{{ $task->is_completed ? 'Completed' : 'Not yet checked' }}</span>
+                                                            @if($task->completion_note)
+                                                                <span class="block text-gray-500 not-italic">Finished by {{ $task->completion_note }}</span>
+                                                            @endif
+                                                        </div>
                                                     </div>
                                                 @endif
                                             @endif
