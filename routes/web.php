@@ -18,6 +18,15 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\TitleSubmissionController;
 use App\Http\Controllers\SuggestedAIController;
 
+$manuscriptStages = fn () => collect([
+    0 => 'Concept Paper',
+    1 => 'Chapter 1',
+    2 => 'Chapter 2',
+    3 => 'Chapter 3',
+    4 => 'Chapter 4',
+    5 => 'Chapter 5',
+]);
+
 Route::get('/', function () {
     return view('papertrail-landing');
 })->name('home');
@@ -83,7 +92,7 @@ Route::get('/login-test', function () {
     return 'User not found';
 });
 
-Route::middleware('auth')->group(function () {
+Route::middleware('auth')->group(function () use ($manuscriptStages) {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::get('/profile-picture/{user}', [ProfileController::class, 'picture'])->name('profile.picture');
     Route::get('/adviser-schedule/{user}', [ProfileController::class, 'adviserSchedule'])->name('profile.adviser-schedule');
@@ -208,12 +217,29 @@ Route::middleware('auth')->group(function () {
 
         return back();
     })->name('notifications.read');
+    Route::get('/notifications/{notification}/open', function (AppNotification $notification) {
+        abort_unless($notification->user_id === Auth::id(), 403);
+        $notification->markRead();
+
+        return redirect($notification->action_url ?: route('notifications.index'));
+    })->name('notifications.open');
     Route::patch('/notifications/{notification}/unread', function (AppNotification $notification) {
         abort_unless($notification->user_id === Auth::id(), 403);
         $notification->markUnread();
 
         return back();
     })->name('notifications.unread');
+    Route::patch('/notifications/sections/{type}/read', function (string $type) {
+        $allowedTypes = ['chat_mention', 'student_request', 'meeting_schedule', 'admin_signup'];
+        abort_unless(in_array($type, $allowedTypes, true), 404);
+
+        AppNotification::where('user_id', Auth::id())
+            ->where('type', $type)
+            ->whereNull('read_at')
+            ->update(['read_at' => now()]);
+
+        return back();
+    })->name('notifications.sections.read');
     Route::get('/announcements/manage', function () {
         $user = Auth::user();
 
@@ -423,28 +449,31 @@ Route::middleware('auth')->group(function () {
     Route::post('/title-submission',[TitleSubmissionController::class, 'store'])->name('title-submission.store');
     Route::get('/my-advisers', [AdviserController::class, 'myAdvisers'])->name('advisers.my-advisers');
     Route::get('/my-students', [AdviserController::class, 'myStudents'])->name('advisers.my-students');
-    Route::get('/advisers/progress-tracker', function () {
+    Route::get('/advisers/progress-tracker', function () use ($manuscriptStages) {
         if (!Auth::user()->isTeacher()) {
             abort(403, 'Access denied. Teachers only.');
         }
+
+        $stages = $manuscriptStages();
+        $stageWeight = 100 / $stages->count();
 
         $advisees = \App\Models\Project::query()
             ->where('adviser_id', Auth::id())
             ->with(['owner', 'tasks'])
             ->latest('updated_at')
             ->get()
-            ->map(function ($project) {
-                $chapters = collect(range(1, 5))->map(function ($chapter) use ($project) {
+            ->map(function ($project) use ($stages, $stageWeight) {
+                $chapters = $stages->map(function ($stageName, $chapter) use ($project, $stageWeight) {
                     $tasks = $project->tasks->where('chapter', $chapter);
                     $totalTasks = $tasks->count();
                     $completedTasks = $tasks->where('is_completed', true)->count();
                     $contribution = $totalTasks > 0
-                        ? round(($completedTasks / $totalTasks) * 20, 2)
+                        ? round(($completedTasks / $totalTasks) * $stageWeight, 2)
                         : 0;
 
                     return (object) [
                         'number' => $chapter,
-                        'name' => "Chapter {$chapter}",
+                        'name' => $stageName,
                         'totalTasks' => $totalTasks,
                         'completedTasks' => $completedTasks,
                         'contribution' => $contribution,
@@ -465,11 +494,12 @@ Route::middleware('auth')->group(function () {
 
         return view('advisers.progress-tracker', compact('advisees', 'courseGroups'));
     })->name('advisers.progress-tracker');
-    Route::get('/advisers/todo/{chapterName?}', function (Request $request, ?string $chapterName = null) {
+    Route::get('/advisers/todo/{chapterName?}', function (Request $request, ?string $chapterName = null) use ($manuscriptStages) {
         if (!Auth::user()->isTeacher()) {
             abort(403, 'Access denied. Teachers only.');
         }
 
+        $manuscriptStages = $manuscriptStages();
         $projects = \App\Models\Project::where('adviser_id', Auth::id())->orderBy('title')->get();
         $selectedProjectId = $request->integer('project_id') ?: $projects->first()?->id;
         $selectedProject = $projects->firstWhere('id', $selectedProjectId);
@@ -486,27 +516,37 @@ Route::middleware('auth')->group(function () {
         $courses = ['Information Technology', 'Information Systems', 'Computer Science'];
         $selectedChapter = null;
 
-        return view('teacher.todo-list', compact('todos', 'chapterName', 'projects', 'selectedProject', 'canManageTasks', 'canToggleTasks', 'courses', 'selectedChapter'));
+        return view('teacher.todo-list', compact('todos', 'chapterName', 'projects', 'selectedProject', 'canManageTasks', 'canToggleTasks', 'courses', 'selectedChapter', 'manuscriptStages'));
     })->name('advisers.todo');
-    Route::get('/teacher/todo-list', function (Request $request) {
+    Route::get('/teacher/todo-list', function (Request $request) use ($manuscriptStages) {
         $user = Auth::user();
 
-        if (! $user->isTeacher() && ! $user->canLeadGroup()) {
+        if (! $user->isTeacher() && ! $user->isStudentGroupRole()) {
             abort(403, 'Access denied.');
         }
 
-        $projects = $user->isTeacher()
-            ? \App\Models\Project::where('adviser_id', $user->id)->orderBy('title')->get()
-            : $user->ownedProjects()
+        $manuscriptStages = $manuscriptStages();
+        if ($user->isTeacher()) {
+            $projects = \App\Models\Project::where('adviser_id', $user->id)->orderBy('title')->get();
+        } elseif ($user->canLeadGroup()) {
+            $projects = $user->ownedProjects()
                 ->with(['owner', 'members'])
                 ->whereNotNull('adviser_id')
                 ->orderBy('title')
                 ->get();
+        } else {
+            $projects = $user->joinedProjects()
+                ->with(['owner', 'members'])
+                ->whereNotNull('adviser_id')
+                ->orderBy('title')
+                ->get();
+        }
         $selectedProjectId = $request->integer('project_id') ?: $projects->first()?->id;
         $selectedProject = $projects->firstWhere('id', $selectedProjectId);
         $todos = \App\Models\ProjectTask::query()
             ->when($user->isTeacher(), fn ($query) => $query->where('adviser_id', $user->id))
             ->when($user->canLeadGroup(), fn ($query) => $query->whereHas('project', fn ($project) => $project->where('owner_id', $user->id)))
+            ->when($user->isStudent() && ! $user->canLeadGroup(), fn ($query) => $query->whereHas('project.members', fn ($members) => $members->where('users.id', $user->id)))
             ->when($selectedProject, fn ($query) => $query->where('project_id', $selectedProject->id))
             ->orderBy('chapter')
             ->orderBy('created_at')
@@ -514,16 +554,17 @@ Route::middleware('auth')->group(function () {
             ->get()
             ->groupBy('chapter');
         $selectedChapter = null;
-        if ($user->canLeadGroup()) {
+        if ($user->isStudentGroupRole()) {
             $requestedChapter = $request->integer('chapter');
-            $selectedChapter = $requestedChapter >= 1 && $requestedChapter <= 5
+            $selectedChapter = $manuscriptStages->has($requestedChapter)
                 ? $requestedChapter
-                : (int) ($todos->keys()->first() ?? 1);
+                : (int) ($todos->keys()->first() ?? 0);
             $todos = $todos->filter(fn ($tasks, $chapter) => (int) $chapter === $selectedChapter);
         }
         $chapterName = null;
         $canManageTasks = $user->isTeacher();
         $canToggleTasks = $user->canLeadGroup();
+        $canFilterTasks = $user->isStudentGroupRole();
         $courses = ['Information Technology', 'Information Systems', 'Computer Science'];
         $completionUsers = collect();
 
@@ -535,9 +576,9 @@ Route::middleware('auth')->group(function () {
                 ->values();
         }
 
-        return view('teacher.todo-list', compact('todos', 'chapterName', 'projects', 'selectedProject', 'canManageTasks', 'canToggleTasks', 'courses', 'selectedChapter', 'completionUsers'));
+        return view('teacher.todo-list', compact('todos', 'chapterName', 'projects', 'selectedProject', 'canManageTasks', 'canToggleTasks', 'canFilterTasks', 'courses', 'selectedChapter', 'completionUsers', 'manuscriptStages'));
     })->name('todo.index');
-    Route::post('/teacher/todo-list', function (Request $request) {
+    Route::post('/teacher/todo-list', function (Request $request) use ($manuscriptStages) {
         if (!Auth::user()->isTeacher()) {
             abort(403, 'Access denied. Teachers only.');
         }
@@ -546,7 +587,7 @@ Route::middleware('auth')->group(function () {
             'assignment_scope' => 'required|in:project,course',
             'project_id' => 'required_if:assignment_scope,project|nullable|exists:projects,id',
             'course' => 'required_if:assignment_scope,course|nullable|in:Information Technology,Information Systems,Computer Science',
-            'chapter' => 'required|integer|min:1|max:5',
+            'chapter' => ['required', 'integer', \Illuminate\Validation\Rule::in($manuscriptStages()->keys()->all())],
             'tasks' => 'required|array|min:1',
             'tasks.*' => 'required|string|max:255',
         ]);
@@ -595,7 +636,7 @@ Route::middleware('auth')->group(function () {
         $task->loadMissing('project.owner');
 
         $validated = $request->validate([
-            'chapter' => 'required|integer|min:1|max:5',
+            'chapter' => 'required|integer|min:0|max:5',
             'title' => 'required|string|max:255',
         ]);
 

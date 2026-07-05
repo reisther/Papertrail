@@ -5,8 +5,20 @@
         get tasks() { return Array.from({ length: this.taskCount }, (_, i) => i + 1) }
     }">
         @php
-            $defaultChapter = (int) filter_var($chapterName ?? '', FILTER_SANITIZE_NUMBER_INT);
-            $defaultChapter = $defaultChapter >= 1 && $defaultChapter <= 5 ? $defaultChapter : 1;
+            $manuscriptStages = $manuscriptStages ?? collect([
+                0 => 'Concept Paper',
+                1 => 'Chapter 1',
+                2 => 'Chapter 2',
+                3 => 'Chapter 3',
+                4 => 'Chapter 4',
+                5 => 'Chapter 5',
+            ]);
+            $stageWeight = 100 / max($manuscriptStages->count(), 1);
+            $defaultChapter = $manuscriptStages->search($chapterName ?? '', strict: true);
+            $defaultChapter = $defaultChapter !== false
+                ? (int) $defaultChapter
+                : (int) filter_var($chapterName ?? '', FILTER_SANITIZE_NUMBER_INT);
+            $defaultChapter = $manuscriptStages->has($defaultChapter) ? $defaultChapter : 0;
         @endphp
         <div class="py-8 sm:py-12">
             <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
@@ -29,13 +41,13 @@
 
                     @if($projects->isNotEmpty())
                         <div class="mb-8 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                            @if($canToggleTasks)
+                            @if($canFilterTasks ?? $canToggleTasks)
                                 <form method="GET" action="{{ route('todo.index') }}" class="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                                    <label for="chapter" class="shrink-0 text-sm font-semibold text-gray-700">Chapter</label>
+                                    <label for="chapter" class="shrink-0 text-sm font-semibold text-gray-700">Task Stage</label>
                                     <select id="chapter" name="chapter" onchange="this.form.submit()" class="w-full min-w-0 rounded-md border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500 sm:flex-1">
-                                        @foreach(range(1, 5) as $chapterOption)
-                                            <option value="{{ $chapterOption }}" @selected(($selectedChapter ?? 1) === $chapterOption)>
-                                                Chapter {{ $chapterOption }}
+                                        @foreach($manuscriptStages as $chapterOption => $stageName)
+                                            <option value="{{ $chapterOption }}" @selected(($selectedChapter ?? 0) === $chapterOption)>
+                                                {{ $stageName }}
                                             </option>
                                         @endforeach
                                     </select>
@@ -71,11 +83,12 @@
                                 $completed = $tasks->where('is_completed', true)->count();
                                 $total = $tasks->count();
                                 $chapterProgress = $total > 0 ? round(($completed / $total) * 100, 2) : 0;
-                                $chapterContribution = $total > 0 ? round(($completed / $total) * 20, 2) : 0;
+                                $chapterContribution = $total > 0 ? round(($completed / $total) * $stageWeight, 2) : 0;
+                                $stageName = $manuscriptStages[(int) $chapter] ?? "Chapter {$chapter}";
                             @endphp
                             <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
                                 <div>
-                                    <h3 class="text-lg font-bold text-gray-900">Chapter {{ $chapter }}</h3>
+                                    <h3 class="text-lg font-bold text-gray-900">{{ $stageName }}</h3>
                                     <p class="text-sm text-gray-500">{{ $completed }}/{{ $total }} tasks completed</p>
                                 </div>
                                 <span class="w-fit rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-700">
@@ -95,8 +108,8 @@
                                                     @csrf
                                                     @method('PATCH')
                                                     <select name="chapter" class="w-full min-w-0 rounded-md border-gray-200 bg-gray-50 text-sm">
-                                                        @foreach(range(1, 5) as $editChapter)
-                                                            <option value="{{ $editChapter }}" @selected($task->chapter === $editChapter)>Chapter {{ $editChapter }}</option>
+                                                        @foreach($manuscriptStages as $editChapter => $editStageName)
+                                                            <option value="{{ $editChapter }}" @selected($task->chapter === $editChapter)>{{ $editStageName }}</option>
                                                         @endforeach
                                                     </select>
                                                     <input type="text" name="title" value="{{ $task->title }}" class="w-full min-w-0 rounded-md border-gray-200 bg-gray-50 text-sm" required>
@@ -161,7 +174,7 @@
                                     <input type="hidden" name="chapter" value="{{ $chapter }}">
                                     <div class="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
                                         <label class="text-xs font-bold text-gray-600 md:w-24 md:shrink-0">Add Task</label>
-                                        <input type="text" name="tasks[]" class="w-full min-w-0 rounded-md border-gray-200 bg-white text-sm sm:flex-1" placeholder="New task for Chapter {{ $chapter }}" required>
+                                        <input type="text" name="tasks[]" class="w-full min-w-0 rounded-md border-gray-200 bg-white text-sm sm:flex-1" placeholder="New task for {{ $stageName }}" required>
                                         <button type="submit" class="w-full rounded-md bg-gray-800 px-3 py-2 text-xs font-semibold text-white hover:bg-gray-900 md:w-auto">Add</button>
                                     </div>
                                 </form>
@@ -192,10 +205,10 @@
                             </select>
                         </div>
                         <div class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-4">
-                            <label class="text-xs font-bold text-gray-700 sm:w-24 sm:shrink-0">Chapter</label>
+                            <label class="text-xs font-bold text-gray-700 sm:w-24 sm:shrink-0">Task Stage</label>
                             <select name="chapter" class="w-full min-w-0 border-gray-200 bg-gray-50 rounded-lg py-2 px-3 text-sm sm:flex-1" required>
-                                @foreach(range(1, 5) as $chapter)
-                                    <option value="{{ $chapter }}" @selected($chapter === $defaultChapter)>Chapter {{ $chapter }}</option>
+                                @foreach($manuscriptStages as $chapter => $stageName)
+                                    <option value="{{ $chapter }}" @selected($chapter === $defaultChapter)>{{ $stageName }}</option>
                                 @endforeach
                             </select>
                         </div>

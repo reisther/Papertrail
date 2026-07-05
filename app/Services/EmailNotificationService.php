@@ -56,12 +56,13 @@ class EmailNotificationService
     public function sendTaskAssigned(Project $project, User $adviser, int $chapter, array $taskTitles): void
     {
         $project->loadMissing('owner', 'members');
+        $stageName = $chapter === 0 ? 'Concept Paper' : "Chapter {$chapter}";
 
         $this->sendToUsers(
             $this->projectAudience($project),
-            "PaperTrail: Chapter {$chapter} to-do task",
+            "PaperTrail: {$stageName} to-do task",
             $this->messageHtml(
-                "Chapter {$chapter} to-do task",
+                "{$stageName} to-do task",
                 "{$adviser->name} assigned task(s) to {$project->title}.",
                 implode("\n", array_map(fn ($title) => "- {$title}", $taskTitles)),
                 'You are receiving this because you are part of the group assigned to these tasks.'

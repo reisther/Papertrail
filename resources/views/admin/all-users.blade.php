@@ -45,16 +45,16 @@
 
             <!-- Filters -->
             <div class="bg-white p-6 rounded-lg shadow-sm border mb-6">
-                <form method="GET" class="flex flex-wrap gap-4 items-end">
-                    <div class="flex-1 min-w-64">
+                <form method="GET" class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_10rem_10rem_auto] lg:items-end">
+                    <div class="min-w-0">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Search</label>
                         <input type="text" name="search" value="{{ request('search') }}" 
                                placeholder="Search by name, email, or course..."
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
-                    <div>
+                    <div class="min-w-0">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                        <select name="role" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <select name="role" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <option value="">All Roles</option>
                             <option value="Student" {{ request('role') === 'Student' ? 'selected' : '' }}>Student</option>
                             <option value="Leader" {{ request('role') === 'Leader' ? 'selected' : '' }}>Leader</option>
@@ -62,20 +62,20 @@
                             <option value="Admin" {{ request('role') === 'Admin' ? 'selected' : '' }}>Admin</option>
                         </select>
                     </div>
-                    <div>
+                    <div class="min-w-0">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                        <select name="status" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <select name="status" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <option value="">All Status</option>
                             <option value="Verified" {{ request('status') === 'Verified' ? 'selected' : '' }}>Verified</option>
                             <option value="Pending" {{ request('status') === 'Pending' ? 'selected' : '' }}>Pending</option>
                             <option value="Rejected" {{ request('status') === 'Rejected' ? 'selected' : '' }}>Rejected</option>
                         </select>
                     </div>
-                    <div class="flex gap-2">
-                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">
+                    <div class="flex gap-2 md:col-span-2 lg:col-span-1">
+                        <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md lg:flex-none">
                             Filter
                         </button>
-                        <a href="{{ route('admin.all-users') }}" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-md">
+                        <a href="{{ route('admin.all-users') }}" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-md text-center lg:flex-none">
                             Clear
                         </a>
                     </div>
@@ -165,8 +165,14 @@
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         @if($user->isStudentGroupRole())
-                                            @php $adviser = $user->advisers()->where('status', 'approved')->first() @endphp
-                                            {{ $adviser ? $adviser->adviser->name : 'No Adviser' }}
+                                            @php
+                                                $group = $user->canLeadGroup()
+                                                    ? $user->ownedProjects()->with('adviser')->latest()->first()
+                                                    : $user->joinedProjects()->with('adviser')->latest('project_members.joined_at')->first();
+                                                $adviserName = $group?->adviser?->name
+                                                    ?? $user->advisers()->where('status', 'approved')->with('adviser')->first()?->adviser?->name;
+                                            @endphp
+                                            {{ $adviserName ?? 'No Adviser' }}
                                         @else
                                             N/A
                                         @endif

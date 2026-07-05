@@ -59,6 +59,11 @@
                                 class="whitespace-nowrap px-2 py-2 text-sm font-medium text-gray-500 transition-colors hover:text-blue-600 xl:px-3">Projects</a>
                         @endif
 
+                        @if(Auth::user()->isStudentGroupRole())
+                            <a href="{{ route('todo.index') }}"
+                                class="whitespace-nowrap px-2 py-2 text-sm font-medium text-gray-500 transition-colors hover:text-blue-600 xl:px-3">To-Do</a>
+                        @endif
+
                         @if(Auth::user()->canLeadGroup())
                             <a href="{{ route('advisers.title-submission') }}"
                                 class="whitespace-nowrap px-2 py-2 text-sm font-medium text-gray-500 transition-colors hover:text-blue-600 xl:px-3">Find Advisers</a>
@@ -208,6 +213,7 @@
                     @else
                         <a href="{{ route('dashboard') }}" class="block px-3 py-2 text-sm font-medium text-gray-900 hover:text-blue-600">Dashboard</a>
                         <a href="{{ route('projects.index') }}" class="block px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">Projects</a>
+                        <a href="{{ route('todo.index') }}" class="block px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">To-Do</a>
                         @if(Auth::user()->canLeadGroup())
                             <a href="{{ route('advisers.title-submission') }}" class="block px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">Find Advisers</a>
                         @endif

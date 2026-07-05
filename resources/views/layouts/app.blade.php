@@ -18,22 +18,25 @@
             @include('layouts.navigation')
             @auth
                 @php
+                    $hideMobileBack = request()->routeIs('dashboard', 'admin.dashboard', 'teacher.dashboard');
                     $mobileBackFallback = match (true) {
                         Auth::user()->isAdmin() => route('admin.dashboard'),
                         Auth::user()->isTeacher() => route('teacher.dashboard'),
                         default => route('dashboard'),
                     };
                 @endphp
-                <div class="border-b border-gray-200 bg-white px-4 py-2 xl:hidden">
-                    <button type="button"
-                            onclick="if (window.history.length > 1) { window.history.back(); } else { window.location.href = @js($mobileBackFallback); }"
-                            class="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-100">
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                        </svg>
-                        Back
-                    </button>
-                </div>
+                @unless($hideMobileBack)
+                    <div class="border-b border-gray-200 bg-white px-4 py-2 xl:hidden">
+                        <button type="button"
+                                onclick="if (window.history.length > 1) { window.history.back(); } else { window.location.href = @js($mobileBackFallback); }"
+                                class="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-100">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                            </svg>
+                            Back
+                        </button>
+                    </div>
+                @endunless
             @endauth
             <!-- Page Content -->
             <main>

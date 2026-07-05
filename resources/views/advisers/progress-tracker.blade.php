@@ -11,7 +11,7 @@
                 <div class="flex justify-between items-start mb-8 border-b border-gray-100 pb-5">
                     <div>
                         <h1 class="text-2xl font-bold text-gray-900 tracking-tight leading-none">Research Advisees Progress</h1>
-                        <p class="text-sm text-gray-500 mt-2 font-normal">See how your advisees are doing in their manuscript. Track their progress in completion of their per-chapter task documentations.</p>
+                        <p class="text-sm text-gray-500 mt-2 font-normal">See how your advisees are doing in their manuscript. Track their progress in completion of their task documentations.</p>
                     </div>
                 </div>
 
@@ -38,7 +38,6 @@
                                                 <p class="text-xs text-gray-500">Owner: {{ $advisee->ownerName }}</p>
                                             </div>
                                         </div>
-
                                         <div class="w-full mb-6">
                                             <div class="text-center mb-1">
                                                 <span class="text-sm font-bold {{ $textColor }}">
@@ -52,7 +51,7 @@
                                             </div>
                                         </div>
 
-                                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                                             @foreach($advisee->chapters as $chapter)
                                                 <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
                                                     <h4 class="text-sm font-bold text-gray-800 truncate">{{ $chapter->name }}</h4>
@@ -60,7 +59,7 @@
                                                     <p class="mt-2 text-lg font-bold text-gray-900">{{ $chapter->contribution }}%</p>
                                                     <p class="mb-3 text-[11px] text-gray-400">
                                                         @if($chapter->totalTasks > 0)
-                                                            ({{ $chapter->completedTasks }}/{{ $chapter->totalTasks }}) x 20
+                                                            {{ $chapter->totalTasks }} {{ Str::plural('task', $chapter->totalTasks) }}
                                                         @else
                                                             No tasks yet
                                                         @endif

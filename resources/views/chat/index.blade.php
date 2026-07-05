@@ -1142,19 +1142,51 @@ function escapeHtml(value) {
         .replace(/'/g, '&#039;');
 }
 
+function escapeRegExp(value) {
+    return String(value ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function linkifyMessageText(value, isOwnMessage = false) {
     const escapedText = escapeHtml(value);
     const linkClass = isOwnMessage
         ? 'underline decoration-1 underline-offset-2 text-blue-50 hover:text-white'
         : 'underline decoration-1 underline-offset-2 text-blue-700 hover:text-blue-900';
+    const mentionClass = 'font-semibold text-blue-300';
 
-    return escapedText.replace(/((?:https?:\/\/|www\.)[^\s<]+)/gi, (match) => {
+    const linkedText = escapedText.replace(/((?:https?:\/\/|www\.)[^\s<]+)/gi, (match) => {
         const trailingPunctuation = match.match(/[.,!?;:)]+$/)?.[0] || '';
         const cleanUrl = trailingPunctuation ? match.slice(0, -trailingPunctuation.length) : match;
         const href = cleanUrl.startsWith('www.') ? `https://${cleanUrl}` : cleanUrl;
 
         return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="${linkClass}">${cleanUrl}</a>${trailingPunctuation}`;
     });
+
+    const mentionPatterns = [
+        'everyone',
+        ...mentionableParticipants().map(participant => participant.name),
+    ]
+        .filter(Boolean)
+        .sort((a, b) => b.length - a.length)
+        .map(name => escapeRegExp(escapeHtml(name)));
+
+    if (!mentionPatterns.length) {
+        return linkedText;
+    }
+
+    const mentionRegex = new RegExp(`(^|\\s)@(${mentionPatterns.join('|')})(?=$|[\\s.,!?;:)])`, 'gi');
+
+    return linkedText
+        .split(/(<a\b[^>]*>.*?<\/a>)/gi)
+        .map(segment => {
+            if (/^<a\b/i.test(segment)) {
+                return segment;
+            }
+
+            return segment.replace(mentionRegex, (match, prefix, name) => {
+                return `${prefix}<span class="${mentionClass}">@${name}</span>`;
+            });
+        })
+        .join('');
 }
 
 function currentMentionSearch(textarea) {

@@ -114,7 +114,7 @@
 
                     </div>
                     
-                    <div class="grid grid-cols-1 {{ $user->canLeadGroup() ? 'md:grid-cols-3' : 'md:grid-cols-2' }} gap-6">
+                    <div class="grid grid-cols-1 {{ $user->isStudentGroupRole() ? 'md:grid-cols-3' : 'md:grid-cols-2' }} gap-6">
                         <div class="bg-blue-50 p-6 rounded-lg">
                             <h4 class="font-semibold text-blue-800">My Projects</h4>
                             <p class="text-2xl font-bold text-blue-600">{{ $user->accessibleProjects()->count() }}</p>
@@ -129,11 +129,13 @@
                             @endif
                         </div>
 
-                        @if($user->canLeadGroup())
+                        @if($user->isStudentGroupRole())
                             <div class="bg-indigo-50 p-6 rounded-lg">
                                 <h4 class="font-semibold text-indigo-800">Adviser Tasks</h4>
                                 <p class="text-2xl font-bold text-indigo-600">{{ $group ? $group->tasks()->count() : 0 }}</p>
-                                <a href="{{ route('todo.index') }}" class="text-indigo-600 hover:text-indigo-800 text-sm">Open checklist -></a>
+                                @if($group)
+                                    <a href="{{ route('todo.index') }}" class="text-indigo-600 hover:text-indigo-800 text-sm">Open checklist -></a>
+                                @endif
                             </div>
                         @endif
                     </div>

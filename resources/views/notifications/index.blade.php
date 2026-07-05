@@ -11,6 +11,7 @@
         if(Auth::user()->isAdmin()) {
             $sections->push([
                 'key' => 'sign-ups',
+                'type' => 'admin_signup',
                 'title' => 'Sign ups',
                 'description' => 'Account verification requests from new users.',
                 'items' => $adminNotifications ?? collect(),
@@ -20,6 +21,7 @@
         } else {
             $sections->push([
                 'key' => 'chat',
+                'type' => 'chat_mention',
                 'title' => 'Chat',
                 'description' => 'Only messages where someone mentioned you appear here.',
                 'items' => $chatNotifications,
@@ -30,6 +32,7 @@
             if(Auth::user()->isTeacher()) {
                 $sections->push([
                     'key' => 'student-requests',
+                    'type' => 'student_request',
                     'title' => 'Student Requests',
                     'description' => 'Adviser requests sent by student groups.',
                     'items' => $studentRequestNotifications,
@@ -40,6 +43,7 @@
 
             $sections->push([
                 'key' => 'meeting-schedule',
+                'type' => 'meeting_schedule',
                 'title' => 'Meeting Schedule',
                 'description' => 'Meeting and consultation schedule updates.',
                 'items' => $meetingNotifications,
@@ -79,9 +83,23 @@
                                     <h3 class="text-lg font-semibold text-gray-900">{{ $activeSection['title'] }}</h3>
                                     <p class="text-sm text-gray-500">{{ $activeSection['description'] }}</p>
                                 </div>
-                                <span class="inline-flex w-fit items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
-                                    {{ $activeSection['items']->count() }}
-                                </span>
+                                @php($unreadCount = $activeSection['items']->whereNull('read_at')->count())
+                                <div class="flex flex-wrap items-center gap-2">
+                                    @if($activeSection['items']->isNotEmpty())
+                                        <form method="POST" action="{{ route('notifications.sections.read', $activeSection['type']) }}">
+                                            @csrf
+                                            @method('PATCH')
+                                            <button type="submit"
+                                                    @disabled($unreadCount === 0)
+                                                    class="rounded-md px-3 py-2 text-xs font-semibold transition {{ $unreadCount > 0 ? 'bg-blue-600 text-white hover:bg-blue-700' : 'cursor-not-allowed bg-gray-100 text-gray-400' }}">
+                                                {{ $unreadCount > 0 ? 'Mark all read' : 'All read' }}
+                                            </button>
+                                        </form>
+                                    @endif
+                                    <span class="inline-flex w-fit items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+                                        {{ $activeSection['items']->count() }}
+                                    </span>
+                                </div>
                             </div>
 
                             @if($activeSection['items']->isNotEmpty())
@@ -89,7 +107,7 @@
                                     @foreach($activeSection['items'] as $notification)
                                         <div class="{{ $notification->read_at ? 'bg-white' : 'bg-blue-50/60' }} px-5 py-4">
                                             <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                                <a href="{{ $notification->action_url ?: '#' }}" class="min-w-0 flex-1">
+                                                <a href="{{ route('notifications.open', $notification) }}" class="min-w-0 flex-1">
                                                     <div class="flex items-start gap-4">
                                                         <div class="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full
                                                             @if($activeSection['color'] === 'amber') bg-amber-100 text-amber-700
