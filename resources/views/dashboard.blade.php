@@ -132,7 +132,9 @@
                         @if($user->isStudentGroupRole())
                             <div class="bg-indigo-50 p-6 rounded-lg">
                                 <h4 class="font-semibold text-indigo-800">Adviser Tasks</h4>
-                                <p class="text-2xl font-bold text-indigo-600">{{ $group ? $group->tasks()->count() : 0 }}</p>
+                                <p class="text-2xl font-bold text-indigo-600">
+                                    {{ ($group && $group->adviser_id) ? $group->tasks()->where('adviser_id', $group->adviser_id)->count() : 0 }}
+                                </p>
                                 @if($group)
                                     <a href="{{ route('todo.index') }}" class="text-indigo-600 hover:text-indigo-800 text-sm">Open checklist -></a>
                                 @endif

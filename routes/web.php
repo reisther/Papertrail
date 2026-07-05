@@ -795,6 +795,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
         Route::delete('/rooms/{chatRoom}/participants', [ChatController::class, 'removeParticipant'])->name('rooms.remove-participant');
         Route::post('/rooms/{chatRoom}/participant-role', [ChatController::class, 'updateParticipantRole'])->name('rooms.update-participant-role');
         Route::get('/rooms/{chatRoom}/available-users', [ChatController::class, 'getAvailableUsers'])->name('rooms.available-users');
+        Route::patch('/rooms/{chatRoom}/messages/{message}', [ChatController::class, 'editMessage'])->name('rooms.edit-message');
         Route::delete('/rooms/{chatRoom}/messages/{message}', [ChatController::class, 'deleteMessage'])->name('rooms.delete-message');
         Route::post('/rooms/{chatRoom}/messages/{message}/pin', [ChatController::class, 'togglePin'])->name('rooms.messages.toggle-pin');
         Route::post('/rooms/{chatRoom}/pin', [ChatController::class, 'toggleRoomPin'])->name('rooms.toggle-pin');

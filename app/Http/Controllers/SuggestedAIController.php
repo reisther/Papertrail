@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\TitleSubmission;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 class SuggestedAIController extends Controller
@@ -41,93 +40,37 @@ class SuggestedAIController extends Controller
         );
 
         $titles = $submission->only(['title1', 'title2', 'title3', 'title4', 'title5']);
-        $analysis = implode(' ', $titles);
-
-        try {
-            $response = Http::timeout(30)->post('http://127.0.0.1:8001/analyze', $titles);
-
-            if ($response->successful()) {
-                $analysis = $response->json('analysis') ?? $analysis;
-            }
-        } catch (\Throwable $e) {
-            report($e);
-        }
-
-        $normalizedAnalysis = Str::lower(is_string($analysis) ? $analysis : implode(' ', $titles));
+        $normalizedTitles = $this->normalizeText(implode(' ', $titles));
+        $titleExpertiseScores = $this->scoreTitleExpertise($normalizedTitles);
+        $totalTitleScore = array_sum($titleExpertiseScores);
 
         $advisers = User::where('role', 'Teacher')
             ->where('status', 'Verified')
             ->with('expertise')
             ->get();
 
-        $recommendedAdvisers = $advisers->map(function ($adviser) use ($normalizedAnalysis) {
-            $score = 0;
-            $matched = [];
-            $expertise = $adviser->expertise;
+        $recommendedAdvisers = $advisers->map(function ($adviser) use ($normalizedTitles, $titleExpertiseScores, $totalTitleScore) {
+            [$score, $matched] = $this->scoreAdviserMatch(
+                $adviser->expertise,
+                $normalizedTitles,
+                $titleExpertiseScores,
+                $totalTitleScore
+            );
 
-            if ($expertise) {
-                $fields = [
-                    'Machine Learning' => [$expertise->machine_learning, ['machine learning', 'prediction', 'classification', 'recommendation', 'neural', 'model']],
-                    'AI Integration' => [$expertise->ai_integration, ['ai', 'artificial intelligence', 'chatbot', 'automation', 'gemini', 'openai']],
-                    'Cybersecurity' => [$expertise->cybersecurity, ['security', 'cybersecurity', 'threat', 'privacy', 'encryption', 'authentication']],
-                    'IoT' => [$expertise->iot, ['iot', 'sensor', 'arduino', 'raspberry', 'embedded', 'device']],
-                    'Cloud Computing' => [$expertise->cloud_computing, ['cloud', 'aws', 'azure', 'serverless', 'deployment']],
-                    'Data Analytics' => [$expertise->data_analytics, ['analytics', 'dashboard', 'visualization', 'data mining', 'reporting']],
-                    'Web Development' => [$expertise->web_development, ['web', 'website', 'laravel', 'react', 'portal', 'system']],
-                    'Mobile Development' => [$expertise->mobile_development, ['mobile', 'android', 'ios', 'app', 'flutter']],
-                    'Database Systems' => [$expertise->database_systems, ['database', 'sql', 'mysql', 'records', 'inventory', 'management system']],
-                    'Networking' => [$expertise->networking, ['network', 'networking', 'lan', 'wireless', 'connectivity']],
-                ];
-
-                foreach ($fields as $name => [$enabled, $terms]) {
-                    if (!$enabled) {
-                        continue;
-                    }
-
-                    foreach ($terms as $term) {
-                        if (str_contains($normalizedAnalysis, $term)) {
-                            $score += 25;
-                            $matched[] = $name;
-                            break;
-                        }
-                    }
-                }
-
-                foreach ($expertise->custom_expertise ?? [] as $customExpertise) {
-                    $customExpertise = trim($customExpertise);
-
-                    if ($customExpertise === '') {
-                        continue;
-                    }
-
-                    $customTerms = collect(preg_split('/\s+/', Str::lower($customExpertise)))
-                        ->map(fn ($term) => trim($term, " ,.;:/\\|()[]{}"))
-                        ->filter(fn ($term) => mb_strlen($term) > 2)
-                        ->values();
-
-                    $customMatched = str_contains($normalizedAnalysis, Str::lower($customExpertise))
-                        || $customTerms->contains(fn ($term) => str_contains($normalizedAnalysis, $term));
-
-                    if ($customMatched) {
-                        $score += 20;
-                        $matched[] = $customExpertise;
-                    }
-                }
-            }
-
-            $matched = array_values(array_unique($matched));
-
-            $adviser->score = min($score, 100);
+            $adviser->match_score = $score;
+            $adviser->score = $score;
             $adviser->matched_expertise = $matched;
             $adviser->reason = match (count($matched)) {
-                0 => 'General academic fit',
-                1 => "Match in {$matched[0]}",
-                default => 'Strong match in ' . implode(', ', $matched),
+                0 => 'No close expertise match found',
+                1 => "Closest match: {$matched[0]}",
+                default => 'Closest matches: ' . implode(', ', $matched),
             };
 
             return $adviser;
         })
+        ->filter(fn ($adviser) => $adviser->match_score >= 35)
         ->sortByDesc('score')
+        ->take(6)
         ->values();
 
         $currentRequests = auth()->user()
@@ -140,5 +83,209 @@ class SuggestedAIController extends Controller
             'advisers' => $advisers,
             'currentRequests' => $currentRequests,
         ]);
+    }
+
+    private function normalizeText(string $text): string
+    {
+        return ' ' . preg_replace('/\s+/', ' ', Str::lower($text)) . ' ';
+    }
+
+    private function expertiseTerms(): array
+    {
+        return [
+            'Machine Learning' => [
+                'field' => 'machine_learning',
+                'terms' => [
+                    'machine learning' => 35,
+                    'deep learning' => 35,
+                    'neural network' => 30,
+                    'recommendation' => 28,
+                    'predictive' => 26,
+                    'prediction' => 24,
+                    'classification' => 24,
+                    'computer vision' => 24,
+                    'natural language processing' => 24,
+                    'nlp' => 22,
+                ],
+            ],
+            'AI Integration' => [
+                'field' => 'ai_integration',
+                'terms' => [
+                    'artificial intelligence' => 35,
+                    'ai' => 32,
+                    'chatbot' => 28,
+                    'virtual assistant' => 26,
+                    'automation' => 22,
+                    'gemini' => 22,
+                    'openai' => 22,
+                    'expert system' => 22,
+                ],
+            ],
+            'Cybersecurity' => [
+                'field' => 'cybersecurity',
+                'terms' => [
+                    'cybersecurity' => 35,
+                    'cyber security' => 35,
+                    'threat detection' => 28,
+                    'intrusion' => 26,
+                    'encryption' => 24,
+                    'authentication' => 22,
+                    'privacy' => 20,
+                    'malware' => 20,
+                ],
+            ],
+            'IoT' => [
+                'field' => 'iot',
+                'terms' => [
+                    'internet of things' => 35,
+                    'iot' => 35,
+                    'sensor' => 26,
+                    'arduino' => 24,
+                    'raspberry pi' => 24,
+                    'embedded' => 22,
+                    'smart device' => 20,
+                ],
+            ],
+            'Cloud Computing' => [
+                'field' => 'cloud_computing',
+                'terms' => [
+                    'cloud computing' => 35,
+                    'cloud' => 26,
+                    'aws' => 24,
+                    'azure' => 24,
+                    'serverless' => 24,
+                    'deployment' => 18,
+                    'hosting' => 18,
+                ],
+            ],
+            'Data Analytics' => [
+                'field' => 'data_analytics',
+                'terms' => [
+                    'data analytics' => 35,
+                    'analytics' => 28,
+                    'data mining' => 28,
+                    'dashboard' => 22,
+                    'visualization' => 22,
+                    'reporting' => 18,
+                    'business intelligence' => 18,
+                ],
+            ],
+            'Web Development' => [
+                'field' => 'web_development',
+                'terms' => [
+                    'web-based' => 32,
+                    'web based' => 32,
+                    'website' => 30,
+                    'web application' => 28,
+                    'laravel' => 26,
+                    'react' => 24,
+                    'portal' => 18,
+                    'online platform' => 18,
+                ],
+            ],
+            'Mobile Development' => [
+                'field' => 'mobile_development',
+                'terms' => [
+                    'mobile application' => 35,
+                    'mobile app' => 35,
+                    'android' => 30,
+                    'ios' => 30,
+                    'flutter' => 28,
+                    'react native' => 26,
+                ],
+            ],
+            'Database Systems' => [
+                'field' => 'database_systems',
+                'terms' => [
+                    'database' => 32,
+                    'database system' => 35,
+                    'sql' => 26,
+                    'mysql' => 26,
+                    'inventory' => 20,
+                    'records management' => 20,
+                    'information system' => 18,
+                ],
+            ],
+            'Networking' => [
+                'field' => 'networking',
+                'terms' => [
+                    'networking' => 35,
+                    'network' => 28,
+                    'lan' => 24,
+                    'wireless' => 22,
+                    'connectivity' => 20,
+                    'routing' => 20,
+                ],
+            ],
+        ];
+    }
+
+    private function scoreTitleExpertise(string $normalizedTitles): array
+    {
+        return collect($this->expertiseTerms())
+            ->mapWithKeys(function (array $config, string $name) use ($normalizedTitles) {
+                $score = collect($config['terms'])
+                    ->filter(fn (int $weight, string $term) => $this->containsTerm($normalizedTitles, $term))
+                    ->sum();
+
+                return [$name => min($score, 60)];
+            })
+            ->filter()
+            ->all();
+    }
+
+    private function scoreAdviserMatch($expertise, string $normalizedTitles, array $titleExpertiseScores, int $totalTitleScore): array
+    {
+        if (! $expertise) {
+            return [0, []];
+        }
+
+        $matched = [];
+        $matchedScore = 0;
+
+        foreach ($this->expertiseTerms() as $name => $config) {
+            if (! ($expertise->{$config['field']} ?? false) || ! isset($titleExpertiseScores[$name])) {
+                continue;
+            }
+
+            $matched[] = $name;
+            $matchedScore += $titleExpertiseScores[$name];
+        }
+
+        $score = $totalTitleScore > 0
+            ? (int) round(($matchedScore / $totalTitleScore) * 100)
+            : 0;
+
+        foreach ($expertise->custom_expertise ?? [] as $customExpertise) {
+            $customExpertise = trim($customExpertise);
+
+            if ($customExpertise === '' || ! $this->customExpertiseMatches($normalizedTitles, $customExpertise)) {
+                continue;
+            }
+
+            $matched[] = $customExpertise;
+            $score = max($score, $totalTitleScore > 0 ? min($score + 15, 100) : 75);
+        }
+
+        return [min($score, 100), array_values(array_unique($matched))];
+    }
+
+    private function customExpertiseMatches(string $normalizedTitles, string $customExpertise): bool
+    {
+        $normalizedCustom = $this->normalizeText($customExpertise);
+
+        if (trim($normalizedCustom) !== '' && str_contains($normalizedTitles, $normalizedCustom)) {
+            return true;
+        }
+
+        return collect(preg_split('/\s+/', Str::lower($customExpertise)))
+            ->map(fn ($term) => trim($term, " ,.;:/\\|()[]{}"))
+            ->filter(fn ($term) => mb_strlen($term) > 3)
+            ->contains(fn ($term) => $this->containsTerm($normalizedTitles, $term));
+    }
+
+    private function containsTerm(string $normalizedText, string $term): bool
+    {
+        return preg_match('/(?<![a-z0-9])' . preg_quote(Str::lower($term), '/') . '(?![a-z0-9])/', $normalizedText) === 1;
     }
 }

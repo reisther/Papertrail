@@ -186,6 +186,19 @@
                             </button>
                         </div>
                     </div>
+                    <div id="editPreview" class="hidden mb-3 rounded-md border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-sm">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="font-semibold text-amber-800">Editing message</p>
+                                <p id="editPreviewText" class="truncate text-amber-700"></p>
+                            </div>
+                            <button type="button" onclick="clearEdit()" class="shrink-0 text-amber-500 hover:text-amber-700" title="Cancel edit">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
                     <form id="sendMessageForm" class="flex min-w-0 items-end gap-2 sm:gap-3">
                         <div class="min-w-0 flex-1">
                             <div class="flex min-w-0 items-end gap-2">
@@ -516,6 +529,7 @@ let confirmationCallback = null;
 let isInitialLoad = false;
 let shouldScrollToBottom = false;
 let selectedReplyMessage = null;
+let selectedEditMessage = null;
 let currentMessagesById = {};
 let currentPinnedMessages = [];
 let currentChatRoomDetails = null;
@@ -609,6 +623,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Select and load a chat room
 function selectChatRoom(roomId) {
+    clearEdit();
+    clearReply();
+    clearFileSelection();
     currentRoomId = roomId;
     selectedMentionIds.clear();
     mentionParticipantsLoadedForRoomId = null;
@@ -774,6 +791,7 @@ function clearActiveChatRoom(roomId = currentRoomId) {
     closePinnedMessagesPanel();
     closeParticipantsModal();
     closeAddParticipantsModal();
+    clearEdit();
     clearReply();
     clearFileSelection();
     renderPinnedMessages([]);
@@ -916,6 +934,7 @@ function displayMessages(messages) {
                     <div class="mt-1 flex items-center justify-between gap-3 text-xs ${isOwnMessage ? 'text-blue-100' : 'text-gray-500'}">
                         <div class="min-w-0 truncate">
                             ${message.created_at_human}
+                            ${message.is_edited ? `<span class="ml-2">Edited</span>` : ''}
                             ${message.seen_by_count > 0 ? `<span class="ml-2">Seen by ${message.seen_by_count}</span>` : ''}
                         </div>
                         <div class="flex shrink-0 items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
@@ -932,6 +951,14 @@ function displayMessages(messages) {
                             <button type="button" onclick="showEmojiPicker(${message.id})" class="inline-flex h-6 w-6 items-center justify-center rounded-full ${isOwnMessage ? 'hover:bg-blue-500 hover:text-white' : 'hover:bg-gray-200 hover:text-gray-800'}" title="React">
                                 <span class="text-xs leading-none">+</span>
                             </button>
+                            ${message.can_edit ? `
+                                <button type="button" onclick="startEdit(${message.id})" class="inline-flex h-6 w-6 items-center justify-center rounded-full ${isOwnMessage ? 'hover:bg-blue-500 hover:text-white' : 'hover:bg-gray-200 hover:text-gray-800'}" title="Edit">
+                                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                    </svg>
+                                </button>
+                            ` : ''}
                             ${message.can_delete ? `
                                 <button type="button" onclick="showDeleteOptions(${message.id})" class="inline-flex h-6 w-6 items-center justify-center rounded-full ${isOwnMessage ? 'hover:bg-blue-500 hover:text-white' : 'hover:bg-red-50 hover:text-red-700'}" title="Delete">
                                     <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1097,6 +1124,33 @@ function clearReply() {
     document.getElementById('replyPreviewText').textContent = '';
 }
 
+function startEdit(messageId) {
+    const message = currentMessagesById[messageId];
+    if (!message || !message.can_edit) return;
+
+    selectedEditMessage = message;
+    clearReply();
+    clearFileSelection();
+    hideMentionSuggestions();
+
+    const textarea = document.getElementById('messageText');
+    textarea.value = message.message || '';
+    textarea.focus();
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+
+    document.getElementById('editPreviewText').textContent = message.message || '';
+    document.getElementById('editPreview').classList.remove('hidden');
+    document.getElementById('fileInput').disabled = true;
+}
+
+function clearEdit() {
+    selectedEditMessage = null;
+    document.getElementById('editPreview').classList.add('hidden');
+    document.getElementById('editPreviewText').textContent = '';
+    document.getElementById('fileInput').disabled = false;
+    document.getElementById('messageText').value = '';
+}
+
 function scrollToMessage(messageId) {
     const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
     if (!messageElement) return;
@@ -1120,7 +1174,10 @@ async function togglePin(messageId) {
             }
         });
 
-        const result = await response.json();
+        const contentType = response.headers.get('content-type') || '';
+        const result = contentType.includes('application/json')
+            ? await response.json()
+            : { error: await response.text() };
 
         if (result.success) {
             loadMessages(currentRoomId);
@@ -1436,6 +1493,11 @@ document.getElementById('sendMessageForm').addEventListener('submit', async func
     
     const messageText = document.getElementById('messageText').value.trim();
     const fileInput = document.getElementById('fileInput');
+
+    if (selectedEditMessage) {
+        await submitEditMessage(messageText);
+        return;
+    }
     
     if (!messageText && !fileInput.files[0]) return;
     
@@ -1490,9 +1552,48 @@ document.getElementById('sendMessageForm').addEventListener('submit', async func
     }
 });
 
+async function submitEditMessage(messageText) {
+    if (!selectedEditMessage || !messageText) return;
+
+    try {
+        const editedMessageId = selectedEditMessage.id;
+        const response = await fetch(`/chat/rooms/${currentRoomId}/messages/${editedMessageId}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify({ message: messageText })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            clearEdit();
+            loadMessages(currentRoomId);
+            showNotification('Success', 'Message updated successfully', 'success');
+            return;
+        }
+
+        let errorMessage = result.error || 'Failed to update message';
+
+        if (result.errors) {
+            errorMessage = Object.values(result.errors).flat().join('<br>');
+        }
+
+        showNotification('Error', errorMessage, 'error');
+    } catch (error) {
+        console.error('Error editing message:', error);
+        showNotification('Network Error', 'Failed to update message. Please check your connection.', 'error');
+    }
+}
+
 // Handle Enter key in message input
 function handleMessageKeydown(event) {
     if (event.key === 'Escape') {
+        if (selectedEditMessage) {
+            clearEdit();
+        }
         hideMentionSuggestions();
         return;
     }

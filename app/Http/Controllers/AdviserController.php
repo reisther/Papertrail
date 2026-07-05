@@ -6,6 +6,7 @@ use App\Models\AdviserStudent;
 use App\Models\AppNotification;
 use App\Models\ChatRoom;
 use App\Models\Project;
+use App\Models\ProjectTask;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -174,9 +175,9 @@ class AdviserController extends Controller
         $adviserName = $adviserStudent->adviser?->name ?? 'The adviser';
 
         if ($adviserStudent->status === 'approved') {
-            $projectIds = Project::where('owner_id', $adviserStudent->student_id)
-                ->where('adviser_id', $adviserStudent->adviser_id)
-                ->pluck('id');
+            $projectIds = $this->affectedProjectIds($adviserStudent);
+
+            $this->deleteReleasedAdviserTasks($projectIds, $adviserStudent->adviser_id);
 
             Project::whereIn('id', $projectIds)->update(['adviser_id' => null]);
 
@@ -204,9 +205,9 @@ class AdviserController extends Controller
             abort(403, 'Access denied.');
         }
 
-        $projectIds = Project::where('owner_id', $adviserStudent->student_id)
-            ->where('adviser_id', $adviserStudent->adviser_id)
-            ->pluck('id');
+        $projectIds = $this->affectedProjectIds($adviserStudent);
+
+        $this->deleteReleasedAdviserTasks($projectIds, $adviserStudent->adviser_id);
 
         Project::whereIn('id', $projectIds)->update(['adviser_id' => null]);
 
@@ -219,6 +220,27 @@ class AdviserController extends Controller
         $adviserStudent->delete();
 
         return back()->with('success', "{$adviserName} is no longer assigned as adviser.");
+    }
+
+    private function affectedProjectIds(AdviserStudent $adviserStudent)
+    {
+        return Project::where('owner_id', $adviserStudent->student_id)
+            ->where(function ($query) use ($adviserStudent) {
+                $query->where('adviser_id', $adviserStudent->adviser_id)
+                    ->orWhereHas('tasks', fn ($tasks) => $tasks->where('adviser_id', $adviserStudent->adviser_id));
+            })
+            ->pluck('id');
+    }
+
+    private function deleteReleasedAdviserTasks($projectIds, int $adviserId): void
+    {
+        if ($projectIds->isEmpty()) {
+            return;
+        }
+
+        ProjectTask::whereIn('project_id', $projectIds)
+            ->where('adviser_id', $adviserId)
+            ->delete();
     }
 
     /**

@@ -69,7 +69,7 @@
                         </h4>
                     </div>
 
-                    <span class="shrink-0 bg-green-600 text-white px-3 py-1 rounded-full text-sm">
+                    <span class="shrink-0 bg-green-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
                         {{ $adviser->match_score }}%
                     </span>
                 </div>
@@ -80,11 +80,21 @@
 
                 <p class="text-sm text-gray-700 mb-4">
                     <span class="font-semibold">
-                        AI Reason:
+                        Match:
                     </span>
 
                     {{ $adviser->reason }}
                 </p>
+
+                @if (!empty($adviser->matched_expertise))
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        @foreach ($adviser->matched_expertise as $expertise)
+                            <span class="inline-flex rounded-full bg-white px-2.5 py-1 text-xs font-medium text-green-700 border border-green-200">
+                                {{ $expertise }}
+                            </span>
+                        @endforeach
+                    </div>
+                @endif
 
                 @if ($hasRequest)
                     <button disabled
@@ -110,6 +120,10 @@
 
     </div>
 </div>
+@else
+    <div class="mb-10 rounded-lg border border-yellow-200 bg-yellow-50 p-5 text-sm text-yellow-900">
+        No close adviser expertise match was found for these titles. Try using clearer technology keywords in the titles or ask an admin to update adviser expertise profiles.
+    </div>
 @endif
 
 

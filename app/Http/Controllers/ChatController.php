@@ -312,6 +312,7 @@ class ChatController extends BaseController
                                         'is_seen' => $isSeenByCurrentUser,
                                         'seen_by_count' => count($seenByOthers),
                                         'can_delete' => $userId === $currentUserId, // User can delete their own messages
+                                        'can_edit' => $userId === $currentUserId && $message->message_type === 'text',
                                         'reactions' => $message->getReactionsSummary(),
                                         'created_at' => $message->created_at->format('Y-m-d H:i:s'),
                                         'created_at_human' => $message->created_at->diffForHumans(),
@@ -471,6 +472,9 @@ class ChatController extends BaseController
                     'file_name' => $message->file_name,
                     'file_size' => $message->getFormattedFileSize(),
                     'is_image' => $message->isImage(),
+                    'is_edited' => $message->is_edited,
+                    'can_edit' => $message->message_type === 'text',
+                    'can_delete' => true,
                     'created_at' => $message->created_at->format('Y-m-d H:i:s'),
                     'created_at_human' => $message->created_at->diffForHumans(),
                 ]
@@ -1169,6 +1173,75 @@ class ChatController extends BaseController
             ]);
 
             return response()->json(['error' => 'Failed to update participant role: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Edit a message
+     */
+    public function editMessage(Request $request, ChatRoom $chatRoom, ChatMessage $message): JsonResponse
+    {
+        $this->abortIfWebsiteAdmin();
+
+        try {
+            $currentUser = Auth::user();
+
+            if (!$chatRoom->hasParticipant($currentUser)) {
+                return response()->json(['error' => 'Access denied'], 403);
+            }
+
+            if ($message->chat_room_id !== $chatRoom->id) {
+                return response()->json(['error' => 'Message not found in this chat room'], 404);
+            }
+
+            if ($message->user_id !== $currentUser->id) {
+                return response()->json(['error' => 'You can only edit your own messages'], 403);
+            }
+
+            if ($message->message_type !== 'text') {
+                return response()->json(['error' => 'Only text messages can be edited'], 422);
+            }
+
+            $validator = Validator::make($request->all(), [
+                'message' => 'required|string|max:2000',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json(['errors' => $validator->errors()], 422);
+            }
+
+            $updatedMessage = trim($request->input('message'));
+
+            if ($updatedMessage === '') {
+                return response()->json(['errors' => ['message' => ['The message field is required.']]], 422);
+            }
+
+            $message->update([
+                'message' => $updatedMessage,
+                'is_edited' => true,
+                'edited_at' => now(),
+            ]);
+
+            $chatRoom->touch();
+
+            return response()->json([
+                'success' => true,
+                'message' => [
+                    'id' => $message->id,
+                    'message' => $message->message,
+                    'is_edited' => $message->is_edited,
+                    'edited_at' => optional($message->edited_at)->format('Y-m-d H:i:s'),
+                ],
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error editing message', [
+                'message_id' => $message->id,
+                'chat_room_id' => $chatRoom->id,
+                'user_id' => Auth::id(),
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json(['error' => 'Failed to edit message: ' . $e->getMessage()], 500);
         }
     }
 
