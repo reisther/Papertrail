@@ -47,13 +47,40 @@ class SuggestedAIControllerTest extends TestCase
         }
     }
 
-    private function scoreForField(SuggestedAIController $controller, string $field, array $titleScores, int $totalTitleScore): int
+    public function test_mixed_ai_terms_do_not_outweigh_four_iot_titles(): void
+    {
+        $controller = new SuggestedAIController();
+
+        $titles = [
+            'Smart Classroom Monitoring System Using IoT',
+            'IoT-Based Flood Monitoring and Early Warning System',
+            'Smart Parking Management System Using IoT',
+            'IoT-Based Smart Waste Bin Monitoring System',
+            'AI-Powered Student Academic Performance Prediction and Recommendation System',
+        ];
+
+        $titleScores = $this->invokePrivate($controller, 'scoreTitleExpertise', [$titles]);
+        $totalTitleScore = array_sum($titleScores);
+
+        $iotAdviserScore = $this->scoreForField($controller, 'iot', $titleScores, $totalTitleScore);
+        $aiMlAdviserScore = $this->scoreForFields($controller, ['machine_learning', 'ai_integration'], $titleScores, $totalTitleScore);
+
+        $this->assertSame(80, $iotAdviserScore);
+        $this->assertSame(20, $aiMlAdviserScore);
+        $this->assertGreaterThan($aiMlAdviserScore, $iotAdviserScore);
+    }
+
+    private function scoreForField(SuggestedAIController $controller, string $field, array $titleScores, float $totalTitleScore): int
+    {
+        return $this->scoreForFields($controller, [$field], $titleScores, $totalTitleScore);
+    }
+
+    private function scoreForFields(SuggestedAIController $controller, array $fields, array $titleScores, float $totalTitleScore): int
     {
         [$score] = $this->invokePrivate($controller, 'scoreAdviserMatch', [
-            (object) [
-                $field => true,
+            (object) array_merge(array_fill_keys($fields, true), [
                 'custom_expertise' => [],
-            ],
+            ]),
             ' ',
             $titleScores,
             $totalTitleScore,

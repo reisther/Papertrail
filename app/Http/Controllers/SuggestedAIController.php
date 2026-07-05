@@ -9,6 +9,8 @@ use Illuminate\Support\Str;
 
 class SuggestedAIController extends Controller
 {
+    private const TITLE_SCORE_WEIGHT = 60;
+
     public function index(Request $request)
     {
         if (!auth()->user()->canLeadGroup()) {
@@ -226,6 +228,7 @@ class SuggestedAIController extends Controller
 
         foreach ($titles as $title) {
             $normalizedTitle = $this->normalizeText($title);
+            $titleScores = [];
 
             foreach ($this->expertiseTerms() as $name => $config) {
                 $titleScore = collect($config['terms'])
@@ -233,8 +236,18 @@ class SuggestedAIController extends Controller
                     ->sum();
 
                 if ($titleScore > 0) {
-                    $scores[$name] = ($scores[$name] ?? 0) + min($titleScore, 60);
+                    $titleScores[$name] = $titleScore;
                 }
+            }
+
+            $totalTitleScore = array_sum($titleScores);
+
+            if ($totalTitleScore === 0) {
+                continue;
+            }
+
+            foreach ($titleScores as $name => $titleScore) {
+                $scores[$name] = ($scores[$name] ?? 0) + (($titleScore / $totalTitleScore) * self::TITLE_SCORE_WEIGHT);
             }
         }
 
@@ -243,7 +256,7 @@ class SuggestedAIController extends Controller
             ->all();
     }
 
-    private function scoreAdviserMatch($expertise, string $normalizedTitles, array $titleExpertiseScores, int $totalTitleScore): array
+    private function scoreAdviserMatch($expertise, string $normalizedTitles, array $titleExpertiseScores, float $totalTitleScore): array
     {
         if (! $expertise) {
             return [0, []];
