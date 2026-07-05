@@ -39,9 +39,9 @@ class SuggestedAIController extends Controller
             $validated
         );
 
-        $titles = $submission->only(['title1', 'title2', 'title3', 'title4', 'title5']);
+        $titles = array_values($submission->only(['title1', 'title2', 'title3', 'title4', 'title5']));
         $normalizedTitles = $this->normalizeText(implode(' ', $titles));
-        $titleExpertiseScores = $this->scoreTitleExpertise($normalizedTitles);
+        $titleExpertiseScores = $this->scoreTitleExpertise($titles);
         $totalTitleScore = array_sum($titleExpertiseScores);
 
         $advisers = User::where('role', 'Teacher')
@@ -220,16 +220,25 @@ class SuggestedAIController extends Controller
         ];
     }
 
-    private function scoreTitleExpertise(string $normalizedTitles): array
+    private function scoreTitleExpertise(array $titles): array
     {
-        return collect($this->expertiseTerms())
-            ->mapWithKeys(function (array $config, string $name) use ($normalizedTitles) {
-                $score = collect($config['terms'])
-                    ->filter(fn (int $weight, string $term) => $this->containsTerm($normalizedTitles, $term))
+        $scores = [];
+
+        foreach ($titles as $title) {
+            $normalizedTitle = $this->normalizeText($title);
+
+            foreach ($this->expertiseTerms() as $name => $config) {
+                $titleScore = collect($config['terms'])
+                    ->filter(fn (int $weight, string $term) => $this->containsTerm($normalizedTitle, $term))
                     ->sum();
 
-                return [$name => min($score, 60)];
-            })
+                if ($titleScore > 0) {
+                    $scores[$name] = ($scores[$name] ?? 0) + min($titleScore, 60);
+                }
+            }
+        }
+
+        return collect($scores)
             ->filter()
             ->all();
     }
