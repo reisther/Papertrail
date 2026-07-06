@@ -64,7 +64,7 @@
                         <div class="text-left">
                             <h3 class="text-sm font-medium text-yellow-800">Account Pending Verification</h3>
                             <p class="text-sm text-yellow-700 mt-1">
-                                Your account is currently pending admin verification. You will receive an email notification once your ID document has been verified and your account is activated.
+                                Your account is currently pending admin verification. Once your ID document has been verified and your account is activated, we will email the confirmation to you.
                             </p>
                         </div>
                     </div>
@@ -75,7 +75,7 @@
                     <h3 class="text-sm font-medium text-blue-800 mb-2">What happens next?</h3>
                     <ul class="text-sm text-blue-700 space-y-1">
                         <li>• Admin will review your uploaded ID document</li>
-                        <li>• You'll receive an email when your account is verified</li>
+                        <li>• You'll receive an email from noreply@papertrailpsu.com when your account is verified</li>
                         <li>• Once verified, you can log in and access all features</li>
                         <li>• Check your email regularly for updates</li>
                     </ul>

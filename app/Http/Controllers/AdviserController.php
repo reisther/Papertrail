@@ -153,8 +153,15 @@ class AdviserController extends Controller
         ]);
 
         if ($request->status === 'approved') {
-            Project::where('owner_id', $adviserStudent->student_id)
+            $projects = Project::where('owner_id', $adviserStudent->student_id)->get();
+
+            $projects
+                ->each
                 ->update(['adviser_id' => $adviserStudent->adviser_id]);
+
+            $projects
+                ->each
+                ->syncCourseTasksFromAdviser();
 
             ChatRoom::whereIn('project_id', Project::where('owner_id', $adviserStudent->student_id)->pluck('id'))
                 ->where('type', 'project')

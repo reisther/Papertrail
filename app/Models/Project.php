@@ -192,4 +192,54 @@ class Project extends Model
     {
         return $this->canEdit($user);
     }
+
+    public function syncCourseTasksFromAdviser(): int
+    {
+        $course = $this->group_course ?: $this->owner?->course;
+
+        if (! $this->adviser_id || ! $course) {
+            return 0;
+        }
+
+        $templateTasks = ProjectTask::query()
+            ->where('adviser_id', $this->adviser_id)
+            ->where('assignment_course', $course)
+            ->where('project_id', '!=', $this->id)
+            ->orderBy('chapter')
+            ->orderBy('created_at')
+            ->get()
+            ->unique(fn (ProjectTask $task) => $task->course_task_group_id ?: "{$task->chapter}|{$task->title}");
+
+        $createdCount = 0;
+
+        foreach ($templateTasks as $templateTask) {
+            $existingTaskQuery = $this->tasks()
+                ->where('adviser_id', $this->adviser_id)
+                ->where('chapter', $templateTask->chapter);
+
+            if ($templateTask->course_task_group_id) {
+                $existingTaskQuery->where('course_task_group_id', $templateTask->course_task_group_id);
+            } else {
+                $existingTaskQuery
+                    ->where('assignment_course', $course)
+                    ->where('title', $templateTask->title);
+            }
+
+            if ($existingTaskQuery->exists()) {
+                continue;
+            }
+
+            $this->tasks()->create([
+                'adviser_id' => $this->adviser_id,
+                'assignment_course' => $course,
+                'course_task_group_id' => $templateTask->course_task_group_id,
+                'chapter' => $templateTask->chapter,
+                'title' => $templateTask->title,
+            ]);
+
+            $createdCount++;
+        }
+
+        return $createdCount;
+    }
 }

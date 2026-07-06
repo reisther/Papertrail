@@ -126,6 +126,10 @@ class Folder extends Model
      */
     public function canEdit(User $user): bool
     {
+        if ($this->isSubmissionsFolder()) {
+            return false;
+        }
+
         // Only folder creator, project owner, or admin can edit folders
         // Teachers/advisers can view but not edit
         return $this->created_by === $user->id || 
@@ -139,5 +143,10 @@ class Folder extends Model
     public function canDelete(User $user): bool
     {
         return $this->canEdit($user);
+    }
+
+    public function isSubmissionsFolder(): bool
+    {
+        return $this->parent_id === null && $this->name === 'Submissions';
     }
 }

@@ -55,7 +55,7 @@
                                         </span>
                                         <span class="flex shrink-0 items-center gap-2">
                                             @if($folderUnreadCount > 0)
-                                                <span class="text-xs rounded-full bg-red-600 px-2 py-1 font-semibold text-white" title="Unread chats">
+                                                <span class="chat-folder-unread-count text-xs rounded-full bg-red-600 px-2 py-1 font-semibold text-white" data-unread-count="{{ $folderUnreadCount }}" title="Unread chats">
                                                     {{ $folderUnreadCount > 99 ? '99+' : $folderUnreadCount }}
                                                 </span>
                                             @endif
@@ -670,6 +670,35 @@ function selectChatRoom(roomId) {
     window.typingPollingInterval = setInterval(getTypingUsers, 2000); // Check every 2 seconds
 }
 
+function formatUnreadCount(count) {
+    return count > 99 ? '99+' : String(count);
+}
+
+function clearChatRoomUnreadCount(roomId) {
+    const roomItem = document.querySelector(`.chat-room-item[data-room-id="${roomId}"]`);
+    if (!roomItem) return;
+
+    const roomBadge = roomItem.querySelector('.chat-room-unread-count');
+    const unreadCount = Number(roomBadge?.dataset.unreadCount || roomBadge?.textContent || 0);
+    if (!roomBadge || unreadCount <= 0) return;
+
+    roomBadge.remove();
+
+    const folder = roomItem.closest('details.chat-room-folder');
+    const folderBadge = folder?.querySelector('.chat-folder-unread-count');
+    if (!folderBadge) return;
+
+    const folderUnreadCount = Number(folderBadge.dataset.unreadCount || folderBadge.textContent || 0);
+    const nextFolderUnreadCount = Math.max(0, folderUnreadCount - unreadCount);
+
+    if (nextFolderUnreadCount > 0) {
+        folderBadge.dataset.unreadCount = String(nextFolderUnreadCount);
+        folderBadge.textContent = formatUnreadCount(nextFolderUnreadCount);
+    } else {
+        folderBadge.remove();
+    }
+}
+
 function showChatPanelView() {
     const sidebar = document.getElementById('chatSidebar');
     const panel = document.getElementById('chatPanel');
@@ -863,6 +892,7 @@ async function loadMessages(roomId) {
         
         if (data.messages) {
             displayMessages(data.messages);
+            clearChatRoomUnreadCount(roomId);
         }
     } catch (error) {
         console.error('Error loading messages:', error);

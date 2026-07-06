@@ -21,7 +21,7 @@
         </div>
         <div class="flex shrink-0 items-center gap-2">
             @if($room->unread_count > 0)
-                <span class="bg-blue-600 text-white text-xs rounded-full px-2 py-1">
+                <span class="chat-room-unread-count bg-blue-600 text-white text-xs rounded-full px-2 py-1" data-unread-count="{{ $room->unread_count }}">
                     {{ $room->unread_count }}
                 </span>
             @endif

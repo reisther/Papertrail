@@ -122,7 +122,7 @@ class GroupController extends Controller
             ->latest('responded_at')
             ->value('adviser_id');
 
-        Project::updateOrCreate(
+        $group = Project::updateOrCreate(
             ['owner_id' => $leader->id],
             [
                 'title' => $validated['group_name'],
@@ -132,6 +132,8 @@ class GroupController extends Controller
                 'status' => 'active',
             ]
         );
+
+        $group->syncCourseTasksFromAdviser();
 
         return back()->with('success', 'Group details updated successfully.');
     }

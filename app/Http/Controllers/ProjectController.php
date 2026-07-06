@@ -66,6 +66,8 @@ class ProjectController extends Controller
             'status' => 'draft',
         ]);
 
+        $this->ensureSubmissionsFolder($project);
+
         return redirect()->route('projects.show', $project)
             ->with('success', 'Project created successfully!');
     }
@@ -79,6 +81,8 @@ class ProjectController extends Controller
             abort(403, 'Access denied.');
         }
 
+        $submissionFolder = $this->ensureSubmissionsFolder($project);
+        $submissionCount = $submissionFolder->documents()->count();
         $folderId = $request->get('folder');
         $currentFolder = null;
         
@@ -100,7 +104,7 @@ class ProjectController extends Controller
             $breadcrumb = [];
         }
 
-        return view('projects.show', compact('project', 'folders', 'documents', 'currentFolder', 'breadcrumb'));
+        return view('projects.show', compact('project', 'folders', 'documents', 'currentFolder', 'breadcrumb', 'submissionFolder', 'submissionCount'));
     }
 
     /**
@@ -310,13 +314,20 @@ class ProjectController extends Controller
         }
 
         $request->validate([
+            'files' => 'required|array|min:1',
             'files.*' => 'required|file|max:10240', // 10MB max per file
             'folder_id' => 'nullable|exists:folders,id',
         ]);
 
+        $folderId = $request->folder_id;
+
+        if (! $folderId && Auth::user()->isStudentGroupRole()) {
+            $folderId = $this->ensureSubmissionsFolder($project)->id;
+        }
+
         // Verify folder belongs to this project
-        if ($request->folder_id) {
-            $folder = Folder::findOrFail($request->folder_id);
+        if ($folderId) {
+            $folder = Folder::findOrFail($folderId);
             if ($folder->project_id !== $project->id) {
                 abort(400, 'Invalid folder.');
             }
@@ -336,7 +347,7 @@ class ProjectController extends Controller
                 'mime_type' => $file->getMimeType(),
                 'file_size' => $file->getSize(),
                 'project_id' => $project->id,
-                'folder_id' => $request->folder_id,
+                'folder_id' => $folderId,
                 'uploaded_by' => Auth::id(),
             ]);
 
@@ -344,6 +355,22 @@ class ProjectController extends Controller
         }
 
         return back()->with('success', "{$uploadedCount} file(s) uploaded successfully!");
+    }
+
+    private function ensureSubmissionsFolder(Project $project): Folder
+    {
+        return Folder::firstOrCreate(
+            [
+                'project_id' => $project->id,
+                'parent_id' => null,
+                'name' => 'Submissions',
+            ],
+            [
+                'description' => 'Student work submissions for this project.',
+                'created_by' => $project->owner_id,
+                'color' => '#2563EB',
+            ]
+        );
     }
 
     /**

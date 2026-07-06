@@ -239,15 +239,13 @@ class DefenseScheduleController extends Controller
         $defenseSchedule = DefenseSchedule::create($data);
         $this->notifyMeetingParticipants($defenseSchedule->fresh(['project.owner', 'project.members', 'project.adviser']));
 
-        if ($defenseSchedule->usesGoogleMeet() && $defenseSchedule->meeting_link) {
-            try {
-                app(EmailNotificationService::class)->sendGoogleMeetCreated($defenseSchedule);
-            } catch (\Throwable $exception) {
-                Log::warning('Failed to send Google Meet email notification.', [
-                    'defense_schedule_id' => $defenseSchedule->id,
-                    'error' => $exception->getMessage(),
-                ]);
-            }
+        try {
+            app(EmailNotificationService::class)->sendMeetingScheduled($defenseSchedule->fresh(['student', 'adviser', 'project.owner', 'project.members', 'creator']));
+        } catch (\Throwable $exception) {
+            Log::warning('Failed to send meeting schedule email notification.', [
+                'defense_schedule_id' => $defenseSchedule->id,
+                'error' => $exception->getMessage(),
+            ]);
         }
         
         return redirect()->route('defense-schedule.index')

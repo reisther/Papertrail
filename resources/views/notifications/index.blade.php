@@ -29,6 +29,16 @@
                 'color' => 'blue',
             ]);
 
+            $sections->push([
+                'key' => 'announcements',
+                'type' => 'announcement',
+                'title' => 'Announcements',
+                'description' => 'Announcements posted by admins, advisers, and group leaders.',
+                'items' => $announcementNotifications ?? collect(),
+                'empty' => 'No announcement notifications.',
+                'color' => 'blue',
+            ]);
+
             if(Auth::user()->isTeacher()) {
                 $sections->push([
                     'key' => 'student-requests',
@@ -117,6 +127,10 @@
                                                             @if($activeSection['key'] === 'chat')
                                                                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h6m-9 8l3.2-3.2A8.5 8.5 0 1112 20H4z"></path>
+                                                                </svg>
+                                                            @elseif($activeSection['key'] === 'announcements')
+                                                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592L6.75 17.5H5a2 2 0 01-2-2v-3a2 2 0 012-2h1.75l.833-2.332A1.76 1.76 0 0111 8.76m0-2.878a14.67 14.67 0 006.5-2.382A1 1 0 0119 4.382v16.236a1 1 0 01-1.5.866A14.67 14.67 0 0011 19.24M19 9a3 3 0 010 6"></path>
                                                                 </svg>
                                                             @elseif($activeSection['key'] === 'student-requests' || $activeSection['key'] === 'sign-ups')
                                                                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

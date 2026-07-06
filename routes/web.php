@@ -105,6 +105,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
         if (! Schema::hasTable('app_notifications')) {
             return view('notifications.index', [
                 'chatNotifications' => collect(),
+                'announcementNotifications' => collect(),
                 'studentRequestNotifications' => collect(),
                 'meetingNotifications' => collect(),
                 'adminNotifications' => collect(),
@@ -199,6 +200,9 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
             ->groupBy('type');
 
         $chatNotifications = $notifications->get('chat_mention', collect());
+        $announcementNotifications = $user->isAdmin()
+            ? collect()
+            : $notifications->get('announcement', collect());
         $studentRequestNotifications = $user->isTeacher()
             ? $notifications->get('student_request', collect())
             : collect();
@@ -209,7 +213,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
             ? $notifications->get('admin_signup', collect())
             : collect();
 
-        return view('notifications.index', compact('chatNotifications', 'studentRequestNotifications', 'meetingNotifications', 'adminNotifications'));
+        return view('notifications.index', compact('chatNotifications', 'announcementNotifications', 'studentRequestNotifications', 'meetingNotifications', 'adminNotifications'));
     })->name('notifications.index');
     Route::patch('/notifications/{notification}/read', function (AppNotification $notification) {
         abort_unless($notification->user_id === Auth::id(), 403);
@@ -230,7 +234,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
         return back();
     })->name('notifications.unread');
     Route::patch('/notifications/sections/{type}/read', function (string $type) {
-        $allowedTypes = ['chat_mention', 'student_request', 'meeting_schedule', 'admin_signup'];
+        $allowedTypes = ['chat_mention', 'announcement', 'student_request', 'meeting_schedule', 'admin_signup'];
         abort_unless(in_array($type, $allowedTypes, true), 404);
 
         AppNotification::where('user_id', Auth::id())
@@ -365,6 +369,49 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
             ]);
 
             return back()->withInput()->with('error', 'The announcement could not be posted. Please run migrations and check Railway logs.');
+        }
+
+        if (Schema::hasTable('app_notifications')) {
+            $announcement->loadMissing(['author', 'project.owner', 'project.members']);
+
+            $recipients = match ($audienceType) {
+                'global' => \App\Models\User::whereNotNull('email')->get(),
+                'adviser_students' => \App\Models\AdviserStudent::query()
+                    ->approved()
+                    ->active()
+                    ->where('adviser_id', $user->id)
+                    ->with(['student.ownedProjects.members'])
+                    ->get()
+                    ->pluck('student')
+                    ->filter()
+                    ->flatMap(fn ($leader) => collect([$leader])->merge($leader->ownedProjects->flatMap->members)),
+                'project' => collect([$announcement->project?->owner])
+                    ->filter()
+                    ->merge($announcement->project?->members ?? collect()),
+                default => collect(),
+            };
+
+            $recipients
+                ->filter()
+                ->unique('id')
+                ->reject(fn ($recipient) => $recipient->id === $user->id || $recipient->isAdmin())
+                ->each(function ($recipient) use ($announcement, $user) {
+                    AppNotification::firstOrCreate(
+                        [
+                            'user_id' => $recipient->id,
+                            'type' => 'announcement',
+                            'source_type' => 'announcement',
+                            'source_id' => $announcement->id,
+                        ],
+                        [
+                            'title' => 'New announcement',
+                            'body' => ($user->name ?? 'PaperTrail') . ' posted an announcement.',
+                            'action_url' => route('dashboard'),
+                            'created_at' => $announcement->created_at ?? now(),
+                            'updated_at' => now(),
+                        ]
+                    );
+                });
         }
 
         app()->terminating(function () use ($announcement) {

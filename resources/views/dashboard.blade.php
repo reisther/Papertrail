@@ -4,6 +4,13 @@
         $group = $user->canLeadGroup()
             ? $user->ownedProjects()->latest()->first()
             : $user->joinedProjects()->latest('project_members.joined_at')->first();
+        $submissionCount = $group
+            ? \App\Models\Folder::where('project_id', $group->id)
+                ->whereNull('parent_id')
+                ->where('name', 'Submissions')
+                ->withCount('documents')
+                ->first()?->documents_count ?? 0
+            : 0;
     @endphp
 
     <x-slot name="header">
@@ -123,9 +130,9 @@
                         
                         <div class="bg-green-50 p-6 rounded-lg">
                             <h4 class="font-semibold text-green-800">Submissions</h4>
-                            <p class="text-2xl font-bold text-green-600">0</p>
+                            <p class="text-2xl font-bold text-green-600">{{ $submissionCount }}</p>
                             @if($user->canLeadGroup())
-                                <a href="{{ route('advisers.title-submission') }}" class="text-green-600 hover:text-green-800 text-sm">View all -></a>
+                                <a href="{{ $group ? route('projects.show', $group) : route('projects.index') }}" class="text-green-600 hover:text-green-800 text-sm">View all -></a>
                             @endif
                         </div>
 
