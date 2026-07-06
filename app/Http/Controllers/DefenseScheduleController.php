@@ -239,17 +239,23 @@ class DefenseScheduleController extends Controller
         $defenseSchedule = DefenseSchedule::create($data);
         $this->notifyMeetingParticipants($defenseSchedule->fresh(['project.owner', 'project.members', 'project.adviser']));
 
+        $emailSentCount = 0;
         try {
-            app(EmailNotificationService::class)->sendMeetingScheduled($defenseSchedule->fresh(['student', 'adviser', 'project.owner', 'project.members', 'creator']));
+            $emailSentCount = app(EmailNotificationService::class)
+                ->sendMeetingScheduled($defenseSchedule->fresh(['student', 'adviser', 'project.owner', 'project.members', 'creator']));
         } catch (\Throwable $exception) {
             Log::warning('Failed to send meeting schedule email notification.', [
                 'defense_schedule_id' => $defenseSchedule->id,
                 'error' => $exception->getMessage(),
             ]);
         }
-        
+
+        $message = $emailSentCount > 0
+            ? 'Meeting scheduled successfully! Email notifications were sent.'
+            : 'Meeting scheduled successfully, but no email notifications were sent. Please check participant emails and mail settings.';
+
         return redirect()->route('defense-schedule.index')
-                        ->with('success', 'Meeting scheduled successfully!');
+                        ->with($emailSentCount > 0 ? 'success' : 'warning', $message);
     }
 
     /**

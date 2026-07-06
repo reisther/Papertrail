@@ -414,23 +414,26 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
                 });
         }
 
-        app()->terminating(function () use ($announcement) {
-            try {
-                $sentCount = app(EmailNotificationService::class)->sendAnnouncementPosted($announcement);
+        $sentCount = 0;
+        try {
+            $sentCount = app(EmailNotificationService::class)->sendAnnouncementPosted($announcement);
 
-                Log::info('Announcement email notification finished.', [
-                    'announcement_id' => $announcement->id,
-                    'sent_count' => $sentCount,
-                ]);
-            } catch (\Throwable $exception) {
-                Log::warning('Failed to send announcement email notifications.', [
-                    'announcement_id' => $announcement->id,
-                    'error' => $exception->getMessage(),
-                ]);
-            }
-        });
+            Log::info('Announcement email notification finished.', [
+                'announcement_id' => $announcement->id,
+                'sent_count' => $sentCount,
+            ]);
+        } catch (\Throwable $exception) {
+            Log::warning('Failed to send announcement email notifications.', [
+                'announcement_id' => $announcement->id,
+                'error' => $exception->getMessage(),
+            ]);
+        }
 
-        return back()->with('success', 'Announcement posted. Email notifications are being sent.');
+        $message = $sentCount > 0
+            ? 'Announcement posted. Email notifications were sent.'
+            : 'Announcement posted, but no email notifications were sent. Please check member emails and mail settings.';
+
+        return back()->with($sentCount > 0 ? 'success' : 'warning', $message);
     })->name('announcements.store');
     Route::patch('/announcements/{announcement}', function (Request $request, \App\Models\Announcement $announcement) {
         $user = Auth::user();

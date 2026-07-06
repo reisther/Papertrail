@@ -99,7 +99,7 @@ class EmailNotificationService
         );
     }
 
-    public function sendMeetingScheduled(DefenseSchedule $schedule): void
+    public function sendMeetingScheduled(DefenseSchedule $schedule): int
     {
         $schedule->loadMissing('student', 'adviser', 'project.owner', 'project.members', 'creator');
 
@@ -122,7 +122,7 @@ class EmailNotificationService
             $schedule->google_calendar_link ? "Calendar: {$schedule->google_calendar_link}" : null,
         ])->filter()->implode("\n");
 
-        $this->sendToUsers(
+        return $this->sendToUsers(
             $recipients,
             'PaperTrail: Meeting scheduled',
             $this->messageHtml(
