@@ -674,6 +674,20 @@ function formatUnreadCount(count) {
     return count > 99 ? '99+' : String(count);
 }
 
+function decrementChatNavUnreadCount(unreadCount) {
+    document.querySelectorAll('.chat-nav-unread-count').forEach(badge => {
+        const currentCount = Number(badge.dataset.unreadCount || badge.textContent || 0);
+        const nextCount = Math.max(0, currentCount - unreadCount);
+
+        if (nextCount > 0) {
+            badge.dataset.unreadCount = String(nextCount);
+            badge.textContent = formatUnreadCount(nextCount);
+        } else {
+            badge.remove();
+        }
+    });
+}
+
 function clearChatRoomUnreadCount(roomId) {
     const roomItem = document.querySelector(`.chat-room-item[data-room-id="${roomId}"]`);
     if (!roomItem) return;
@@ -683,6 +697,7 @@ function clearChatRoomUnreadCount(roomId) {
     if (!roomBadge || unreadCount <= 0) return;
 
     roomBadge.remove();
+    decrementChatNavUnreadCount(unreadCount);
 
     const folder = roomItem.closest('details.chat-room-folder');
     const folderBadge = folder?.querySelector('.chat-folder-unread-count');

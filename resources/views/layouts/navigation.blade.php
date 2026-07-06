@@ -94,7 +94,7 @@
                                 class="relative inline-flex items-center whitespace-nowrap px-2 py-2 text-sm font-medium text-gray-500 transition-colors hover:text-blue-600 xl:px-3">
                                 Chat
                                 @if($chatUnreadCount > 0)
-                                    <span class="ml-1.5 h-5 min-w-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white">
+                                    <span class="chat-nav-unread-count ml-1.5 h-5 min-w-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white" data-unread-count="{{ $chatUnreadCount }}">
                                         {{ $chatUnreadCount > 99 ? '99+' : $chatUnreadCount }}
                                     </span>
                                 @endif
@@ -197,7 +197,7 @@
                         <a href="{{ route('chat.index') }}" class="flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">
                             <span>Chat</span>
                             @if($chatUnreadCount > 0)
-                                <span class="min-w-5 h-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white">
+                                <span class="chat-nav-unread-count min-w-5 h-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white" data-unread-count="{{ $chatUnreadCount }}">
                                     {{ $chatUnreadCount > 99 ? '99+' : $chatUnreadCount }}
                                 </span>
                             @endif
@@ -221,7 +221,7 @@
                         <a href="{{ route('chat.index') }}" class="flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">
                             <span>Chat</span>
                             @if($chatUnreadCount > 0)
-                                <span class="min-w-5 h-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white">
+                                <span class="chat-nav-unread-count min-w-5 h-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white" data-unread-count="{{ $chatUnreadCount }}">
                                     {{ $chatUnreadCount > 99 ? '99+' : $chatUnreadCount }}
                                 </span>
                             @endif
