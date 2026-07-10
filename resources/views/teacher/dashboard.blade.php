@@ -1,4 +1,11 @@
 <x-app-layout>
+    @php
+        $user = Auth::user();
+        $activeStudentProjectsQuery = $user->activeAccessibleProjects()
+            ->where('owner_id', '!=', $user->id);
+        $activeStudentProjectsCount = (clone $activeStudentProjectsQuery)->count();
+    @endphp
+
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
             {{ __('Teacher Dashboard') }}
@@ -29,7 +36,7 @@
                         
                         <div class="bg-green-50 p-6 rounded-lg">
                             <h4 class="font-semibold text-green-800">Student Projects</h4>
-                            <p class="text-2xl font-bold text-green-600">{{ Auth::user()->accessibleProjects()->count() - Auth::user()->ownedProjects()->count() }}</p>
+                            <p class="text-2xl font-bold text-green-600">{{ $activeStudentProjectsCount }}</p>
                             <a href="{{ route('projects.index') }}" class="text-green-600 hover:text-green-800 text-sm">View Projects →</a>
                         </div>
                     </div>
@@ -93,9 +100,9 @@
                     @endif
 
                     @php
-                        $studentProjects = Auth::user()->accessibleProjects()
-                            ->where('owner_id', '!=', Auth::id())
-                            ->with(['owner', 'documents'])
+                        $studentProjects = (clone $activeStudentProjectsQuery)
+                            ->with('owner')
+                            ->withCount('documents')
                             ->latest('updated_at')
                             ->take(3)
                             ->get();
@@ -109,7 +116,7 @@
                                     <div class="flex items-center justify-between bg-white p-3 rounded border">
                                         <div>
                                             <p class="font-medium text-gray-900">{{ $project->title }}</p>
-                                            <p class="text-sm text-gray-600">by {{ $project->owner->name }} • {{ $project->documents()->count() }} files</p>
+                                            <p class="text-sm text-gray-600">by {{ $project->owner->name }} • {{ $project->documents_count }} files</p>
                                         </div>
                                         <div class="text-right">
                                             <a href="{{ route('projects.show', $project) }}" class="text-green-600 hover:text-green-800 text-sm font-medium">View →</a>

@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class Project extends Model
 {
@@ -53,6 +55,11 @@ class Project extends Model
     public function tasks(): HasMany
     {
         return $this->hasMany(ProjectTask::class);
+    }
+
+    public function chatRooms(): HasMany
+    {
+        return $this->hasMany(ChatRoom::class);
     }
 
     /**
@@ -119,6 +126,16 @@ class Project extends Model
     public function getFormattedSizeAttribute(): string
     {
         $bytes = $this->getTotalSizeAttribute();
+        return $this->formatBytes($bytes);
+    }
+
+    public function getFormattedListSizeAttribute(): string
+    {
+        return $this->formatBytes((int) ($this->documents_file_size_sum ?? 0));
+    }
+
+    private function formatBytes(int $bytes): string
+    {
         $units = ['B', 'KB', 'MB', 'GB'];
         
         for ($i = 0; $bytes > 1024 && $i < count($units) - 1; $i++) {
@@ -155,9 +172,14 @@ class Project extends Model
 
         // For teachers, check if they are an approved adviser of the project owner
         if ($user->role === 'Teacher') {
+            if ($this->archivedAdviserRelationshipFor($user)) {
+                return true;
+            }
+
             $hasApprovedRelationship = $user->students()
                 ->where('student_id', $this->owner_id)
                 ->where('status', 'approved')
+                ->active()
                 ->exists();
 
             if (!$hasApprovedRelationship) {
@@ -166,6 +188,7 @@ class Project extends Model
                 $hasApprovedRelationship = $user->students()
                     ->whereIn('student_id', $memberIds)
                     ->where('status', 'approved')
+                    ->active()
                     ->exists();
             }
 
@@ -191,6 +214,78 @@ class Project extends Model
     public function canInviteMembers(User $user): bool
     {
         return $this->canEdit($user);
+    }
+
+    public function archivedAdviserRelationshipFor(User $user): ?AdviserStudent
+    {
+        if (! $user->isTeacher()) {
+            return null;
+        }
+
+        $studentIds = collect([$this->owner_id])
+            ->merge($this->members()->pluck('users.id'))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($studentIds->isEmpty()) {
+            return null;
+        }
+
+        return AdviserStudent::query()
+            ->approved()
+            ->archived()
+            ->where('adviser_id', $user->id)
+            ->whereIn('student_id', $studentIds)
+            ->latest('archived_at')
+            ->first();
+    }
+
+    public function isArchivedForAdviser(User $user): bool
+    {
+        return (bool) $this->archivedAdviserRelationshipFor($user);
+    }
+
+    public function isArchivedForUser(User $user): bool
+    {
+        return $this->status === 'archived' || $this->isArchivedForAdviser($user);
+    }
+
+    public function canUploadDocuments(User $user): bool
+    {
+        return $this->canAccess($user) && ! $this->isArchivedForUser($user);
+    }
+
+    public function canManageFiles(User $user): bool
+    {
+        return $this->canEdit($user) && ! $this->isArchivedForUser($user);
+    }
+
+    public static function archivedIdsForUser(User $user): Collection
+    {
+        if (! $user->isTeacher()) {
+            return collect();
+        }
+
+        return DB::table('projects')
+            ->whereExists(function ($query) use ($user) {
+                $query->select(DB::raw(1))
+                    ->from('adviser_student')
+                    ->where('adviser_student.status', 'approved')
+                    ->whereNotNull('adviser_student.archived_at')
+                    ->where('adviser_student.adviser_id', $user->id)
+                    ->where(function ($studentMatch) {
+                        $studentMatch
+                            ->whereColumn('adviser_student.student_id', 'projects.owner_id')
+                            ->orWhereExists(function ($memberMatch) {
+                                $memberMatch->select(DB::raw(1))
+                                    ->from('project_members')
+                                    ->whereColumn('project_members.project_id', 'projects.id')
+                                    ->whereColumn('project_members.user_id', 'adviser_student.student_id');
+                            });
+                    });
+            })
+            ->pluck('projects.id');
     }
 
     public function syncCourseTasksFromAdviser(): int

@@ -19,7 +19,7 @@ class SuggestedAIController extends Controller
 
         $activeRequest = auth()->user()
             ->adviserRequests()
-            ->whereIn('status', ['pending', 'approved'])
+            ->currentRequest()
             ->first();
 
         if ($activeRequest) {
@@ -77,7 +77,7 @@ class SuggestedAIController extends Controller
 
         $currentRequests = auth()->user()
             ->adviserRequests()
-            ->whereIn('status', ['pending', 'approved'])
+            ->currentRequest()
             ->get();
 
         return view('advisers.suggestedAI', [

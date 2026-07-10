@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class ChatRoom extends Model
 {
@@ -126,5 +129,83 @@ class ChatRoom extends Model
                     })
                     ->where('user_id', '!=', $user->id)
                     ->count();
+    }
+
+    public function archivedRelationship(): ?AdviserStudent
+    {
+        if (! $this->project_id || ! Schema::hasColumn('adviser_student', 'archived_at')) {
+            return null;
+        }
+
+        $this->loadMissing(['project.members', 'participants']);
+        $project = $this->project;
+
+        if (! $project) {
+            return null;
+        }
+
+        $studentIds = collect([$project->owner_id])
+            ->merge($project->members->pluck('id'))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $participantIds = $this->participants->pluck('id')->filter()->unique()->values();
+
+        if ($studentIds->isEmpty() || $participantIds->isEmpty()) {
+            return null;
+        }
+
+        return AdviserStudent::query()
+            ->approved()
+            ->archived()
+            ->whereIn('student_id', $studentIds)
+            ->whereIn('adviser_id', $participantIds)
+            ->latest('archived_at')
+            ->first();
+    }
+
+    public function isArchived(): bool
+    {
+        return (bool) $this->archivedRelationship();
+    }
+
+    public static function archivedIdsForRoomIds($roomIds): Collection
+    {
+        $roomIds = collect($roomIds)
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($roomIds->isEmpty() || ! Schema::hasColumn('adviser_student', 'archived_at')) {
+            return collect();
+        }
+
+        return DB::table('chat_rooms')
+            ->join('projects', 'projects.id', '=', 'chat_rooms.project_id')
+            ->whereIn('chat_rooms.id', $roomIds)
+            ->whereExists(function ($query) {
+                $query->select(DB::raw(1))
+                    ->from('adviser_student')
+                    ->where('adviser_student.status', 'approved')
+                    ->whereNotNull('adviser_student.archived_at')
+                    ->where(function ($studentMatch) {
+                        $studentMatch
+                            ->whereColumn('adviser_student.student_id', 'projects.owner_id')
+                            ->orWhereExists(function ($memberMatch) {
+                                $memberMatch->select(DB::raw(1))
+                                    ->from('project_members')
+                                    ->whereColumn('project_members.project_id', 'projects.id')
+                                    ->whereColumn('project_members.user_id', 'adviser_student.student_id');
+                            });
+                    })
+                    ->whereExists(function ($participantMatch) {
+                        $participantMatch->select(DB::raw(1))
+                            ->from('chat_participants')
+                            ->whereColumn('chat_participants.chat_room_id', 'chat_rooms.id')
+                            ->whereColumn('chat_participants.user_id', 'adviser_student.adviser_id');
+                    });
+            })
+            ->pluck('chat_rooms.id');
     }
 }

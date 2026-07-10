@@ -65,4 +65,31 @@ class AdviserStudent extends Model
     {
         return $query->whereNull('archived_at');
     }
+
+    /**
+     * Scope for archived adviser/student relationships.
+     */
+    public function scopeArchived($query)
+    {
+        return $query->whereNotNull('archived_at');
+    }
+
+    /**
+     * Scope for requests that should block another adviser request.
+     */
+    public function scopeCurrentRequest($query)
+    {
+        return $query->where(function ($currentRequest) {
+            $currentRequest->where('status', 'pending')
+                ->orWhere(function ($approvedActive) {
+                    $approvedActive->where('status', 'approved')
+                        ->whereNull('archived_at');
+                });
+        });
+    }
+
+    public function isArchived(): bool
+    {
+        return $this->archived_at !== null;
+    }
 }

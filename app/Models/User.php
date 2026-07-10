@@ -80,6 +80,18 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the user-facing name for system roles.
+     */
+    public function getRoleDisplayNameAttribute(): string
+    {
+        return match ($this->role) {
+            'Student' => 'Member',
+            'Teacher' => 'Adviser',
+            default => $this->role,
+        };
+    }
+
+    /**
      * Get adviser requests where this user is the student
      */
     public function adviserRequests(): HasMany
@@ -100,7 +112,7 @@ class User extends Authenticatable
      */
     public function advisers(): HasMany
     {
-        return $this->hasMany(AdviserStudent::class, 'student_id')->approved();
+        return $this->hasMany(AdviserStudent::class, 'student_id')->approved()->active();
     }
 
     /**
@@ -108,7 +120,7 @@ class User extends Authenticatable
      */
     public function students(): HasMany
     {
-        return $this->hasMany(AdviserStudent::class, 'adviser_id')->approved();
+        return $this->hasMany(AdviserStudent::class, 'adviser_id')->approved()->active();
     }
 
     /**
@@ -312,27 +324,55 @@ class User extends Authenticatable
             return Project::query();
         }
 
-        $query = Project::where('owner_id', $this->id)
-            ->orWhere('adviser_id', $this->id)
-            ->orWhereHas('members', function ($members) {
-                $members->where('users.id', $this->id);
-            });
+        $studentIds = collect();
+        $archivedStudentIds = collect();
 
         // For teachers, also include projects from students they advise
         if ($this->role === 'Teacher') {
             $studentIds = $this->students()
                 ->where('status', 'approved')
+                ->active()
                 ->pluck('student_id');
-            
+
+            $archivedStudentIds = $this->studentRequests()
+                ->approved()
+                ->archived()
+                ->pluck('student_id');
+        }
+
+        return Project::query()->where(function ($query) use ($studentIds, $archivedStudentIds) {
+            $query->where('owner_id', $this->id)
+                ->orWhere('adviser_id', $this->id)
+                ->orWhereHas('members', function ($members) {
+                    $members->where('users.id', $this->id);
+                });
+
             if ($studentIds->isNotEmpty()) {
                 $query->orWhereIn('owner_id', $studentIds)
                     ->orWhereHas('members', function ($members) use ($studentIds) {
                         $members->whereIn('users.id', $studentIds);
                     });
             }
-        }
 
-        return $query;
+            if ($archivedStudentIds->isNotEmpty()) {
+                $query->orWhereIn('owner_id', $archivedStudentIds)
+                    ->orWhereHas('members', function ($members) use ($archivedStudentIds) {
+                        $members->whereIn('users.id', $archivedStudentIds);
+                    });
+            }
+        });
+    }
+
+    /**
+     * Get active projects this user has access to, excluding archived adviser history.
+     */
+    public function activeAccessibleProjects()
+    {
+        $archivedProjectIds = Project::archivedIdsForUser($this);
+
+        return $this->accessibleProjects()
+            ->where('status', '!=', 'archived')
+            ->when($archivedProjectIds->isNotEmpty(), fn ($query) => $query->whereNotIn('projects.id', $archivedProjectIds));
     }
 
     /**

@@ -144,58 +144,10 @@ class DefenseSchedule extends Model
     }
 
     /**
-     * Check if this schedule uses Google Meet
-     */
-    public function usesGoogleMeet(): bool
-    {
-        return $this->meeting_platform === 'google_meet';
-    }
-
-    /**
-     * Check if Google Meet link should be auto-created
-     */
-    public function shouldAutoCreateMeet(): bool
-    {
-        return $this->auto_create_meet && $this->meeting_platform === 'google_meet';
-    }
-
-    /**
-     * Get the effective meeting link (Google Meet or manual)
+     * Get the meeting link.
      */
     public function getEffectiveMeetingLinkAttribute(): ?string
     {
-        if ($this->usesGoogleMeet() && $this->meeting_link) {
-            return $this->meeting_link;
-        }
-        
         return $this->meeting_link;
-    }
-
-    /**
-     * Get attendee emails for Google Meet
-     */
-    public function getAttendeeEmails(): array
-    {
-        $emails = [];
-        
-        // Add student email
-        if ($this->student && $this->student->email) {
-            $emails[] = $this->student->email;
-        }
-        
-        // Add adviser email
-        if ($this->adviser && $this->adviser->email) {
-            $emails[] = $this->adviser->email;
-        }
-        
-        if ($this->project) {
-            $memberEmails = $this->project->members()
-                ->pluck('users.email')
-                ->filter()
-                ->toArray();
-            $emails = array_merge($emails, $memberEmails);
-        }
-        
-        return array_unique($emails);
     }
 }

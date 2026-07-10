@@ -37,7 +37,16 @@
                                                 <div>
                                                     <h4 class="text-lg font-semibold text-gray-900">{{ $user->name }}</h4>
                                                     <p class="text-sm text-gray-600">{{ $user->email }}</p>
-                                                    <p class="text-sm text-gray-600">{{ $user->role }} - {{ $user->course }}</p>
+                                                    <div class="mt-2 flex flex-wrap items-center gap-2">
+                                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide
+                                                            @if($user->role === 'Leader') bg-indigo-100 text-indigo-800 ring-2 ring-indigo-300
+                                                            @elseif($user->role === 'Teacher') bg-purple-100 text-purple-800 ring-2 ring-purple-300
+                                                            @else bg-green-100 text-green-800 ring-2 ring-green-300
+                                                            @endif">
+                                                            Signing up as {{ $user->role_display_name }}
+                                                        </span>
+                                                        <span class="text-sm text-gray-600">{{ $user->course }}</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                             
@@ -47,6 +56,7 @@
                                                     <p class="text-sm"><span class="font-medium">Section:</span> {{ $user->section }}</p>
                                                 </div>
                                                 <div>
+                                                    <p class="text-sm"><span class="font-medium">Requested Role:</span> <span class="font-bold text-gray-900">{{ $user->role_display_name }}</span></p>
                                                     <p class="text-sm"><span class="font-medium">Registered:</span> {{ $user->created_at->format('M j, Y g:i A') }}</p>
                                                     <p class="text-sm"><span class="font-medium">Status:</span> 
                                                         <span class="px-2 py-1 rounded text-xs bg-yellow-100 text-yellow-800">

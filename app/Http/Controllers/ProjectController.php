@@ -19,12 +19,47 @@ class ProjectController extends Controller
      */
     public function index()
     {
-        $projects = Auth::user()->accessibleProjects()
-            ->with(['owner', 'adviser'])
+        return $this->projectList(false);
+    }
+
+    public function archived()
+    {
+        return $this->projectList(true);
+    }
+
+    private function projectList(bool $archivedOnly)
+    {
+        $user = Auth::user();
+        $archivedProjectIds = Project::archivedIdsForUser($user);
+
+        $projects = $user->accessibleProjects()
+            ->with([
+                'owner',
+                'adviser',
+                'chatRooms' => fn ($query) => $query->select('id', 'project_id')->where('type', 'project'),
+            ])
+            ->withCount(['documents', 'folders'])
+            ->withSum('documents as documents_file_size_sum', 'file_size')
+            ->when($archivedOnly, function ($query) use ($archivedProjectIds) {
+                $query->where(function ($archived) use ($archivedProjectIds) {
+                    $archived->where('status', 'archived')
+                        ->when($archivedProjectIds->isNotEmpty(), fn ($archived) => $archived->orWhereIn('id', $archivedProjectIds));
+                });
+            })
+            ->when(! $archivedOnly, function ($query) use ($archivedProjectIds) {
+                $query->where('status', '!=', 'archived')
+                    ->when($archivedProjectIds->isNotEmpty(), fn ($active) => $active->whereNotIn('id', $archivedProjectIds));
+            })
             ->orderBy('updated_at', 'desc')
             ->paginate(12);
+        $projects->getCollection()->transform(function (Project $project) use ($archivedProjectIds) {
+            $project->is_archived_for_current_user = $project->status === 'archived' || $archivedProjectIds->contains($project->id);
 
-        return view('projects.index', compact('projects'));
+            return $project;
+        });
+        $isArchivedProjectsPage = $archivedOnly;
+
+        return view('projects.index', compact('projects', 'isArchivedProjectsPage'));
     }
 
     /**
@@ -77,9 +112,15 @@ class ProjectController extends Controller
      */
     public function show(Project $project, Request $request)
     {
-        if (!$project->canAccess(Auth::user())) {
+        $user = Auth::user();
+
+        if (!$project->canAccess($user)) {
             abort(403, 'Access denied.');
         }
+
+        $project->load(['owner', 'adviser'])
+            ->loadCount(['documents', 'folders'])
+            ->loadSum('documents as documents_file_size_sum', 'file_size');
 
         $submissionFolder = $this->ensureSubmissionsFolder($project);
         $submissionCount = $submissionFolder->documents()->count();
@@ -95,16 +136,21 @@ class ProjectController extends Controller
 
         // Get folders and documents for current location
         if ($currentFolder) {
-            $folders = $currentFolder->children()->orderBy('name')->get();
+            $folders = $currentFolder->children()->withCount('documents')->orderBy('name')->get();
             $documents = $currentFolder->documents()->with('uploader')->orderBy('name')->get();
             $breadcrumb = $currentFolder->breadcrumb;
         } else {
-            $folders = $project->rootFolders()->orderBy('name')->get();
+            $folders = $project->rootFolders()->withCount('documents')->orderBy('name')->get();
             $documents = $project->rootDocuments()->with('uploader')->orderBy('name')->get();
             $breadcrumb = [];
         }
 
-        return view('projects.show', compact('project', 'folders', 'documents', 'currentFolder', 'breadcrumb', 'submissionFolder', 'submissionCount'));
+        $isArchivedForCurrentUser = $project->isArchivedForUser($user);
+        $canUploadToProject = ! $isArchivedForCurrentUser;
+        $canEditProject = $project->canEdit($user);
+        $canDeleteProjectItems = $project->canManageFiles($user);
+
+        return view('projects.show', compact('project', 'folders', 'documents', 'currentFolder', 'breadcrumb', 'submissionFolder', 'submissionCount', 'isArchivedForCurrentUser', 'canUploadToProject', 'canEditProject', 'canDeleteProjectItems'));
     }
 
     /**
@@ -165,7 +211,7 @@ class ProjectController extends Controller
      */
     public function createFolder(Request $request, Project $project)
     {
-        if (!$project->canEdit(Auth::user())) {
+        if (!$project->canManageFiles(Auth::user())) {
             abort(403, 'Access denied.');
         }
 
@@ -309,7 +355,7 @@ class ProjectController extends Controller
      */
     public function uploadDocuments(Request $request, Project $project)
     {
-        if (!$project->canAccess(Auth::user())) {
+        if (!$project->canUploadDocuments(Auth::user())) {
             abort(403, 'Access denied.');
         }
 

@@ -1,26 +1,3 @@
-@php
-    $chatUnreadCount = 0;
-    $notificationUnreadCount = 0;
-    $studentRequestPendingCount = 0;
-
-    if (Auth::check()) {
-        $chatUnreadCount = Auth::user()->chatRooms()
-            ->where('chat_rooms.is_active', true)
-            ->get()
-            ->sum(fn ($room) => $room->getUnreadCountForUser(Auth::user()));
-
-        if (Auth::user()->isTeacher()) {
-            $studentRequestPendingCount = Auth::user()->studentRequests()
-                ->where('status', 'pending')
-                ->count();
-        }
-
-        $notificationUnreadCount = \Illuminate\Support\Facades\Schema::hasTable('app_notifications')
-            ? \App\Models\AppNotification::where('user_id', Auth::id())->whereNull('read_at')->count()
-            : $studentRequestPendingCount;
-    }
-@endphp
-
  <!-- Header Navigation -->
     <header class="sticky top-0 z-50 bg-white border-b border-gray-200" x-data="{ mobileOpen: false }">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -139,9 +116,6 @@
                         <!-- Dropdown Menu -->
                         <div x-show="open" @click.away="open = false" x-transition class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
                             <a href="{{ route('profile.edit') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Profile</a>
-                            @if(Auth::user()->isTeacher() || Auth::user()->canLeadGroup())
-                                <a href="{{ route('setup-google-auth') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Connect Google Calendar</a>
-                            @endif
                             <div class="border-t border-gray-100"></div>
                             <form method="POST" action="{{ route('logout', [], false) }}">
                                 @csrf

@@ -1,4 +1,14 @@
 <x-app-layout>
+    @php
+        $displayStatus = $isArchivedForCurrentUser ? 'archived' : $project->status;
+        $statusBadgeClass = match ($displayStatus) {
+            'active' => 'bg-green-100 text-green-800',
+            'completed' => 'bg-blue-100 text-blue-800',
+            'archived' => 'bg-gray-100 text-gray-800',
+            default => 'bg-yellow-100 text-yellow-800',
+        };
+    @endphp
+
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <div>
@@ -6,22 +16,23 @@
                     {{ $project->title }}
                 </h2>
                 <div class="flex items-center space-x-4 mt-1">
-                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
-                        @if($project->status === 'active') bg-green-100 text-green-800
-                        @elseif($project->status === 'completed') bg-blue-100 text-blue-800
-                        @elseif($project->status === 'archived') bg-gray-100 text-gray-800
-                        @else bg-yellow-100 text-yellow-800 @endif">
-                        {{ ucfirst($project->status) }}
+                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ $statusBadgeClass }}">
+                        {{ ucfirst($displayStatus) }}
                     </span>
-                    <span class="text-sm text-gray-600">{{ $project->documents()->count() }} files • {{ $project->folders()->count() }} folders • {{ $submissionCount }} submitted work</span>
+                    @if($isArchivedForCurrentUser)
+                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">
+                            Archived Files
+                        </span>
+                    @endif
+                    <span class="text-sm text-gray-600">{{ $project->documents_count }} files • {{ $project->folders_count }} folders • {{ $submissionCount }} submitted work</span>
                 </div>
             </div>
             <div class="flex space-x-2">
-                <a href="{{ route('projects.index') }}" 
+                <a href="{{ $isArchivedForCurrentUser ? route('projects.archived') : route('projects.index') }}" 
                    class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
                     ← Back to Projects
                 </a>
-                @if($project->canEdit(Auth::user()))
+                @if($canEditProject)
                     <a href="{{ route('projects.edit', $project) }}" 
                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
                         Edit Project
@@ -48,6 +59,20 @@
                 </div>
             @endif
 
+            @if($isArchivedForCurrentUser)
+                <div class="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <div class="flex items-start gap-3">
+                        <svg class="mt-0.5 h-5 w-5 shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 012-2h10a2 2 0 012 2M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
+                        </svg>
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-900">Archived files</h3>
+                            <p class="mt-1 text-sm text-gray-600">This group has been archived for your adviser history. You can preview and download saved student uploads, but uploads and file changes are disabled.</p>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             <!-- Project Info Bar -->
             <div class="bg-white shadow-sm rounded-lg mb-6 p-4">
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
@@ -71,7 +96,7 @@
                     @endif
                     <div>
                         <span class="font-medium text-gray-700">Total Size:</span>
-                        <span class="text-gray-900">{{ $project->formatted_size }}</span>
+                        <span class="text-gray-900">{{ $project->formatted_list_size }}</span>
                     </div>
                     <div>
                         <span class="font-medium text-gray-700">Submitted Work:</span>
@@ -117,7 +142,7 @@
             <div class="bg-white shadow-sm rounded-lg mb-6 p-4">
                 <div class="flex flex-wrap items-center justify-between gap-4">
                     <div class="flex flex-wrap items-center gap-3">
-                        @if($project->canAccess(Auth::user()))
+                        @if($canUploadToProject)
                             <button onclick="openUploadModal()" 
                                     class="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm">
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -126,7 +151,7 @@
                                 {{ $currentFolder && $currentFolder->id === $submissionFolder->id ? 'Submit Work' : 'Upload Files' }}
                             </button>
                         @endif
-                        @if($project->canEdit(Auth::user()))
+                        @if($canDeleteProjectItems)
                             <button onclick="openFolderModal()" 
                                     class="inline-flex items-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm">
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -135,7 +160,7 @@
                                 New Folder
                             </button>
                         @endif
-                        @if(!$project->canEdit(Auth::user()))
+                        @if(!$canEditProject)
                             <div class="flex items-center text-sm text-gray-600 bg-gray-50 px-4 py-2 rounded-lg">
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
@@ -166,7 +191,7 @@
                                                 <svg class="w-12 h-12 mb-2" style="color: {{ $folder->color }}" fill="currentColor" viewBox="0 0 20 20">
                                                     <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path>
                                                 </svg>
-                                                @if($folder->canDelete(Auth::user()))
+                                                @if($canDeleteProjectItems && ! $folder->isSubmissionsFolder())
                                                     <button onclick="event.stopPropagation(); deleteFolder({{ $folder->id }}, '{{ $folder->name }}')" 
                                                             class="absolute -top-1 -right-1 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center justify-center">
                                                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -177,7 +202,7 @@
                                             </div>
                                             <span class="text-sm text-center text-gray-900 truncate w-full">{{ $folder->name }}</span>
                                             <span class="text-xs text-gray-500">
-                                                {{ $folder->documents()->count() }} {{ $folder->id === $submissionFolder->id ? 'submitted work' : 'files' }}
+                                                {{ $folder->documents_count }} {{ $folder->id === $submissionFolder->id ? 'submitted work' : 'files' }}
                                             </span>
                                         </div>
                                     </div>
@@ -226,27 +251,23 @@
                                             </div>
                                         </div>
                                         <div class="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            @if($document->canPreview(Auth::user()))
-                                                <a href="{{ route('projects.preview-document', [$project, $document]) }}" 
-                                                   target="_blank"
-                                                   class="inline-flex items-center text-indigo-600 hover:text-indigo-800 text-sm font-medium">
-                                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                                    </svg>
-                                                    Preview
-                                                </a>
-                                            @endif
-                                            @if($document->canDownload(Auth::user()))
-                                                <a href="{{ route('projects.download-document', [$project, $document]) }}" 
-                                                   class="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium">
-                                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-4-4m4 4l4-4m5-5v8a2 2 0 01-2 2H5a2 2 0 01-2-2v-8a2 2 0 012-2h8l2 2h4a2 2 0 012 2z"></path>
-                                                    </svg>
-                                                    Download
-                                                </a>
-                                            @endif
-                                            @if($document->canDelete(Auth::user()))
+                                            <a href="{{ route('projects.preview-document', [$project, $document]) }}" 
+                                               target="_blank"
+                                               class="inline-flex items-center text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+                                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                                </svg>
+                                                Preview
+                                            </a>
+                                            <a href="{{ route('projects.download-document', [$project, $document]) }}" 
+                                               class="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-4-4m4 4l4-4m5-5v8a2 2 0 01-2 2H5a2 2 0 01-2-2v-8a2 2 0 012-2h8l2 2h4a2 2 0 012 2z"></path>
+                                                </svg>
+                                                Download
+                                            </a>
+                                            @if(!$isArchivedForCurrentUser && ($canDeleteProjectItems || $document->uploaded_by === Auth::id()))
                                                 <button onclick="deleteDocument({{ $document->id }}, '{{ $document->original_name }}')" 
                                                         class="inline-flex items-center text-red-600 hover:text-red-800 text-sm font-medium">
                                                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -269,7 +290,7 @@
                             </svg>
                         </div>
                         <h3 class="text-xl font-semibold text-gray-900 mb-3">No Files Yet</h3>
-                        @if($project->canAccess(Auth::user()))
+                        @if($canUploadToProject)
                             <p class="text-gray-600 mb-8 max-w-md mx-auto">Start by uploading your project documents or creating folders to organize your work.</p>
                             <div class="flex flex-col sm:flex-row justify-center gap-3">
                                 <button onclick="openUploadModal()" 
@@ -279,7 +300,7 @@
                                     </svg>
                                     Upload Files
                                 </button>
-                                @if($project->canEdit(Auth::user()))
+                                @if($canDeleteProjectItems)
                                 <button onclick="openFolderModal()" 
                                         class="inline-flex items-center bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm">
                                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -290,13 +311,13 @@
                                 @endif
                             </div>
                         @else
-                            <p class="text-gray-600 mb-4 max-w-md mx-auto">This project doesn't have any files yet. The project owner can upload documents and create folders.</p>
+                            <p class="text-gray-600 mb-4 max-w-md mx-auto">{{ $isArchivedForCurrentUser ? 'This archived project does not have saved files yet.' : "This project doesn't have any files yet. The project owner can upload documents and create folders." }}</p>
                             <div class="inline-flex items-center text-sm text-gray-500 bg-gray-50 px-4 py-2 rounded-lg">
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                                 </svg>
-                                You have view access to this project
+                                {{ $isArchivedForCurrentUser ? 'Archived file access' : 'You have view access to this project' }}
                             </div>
                         @endif
                     </div>
@@ -305,6 +326,7 @@
         </div>
     </div>
 
+    @if($canUploadToProject)
     <!-- Upload Modal -->
     <div id="uploadModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
         <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
@@ -343,6 +365,7 @@
             </div>
         </div>
     </div>
+    @endif
 
     <!-- Folder Modal -->
     <div id="folderModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
@@ -446,11 +469,11 @@
 
     <script>
         function openUploadModal() {
-            document.getElementById('uploadModal').classList.remove('hidden');
+            document.getElementById('uploadModal')?.classList.remove('hidden');
         }
 
         function closeUploadModal() {
-            document.getElementById('uploadModal').classList.add('hidden');
+            document.getElementById('uploadModal')?.classList.add('hidden');
         }
 
         function openFolderModal() {
@@ -521,7 +544,7 @@
         }
 
         // Close modals when clicking outside
-        document.getElementById('uploadModal').addEventListener('click', function(e) {
+        document.getElementById('uploadModal')?.addEventListener('click', function(e) {
             if (e.target === this) closeUploadModal();
         });
 

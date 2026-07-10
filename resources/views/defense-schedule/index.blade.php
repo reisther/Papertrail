@@ -248,18 +248,9 @@
                     <div class="mt-4 space-y-2">
                         <div class="flex items-center justify-between">
                             <span class="text-sm font-medium text-gray-700">Online Meeting:</span>
-                            ${props.meeting_platform === 'google_meet' ? `
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                    <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                                    </svg>
-                                    Google Meet
-                                </span>
-                            ` : `
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                    Manual Link
-                                </span>
-                            `}
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                Manual Link
+                            </span>
                         </div>
                         <div class="flex space-x-2">
                             <a href="${props.meeting_link}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium">
@@ -268,14 +259,6 @@
                                 </svg>
                                 Join Meeting
                             </a>
-                            ${props.google_calendar_link ? `
-                                <a href="${props.google_calendar_link}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm font-medium">
-                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                                    </svg>
-                                    View in Calendar
-                                </a>
-                            ` : ''}
                         </div>
                     </div>
                 ` : ''}

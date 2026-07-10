@@ -10,6 +10,7 @@ use App\Models\ProjectTask;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use App\Models\TitleSubmission;
 use App\Services\EmailNotificationService;
@@ -32,7 +33,7 @@ class AdviserController extends Controller
             ->get();
 
         $currentRequests = Auth::user()->adviserRequests()
-            ->whereIn('status', ['pending', 'approved'])
+            ->currentRequest()
             ->with('adviser')
             ->orderBy('created_at', 'desc')
             ->get();
@@ -55,7 +56,7 @@ class AdviserController extends Controller
         ]);
 
         $activeRequest = Auth::user()->adviserRequests()
-            ->whereIn('status', ['pending', 'approved'])
+            ->currentRequest()
             ->first();
 
         if ($activeRequest) {
@@ -75,7 +76,7 @@ class AdviserController extends Controller
         // Check if request already exists
         $existingRequest = AdviserStudent::where('student_id', Auth::id())
             ->where('adviser_id', $request->adviser_id)
-            ->whereIn('status', ['pending', 'approved'])
+            ->currentRequest()
             ->first();
 
         if ($existingRequest) {
@@ -84,14 +85,29 @@ class AdviserController extends Controller
                 ->withErrors(['adviser_id' => 'You already have a request with this adviser.']);
         }
 
-        $adviserRequest = AdviserStudent::create([
-            'student_id' => Auth::id(),
-            'adviser_id' => $request->adviser_id,
-            'message' => $request->message,
-            'status' => 'pending'
-        ]);
+        $adviserRequest = AdviserStudent::where('student_id', Auth::id())
+            ->where('adviser_id', $request->adviser_id)
+            ->first();
+
+        if ($adviserRequest) {
+            $adviserRequest->update([
+                'message' => $request->message,
+                'response_message' => null,
+                'requested_at' => now(),
+                'responded_at' => null,
+                'status' => 'pending',
+            ]);
+        } else {
+            $adviserRequest = AdviserStudent::create([
+                'student_id' => Auth::id(),
+                'adviser_id' => $request->adviser_id,
+                'message' => $request->message,
+                'status' => 'pending'
+            ]);
+        }
+
         if (Schema::hasTable('app_notifications')) {
-            AppNotification::firstOrCreate(
+            AppNotification::updateOrCreate(
                 [
                     'user_id' => $adviser->id,
                     'type' => 'student_request',
@@ -102,6 +118,7 @@ class AdviserController extends Controller
                     'title' => 'New adviser request',
                     'body' => Auth::user()->name . ' sent you an adviser request.',
                     'action_url' => route('advisers.pending-requests'),
+                    'read_at' => null,
                 ]
             );
         }
@@ -146,13 +163,30 @@ class AdviserController extends Controller
             'response_message' => 'nullable|string|max:500'
         ]);
 
-        $adviserStudent->update([
-            'status' => $request->status,
-            'response_message' => $request->response_message,
-            'responded_at' => now()
-        ]);
+        $wasArchivedReactivation = $adviserStudent->isArchived();
 
-        if ($request->status === 'approved') {
+        if ($request->status === 'rejected' && $wasArchivedReactivation) {
+            $adviserStudent->update([
+                'status' => 'approved',
+                'response_message' => $request->response_message,
+                'responded_at' => now(),
+            ]);
+
+            return back()->with('success', 'Request rejected. The group remains in archived history.');
+        }
+
+        DB::transaction(function () use ($adviserStudent, $request) {
+            $adviserStudent->update([
+                'status' => $request->status,
+                'response_message' => $request->response_message,
+                'responded_at' => now(),
+                'archived_at' => $request->status === 'approved' ? null : $adviserStudent->archived_at,
+            ]);
+
+            if ($request->status !== 'approved') {
+                return;
+            }
+
             $projects = Project::where('owner_id', $adviserStudent->student_id)->get();
 
             $projects
@@ -167,7 +201,7 @@ class AdviserController extends Controller
                 ->where('type', 'project')
                 ->get()
                 ->each(fn (ChatRoom $room) => $room->addParticipant($adviserStudent->adviser, 'moderator'));
-        }
+        });
 
         $statusText = $request->status === 'approved' ? 'approved' : 'rejected';
         return back()->with('success', "Request {$statusText} successfully!");
@@ -267,9 +301,34 @@ class AdviserController extends Controller
             return back()->with('error', 'Only approved adviser groups can be archived.');
         }
 
-        $adviserStudent->update(['archived_at' => now()]);
+        DB::transaction(function () use ($adviserStudent) {
+            $archivedAt = now();
+            $projectIds = $this->affectedProjectIds($adviserStudent);
 
-        return back()->with('success', 'Group archived from your active adviser list.');
+            $adviserStudent->update(['archived_at' => $archivedAt]);
+
+            Project::whereIn('id', $projectIds)
+                ->where('adviser_id', $adviserStudent->adviser_id)
+                ->update(['adviser_id' => null]);
+
+            ChatRoom::whereIn('project_id', $projectIds)
+                ->where('type', 'project')
+                ->with('participants')
+                ->get()
+                ->each(function (ChatRoom $room) use ($adviserStudent) {
+                    if ($adviserStudent->adviser && ! $room->hasParticipant($adviserStudent->adviser)) {
+                        $room->addParticipant($adviserStudent->adviser, 'moderator');
+                    }
+
+                    $room->messages()->create([
+                        'user_id' => $adviserStudent->adviser_id,
+                        'message' => 'This adviser chat has been archived. The conversation is now read-only.',
+                        'message_type' => 'system',
+                    ]);
+                });
+        });
+
+        return back()->with('success', 'Group archived. Chat history is saved as read-only.');
     }
 
     /**
@@ -281,7 +340,15 @@ class AdviserController extends Controller
             abort(403, 'Access denied. Group leaders only.');
         }
 
-        $advisers = Auth::user()->advisers()->with('adviser')->get();
+        $advisers = Auth::user()
+            ->adviserRequests()
+            ->approved()
+            ->with([
+                'adviser',
+                'student.ownedProjects' => fn ($query) => $query->with('chatRooms')->latest(),
+            ])
+            ->latest('responded_at')
+            ->get();
         
         return view('advisers.my-advisers', compact('advisers'));
     }
@@ -303,8 +370,15 @@ class AdviserController extends Controller
         }
 
         $students = $studentsQuery->get();
+        $archivedStudents = Auth::user()
+            ->studentRequests()
+            ->approved()
+            ->archived()
+            ->with(['student.ownedProjects' => fn ($query) => $query->with('chatRooms')->latest()])
+            ->latest('archived_at')
+            ->get();
         
-        return view('advisers.my-students', compact('students'));
+        return view('advisers.my-students', compact('students', 'archivedStudents'));
     }
 
         /**
@@ -319,7 +393,7 @@ class AdviserController extends Controller
         $submission = TitleSubmission::where('student_id', Auth::id())->first();
         $activeRequest = Auth::user()
             ->adviserRequests()
-            ->whereIn('status', ['pending', 'approved'])
+            ->currentRequest()
             ->with('adviser')
             ->latest()
             ->first();

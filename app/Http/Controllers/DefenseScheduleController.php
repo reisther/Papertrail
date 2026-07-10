@@ -6,7 +6,6 @@ use App\Models\DefenseSchedule;
 use App\Models\AppNotification;
 use App\Models\User;
 use App\Models\Project;
-use App\Services\GoogleMeetService;
 use App\Services\EmailNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -103,8 +102,7 @@ class DefenseScheduleController extends Controller
                     'type' => $schedule->type,
                     'duration' => $schedule->duration,
                     'meeting_link' => $schedule->effective_meeting_link,
-                    'meeting_platform' => $schedule->meeting_platform,
-                    'google_calendar_link' => $schedule->google_calendar_link,
+                    'meeting_platform' => 'manual',
                     'project_title' => $schedule->project?->title,
                 ]
             ];
@@ -161,8 +159,6 @@ class DefenseScheduleController extends Controller
             'end_time' => 'required|date|after:start_time',
             'type' => 'required|in:meeting,consultation',
             'meeting_link' => 'nullable|url',
-            'meeting_platform' => 'required|in:manual,google_meet,zoom,teams',
-            'auto_create_meet' => 'nullable|boolean',
         ]);
 
         $project = Project::with(['owner', 'members', 'adviser'])->findOrFail($request->project_id);
@@ -198,43 +194,10 @@ class DefenseScheduleController extends Controller
             'panel_members' => null,
             'notes' => null,
             'meeting_link' => $request->meeting_link,
-            'meeting_platform' => $request->meeting_platform,
-            'auto_create_meet' => $request->meeting_platform === 'google_meet',
+            'meeting_platform' => 'manual',
+            'auto_create_meet' => false,
             'created_by' => Auth::id(),
         ];
-
-        // Handle Google Meet integration
-        if ($request->meeting_platform === 'google_meet') {
-            try {
-                $googleMeetService = new GoogleMeetService(Auth::user());
-                if (!$googleMeetService->hasValidToken()) {
-                    return redirect()->back()->withInput()->with('error', 'Connect your Google Calendar first, or choose Manual Link Entry for now.');
-                }
-                
-                $attendees = $this->projectMeetingAttendees($project);
-
-                // Create Google Meet event
-                $meetResult = $googleMeetService->createMeetingEvent(
-                    $request->title,
-                    $request->description,
-                    $request->start_time,
-                    $request->end_time,
-                    array_unique($attendees)
-                );
-
-                // Update data with Google Meet information
-                $data['meeting_link'] = $meetResult['meet_link'];
-                $data['google_event_id'] = $meetResult['event_id'];
-                $data['google_calendar_link'] = $meetResult['calendar_link'];
-
-            } catch (\Exception $e) {
-                Log::error('Failed to create Google Meet event: ' . $e->getMessage());
-                
-                return redirect()->back()
-                    ->withInput()
-                    ->with('error', $this->googleMeetFailureMessage($e));
-            }
-        }
 
         $defenseSchedule = DefenseSchedule::create($data);
         $this->notifyMeetingParticipants($defenseSchedule->fresh(['project.owner', 'project.members', 'project.adviser']));
@@ -352,6 +315,10 @@ class DefenseScheduleController extends Controller
             'panel_members' => null,
             'notes' => null,
             'meeting_link' => $request->meeting_link,
+            'meeting_platform' => 'manual',
+            'auto_create_meet' => false,
+            'google_event_id' => null,
+            'google_calendar_link' => null,
         ]);
         
         return redirect()->route('defense-schedule.index')
@@ -386,174 +353,6 @@ class DefenseScheduleController extends Controller
         return response()->json($projects);
     }
 
-
-    /**
-     * Create Google Meet for existing defense schedule
-     */
-    public function createGoogleMeet(DefenseSchedule $defenseSchedule)
-    {
-        if (!$defenseSchedule->canEdit(Auth::user())) {
-            abort(403, 'You do not have permission to modify this meeting.');
-        }
-
-        try {
-            $googleMeetService = new GoogleMeetService(Auth::user());
-            
-            // Check if Google OAuth is properly setup
-            if (!$googleMeetService->hasValidToken()) {
-                return redirect()->back()->with('error', 'Connect your Google Calendar first. <a href="' . route('setup-google-auth') . '" class="underline text-blue-600">Connect Google Calendar</a>');
-            }
-            
-            // Get attendee emails
-            $attendees = $defenseSchedule->getAttendeeEmails();
-
-            // Create Google Meet event
-            $meetResult = $googleMeetService->createMeetingEvent(
-                $defenseSchedule->title,
-                $defenseSchedule->description,
-                $defenseSchedule->start_time,
-                $defenseSchedule->end_time,
-                $attendees
-            );
-
-            // Update meeting schedule with Google Meet information.
-            $defenseSchedule->update([
-                'meeting_link' => $meetResult['meet_link'],
-                'google_event_id' => $meetResult['event_id'],
-                'google_calendar_link' => $meetResult['calendar_link'],
-                'meeting_platform' => 'google_meet',
-                'auto_create_meet' => true,
-            ]);
-            try {
-                app(EmailNotificationService::class)->sendGoogleMeetCreated($defenseSchedule->fresh());
-            } catch (\Throwable $exception) {
-                Log::warning('Failed to send Google Meet email notification.', [
-                    'defense_schedule_id' => $defenseSchedule->id,
-                    'error' => $exception->getMessage(),
-                ]);
-            }
-
-            return redirect()->back()->with('success', 'Google Meet created successfully! Calendar invites have been sent to all participants.');
-
-        } catch (\Exception $e) {
-            Log::error('Failed to create Google Meet for meeting schedule: ' . $e->getMessage());
-            return redirect()->back()->with('error', $this->googleMeetFailureMessage($e));
-        }
-    }
-
-    /**
-     * Update Google Meet for existing defense schedule
-     */
-    public function updateGoogleMeet(DefenseSchedule $defenseSchedule)
-    {
-        if (!$defenseSchedule->canEdit(Auth::user())) {
-            abort(403, 'You do not have permission to modify this meeting.');
-        }
-
-        if (!$defenseSchedule->google_event_id) {
-            return redirect()->back()->with('error', 'No Google Calendar event found to update.');
-        }
-
-        try {
-            $googleMeetService = new GoogleMeetService(Auth::user());
-            if (!$googleMeetService->hasValidToken()) {
-                return redirect()->back()->with('error', 'Connect your Google Calendar first before updating this Google Meet event.');
-            }
-            
-            // Get attendee emails
-            $attendees = $defenseSchedule->getAttendeeEmails();
-
-            // Update Google Meet event
-            $meetResult = $googleMeetService->updateMeetingEvent(
-                $defenseSchedule->google_event_id,
-                $defenseSchedule->title,
-                $defenseSchedule->description,
-                $defenseSchedule->start_time,
-                $defenseSchedule->end_time,
-                $attendees
-            );
-
-            // Update meeting schedule with new Google Meet information.
-            $defenseSchedule->update([
-                'meeting_link' => $meetResult['meet_link'],
-                'google_calendar_link' => $meetResult['calendar_link'],
-            ]);
-
-            return redirect()->back()->with('success', 'Google Meet updated successfully! Updated calendar invites have been sent to all participants.');
-
-        } catch (\Exception $e) {
-            Log::error('Failed to update Google Meet for meeting schedule: ' . $e->getMessage());
-            return redirect()->back()->with('error', 'Failed to update Google Meet. Please try again or contact support.');
-        }
-    }
-
-    /**
-     * Setup Google OAuth authorization
-     */
-    public function setupGoogleAuth()
-    {
-        if (! $this->canConnectGoogleCalendar(Auth::user())) {
-            abort(403, 'Only advisers and group leaders can connect Google Calendar.');
-        }
-
-        try {
-            $googleMeetService = new GoogleMeetService(Auth::user());
-            $authUrl = $googleMeetService->getAuthUrl();
-            
-            return redirect($authUrl);
-        } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Failed to setup Google authorization: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * Handle Google OAuth callback
-     */
-    public function handleGoogleCallback(Request $request)
-    {
-        if (! $this->canConnectGoogleCalendar(Auth::user())) {
-            abort(403, 'Only advisers and group leaders can connect Google Calendar.');
-        }
-
-        $code = $request->get('code');
-        if (!$code) {
-            return redirect()->route('defense-schedule.index')->with('error', 'Google authorization was cancelled.');
-        }
-
-        try {
-            $googleMeetService = new GoogleMeetService(Auth::user());
-            $success = $googleMeetService->handleCallback($code);
-            
-            if ($success) {
-                return redirect()->route('profile.edit')->with('status', 'Google Calendar connected successfully. You can now create Google Meet links from your account.');
-            } else {
-                return redirect()->route('profile.edit')->with('error', 'Failed to complete Google authorization.');
-            }
-        } catch (\Exception $e) {
-            return redirect()->route('profile.edit')->with('error', 'Google authorization failed: ' . $e->getMessage());
-        }
-    }
-
-    public function disconnectGoogleAuth()
-    {
-        if (! $this->canConnectGoogleCalendar(Auth::user())) {
-            abort(403, 'Only advisers and group leaders can disconnect Google Calendar.');
-        }
-
-        if (Schema::hasTable('google_oauth_tokens')) {
-            $query = \Illuminate\Support\Facades\DB::table('google_oauth_tokens')
-                ->where('provider', 'google_calendar');
-
-            if (Schema::hasColumn('google_oauth_tokens', 'user_id')) {
-                $query->where('user_id', Auth::id());
-            }
-
-            $query->delete();
-        }
-
-        return redirect()->route('profile.edit')->with('status', 'Google Calendar disconnected.');
-    }
-
     /**
      * Get event color based on type and status
      */
@@ -568,20 +367,6 @@ class DefenseScheduleController extends Controller
             'consultation' => '#10b981',
             default => '#6b7280'
         };
-    }
-
-    private function projectMeetingAttendees(Project $project): array
-    {
-        $project->loadMissing(['owner', 'members', 'adviser']);
-
-        return collect([$project->owner, $project->adviser])
-            ->filter()
-            ->merge($project->members)
-            ->pluck('email')
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
     }
 
     private function notifyMeetingParticipants(DefenseSchedule $schedule): void
@@ -632,27 +417,4 @@ class DefenseScheduleController extends Controller
         return $link;
     }
 
-    private function googleMeetFailureMessage(\Throwable $exception): string
-    {
-        $message = $exception->getMessage();
-
-        if (str_contains($message, 'SERVICE_DISABLED') || str_contains($message, 'calendar-json.googleapis.com')) {
-            return 'Google Meet could not be created because Google Calendar API is disabled in your Google Cloud project. Enable Google Calendar API, wait a few minutes, then try again.';
-        }
-
-        if (str_contains($message, 'invalid_grant')) {
-            return 'Google Meet authorization expired or was changed. Ask an admin to setup Google authorization again.';
-        }
-
-        if (str_contains($message, 'insufficient') || str_contains($message, 'PERMISSION_DENIED')) {
-            return 'Google Meet could not be created because the authorized Gmail does not have enough Calendar permission. Ask an admin to authorize Google again and allow Calendar access.';
-        }
-
-        return 'Google Meet could not be created. Please try again, or choose Manual Link Entry for now.';
-    }
-
-    private function canConnectGoogleCalendar(?User $user): bool
-    {
-        return $user && ($user->isTeacher() || $user->canLeadGroup());
-    }
 }

@@ -5,7 +5,7 @@
                 <div class="p-6 text-gray-900">
                     <div class="flex justify-between items-center mb-6">
                         <h2 class="text-2xl font-bold text-gray-900">My Advisers</h2>
-                        <a href="{{ route('advisers.index') }}" 
+                        <a href="{{ route('advisers.title-submission') }}" 
                            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm transition-colors">
                             Find More Advisers
                         </a>
@@ -14,7 +14,12 @@
                     @if ($advisers->count() > 0)
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             @foreach ($advisers as $relationship)
-                                <div class="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                                @php
+                                    $isArchived = filled($relationship->archived_at);
+                                    $group = $relationship->student?->ownedProjects?->first();
+                                    $archivedRoom = $group?->chatRooms?->first();
+                                @endphp
+                                <div class="{{ $isArchived ? 'bg-gray-50' : 'bg-white' }} border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
                                     <div class="flex items-center space-x-4 mb-4">
                                         <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
                                             <svg class="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
@@ -42,16 +47,23 @@
                                     @endif
                                     
                                     <div class="mt-4 flex items-center justify-between gap-3">
-                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                                            Active Adviser
+                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ $isArchived ? 'bg-gray-200 text-gray-700' : 'bg-green-100 text-green-800' }}">
+                                            {{ $isArchived ? 'Archived Adviser' : 'Active Adviser' }}
                                         </span>
-                                        <form method="POST" action="{{ route('advisers.release', $relationship) }}">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="text-red-600 hover:text-red-800 text-sm font-medium">
-                                                Remove Adviser
-                                            </button>
-                                        </form>
+                                        @if($isArchived)
+                                            <a href="{{ $archivedRoom ? route('chat.archived', ['room' => $archivedRoom->id]) : route('chat.archived') }}"
+                                               class="inline-flex h-9 items-center justify-center rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200">
+                                                Archived chats
+                                            </a>
+                                        @else
+                                            <form method="POST" action="{{ route('advisers.release', $relationship) }}">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="text-red-600 hover:text-red-800 text-sm font-medium">
+                                                    Remove Adviser
+                                                </button>
+                                            </form>
+                                        @endif
                                     </div>
                                 </div>
                             @endforeach
@@ -65,7 +77,7 @@
                             </div>
                             <h3 class="text-lg font-medium text-gray-900 mb-2">No Advisers Yet</h3>
                             <p class="text-gray-500 mb-6">You haven't been approved by any advisers yet.</p>
-                            <a href="{{ route('advisers.index') }}" 
+                            <a href="{{ route('advisers.title-submission') }}" 
                                class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md transition-colors">
                                 Find Advisers
                             </a>

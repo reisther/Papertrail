@@ -2,34 +2,41 @@
     @php
         $memberWithoutGroup = Auth::user()->isStudent() && Auth::user()->joinedProjects()->doesntExist();
         $leaderWithoutGroup = Auth::user()->canLeadGroup() && Auth::user()->ownedProjects()->doesntExist();
+        $isArchivedChatsPage = $isArchivedChatsPage ?? false;
     @endphp
 
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Chat System') }}
+            {{ $isArchivedChatsPage ? __('Archived Chats') : __('Chat System') }}
         </h2>
     </x-slot>
 <div class="min-h-screen bg-gray-50">
     <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
-        <div class="mb-4 sm:mb-8">
-            <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Chat & Collaboration</h1>
-            <p class="mt-2 text-gray-600">Communicate with your project team and advisers in real-time</p>
+        <div class="mb-4 flex flex-col gap-3 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">{{ $isArchivedChatsPage ? 'Archived Chats' : 'Chat & Collaboration' }}</h1>
+                <p class="mt-2 text-gray-600">{{ $isArchivedChatsPage ? 'Review saved adviser chat history after a group is archived.' : 'Communicate with your project team and advisers in real-time' }}</p>
+            </div>
+            <a href="{{ $isArchivedChatsPage ? route('chat.index') : route('chat.archived') }}"
+               class="inline-flex h-10 items-center justify-center rounded-md {{ $isArchivedChatsPage ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-800 hover:bg-gray-900 text-white' }} px-4 py-2 text-sm font-medium transition-colors">
+                {{ $isArchivedChatsPage ? 'Active Chats' : 'Archived Chats' }}
+            </a>
         </div>
 
-        @if($leaderWithoutGroup)
+        @if($leaderWithoutGroup && ! $isArchivedChatsPage)
             @include('partials.leader-create-group-card')
         @else
         @php
             $chatRoomGroups = $chatRooms->groupBy(fn ($room) => $room->project?->title ?? 'General Rooms');
             $showFolderSidebar = Auth::user()->isTeacher();
-            $canCreateChatRooms = Auth::user()->canLeadGroup() || Auth::user()->isTeacher();
+            $canCreateChatRooms = ! $isArchivedChatsPage && (Auth::user()->canLeadGroup() || Auth::user()->isTeacher());
         @endphp
         <div id="chatLayout" class="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-6 lg:h-[calc(100vh-12rem)]">
             <!-- Chat Rooms Sidebar -->
             <div id="chatSidebar" class="lg:col-span-1 bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden max-h-[calc(100vh-9rem)] lg:max-h-none">
                 <div class="sticky top-0 z-10 p-4 border-b border-gray-200 bg-gray-50">
                     <div class="flex items-center justify-between">
-                        <h2 class="text-lg font-semibold text-gray-900">Chat Rooms</h2>
+                        <h2 class="text-lg font-semibold text-gray-900">{{ $isArchivedChatsPage ? 'Archived Chats' : 'Chat Rooms' }}</h2>
                         @if($canCreateChatRooms)
                             <button onclick="openCreateRoomModal()" class="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md transition-colors">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -86,8 +93,8 @@
                                 <p class="text-sm">You're not in a group chat yet</p>
                                 <p class="text-xs mt-1">Ask your leader to send you the invitation link for your group. Once you join, your group chat will appear here.</p>
                             @else
-                                <p class="text-sm">No chat rooms yet</p>
-                                <p class="text-xs mt-1">Chat rooms appear here after your group leader creates one</p>
+                                <p class="text-sm">{{ $isArchivedChatsPage ? 'No archived chats yet' : 'No chat rooms yet' }}</p>
+                                <p class="text-xs mt-1">{{ $isArchivedChatsPage ? 'Archived adviser chats will appear here after a group is archived.' : 'Chat rooms appear here after your group leader creates one' }}</p>
                             @endif
                         </div>
                     @endif
@@ -107,6 +114,7 @@
                         <div class="min-w-0 flex-1">
                             <h3 id="chatRoomName" class="text-lg font-semibold text-gray-900"></h3>
                             <p id="chatRoomDescription" class="text-sm text-gray-600"></p>
+                            <p id="archivedChatNotice" class="mt-1 hidden text-sm font-medium text-gray-600">Archived chats: this conversation is saved as read-only history.</p>
                         </div>
                         <div class="flex shrink-0 items-center space-x-1 sm:space-x-2">
                             <button id="pinnedMessagesButton" onclick="togglePinnedMessagesPanel()" class="relative text-gray-400 hover:text-yellow-700 p-2 rounded-lg hover:bg-yellow-50" title="View Pinned Messages">
@@ -125,7 +133,7 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 17h.01"></path>
                                 </svg>
                             </button>
-                            <button onclick="leaveChatRoom()" class="text-gray-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50" title="Leave Chat Room">
+                            <button id="leaveChatRoomBtn" onclick="leaveChatRoom()" class="text-gray-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50" title="Leave Chat Room">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
                                 </svg>
@@ -165,8 +173,8 @@
                             <h3 class="text-lg font-medium text-gray-900 mb-2">You're not in a group yet</h3>
                             <p class="text-gray-600 max-w-md">Ask your leader to send you the invitation link for your group. After you join, you can send chats and files here.</p>
                         @else
-                            <h3 class="text-lg font-medium text-gray-900 mb-2">Welcome to Paper Trail Chat</h3>
-                            <p class="text-gray-600 max-w-md">Select a chat room from the sidebar to start collaborating with your team members and advisers.</p>
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">{{ $isArchivedChatsPage ? 'Archived Chat History' : 'Welcome to Paper Trail Chat' }}</h3>
+                            <p class="text-gray-600 max-w-md">{{ $isArchivedChatsPage ? 'Select an archived chat room from the sidebar to review the saved read-only conversation.' : 'Select a chat room from the sidebar to start collaborating with your team members and advisers.' }}</p>
                         @endif
                     </div>
                 </div>
@@ -879,10 +887,17 @@ async function loadChatRoom(roomId) {
             currentChatRoomDetails = data.chat_room;
             document.getElementById('chatRoomName').textContent = data.chat_room.name;
             document.getElementById('chatRoomDescription').textContent = data.chat_room.description || '';
+            const isArchived = Boolean(data.chat_room.is_archived);
+            document.getElementById('archivedChatNotice')?.classList.toggle('hidden', !isArchived);
+            document.getElementById('messageInput')?.classList.toggle('hidden', isArchived);
+            document.getElementById('typingIndicator')?.classList.toggle('hidden', isArchived);
             
             const deleteBtn = document.getElementById('deleteChatRoomBtn');
+            const leaveBtn = document.getElementById('leaveChatRoomBtn');
+            leaveBtn?.classList.toggle('hidden', isArchived);
+
             if (deleteBtn) {
-                if (data.chat_room.can_delete) {
+                if (data.chat_room.can_delete && !isArchived) {
                     deleteBtn.classList.remove('hidden');
                 } else {
                     deleteBtn.classList.add('hidden');
@@ -918,6 +933,7 @@ async function loadMessages(roomId) {
 function displayMessages(messages) {
     const container = document.getElementById('messagesContainer');
     const currentUserId = {{ Auth::id() }};
+    const isArchivedChat = Boolean(currentChatRoomDetails?.is_archived || messages.some(message => message.is_archived));
     currentMessagesById = Object.fromEntries(messages.map(message => [message.id, message]));
     renderPinnedMessages(messages);
     const wasNearBottom = isMessagesNearBottom();
@@ -983,6 +999,7 @@ function displayMessages(messages) {
                             ${message.seen_by_count > 0 ? `<span class="ml-2">Seen by ${message.seen_by_count}</span>` : ''}
                         </div>
                         <div class="flex shrink-0 items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
+                            ${!isArchivedChat ? `
                             <button type="button" onclick="startReply(${message.id})" class="inline-flex h-6 w-6 items-center justify-center rounded-full ${isOwnMessage ? 'hover:bg-blue-500 hover:text-white' : 'hover:bg-gray-200 hover:text-gray-800'}" title="Reply">
                                 <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l-4-4m0 0l4-4m-4 4h11a4 4 0 014 4v2"></path>
@@ -996,6 +1013,7 @@ function displayMessages(messages) {
                             <button type="button" onclick="showEmojiPicker(${message.id})" class="inline-flex h-6 w-6 items-center justify-center rounded-full ${isOwnMessage ? 'hover:bg-blue-500 hover:text-white' : 'hover:bg-gray-200 hover:text-gray-800'}" title="React">
                                 <span class="text-xs leading-none">+</span>
                             </button>
+                            ` : ''}
                             ${message.can_edit ? `
                                 <button type="button" onclick="startEdit(${message.id})" class="inline-flex h-6 w-6 items-center justify-center rounded-full ${isOwnMessage ? 'hover:bg-blue-500 hover:text-white' : 'hover:bg-gray-200 hover:text-gray-800'}" title="Edit">
                                     <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1016,7 +1034,7 @@ function displayMessages(messages) {
                     ${message.reactions && message.reactions.length > 0 ? `
                         <div class="flex flex-wrap gap-1 mt-2">
                             ${message.reactions.map(reaction => `
-                                <button onclick="toggleReaction(${message.id}, '${reaction.emoji}')" 
+                                <button ${isArchivedChat ? 'type="button" disabled' : `onclick="toggleReaction(${message.id}, '${reaction.emoji}')"`}
                                         class="inline-flex items-center px-2 py-1 rounded-full text-xs border transition-colors ${reaction.user_ids.includes(currentUserId) ? 'bg-blue-100 border-blue-300 text-blue-800' : 'bg-gray-100 border-gray-300 text-gray-600 hover:bg-gray-200'}"
                                         title="${escapeHtml(reaction.users.map(u => u.name).join(', '))}">
                                     ${reaction.emoji} ${reaction.count}
@@ -1152,6 +1170,11 @@ function positionPinnedMessagesPanel() {
 }
 
 function startReply(messageId) {
+    if (currentChatRoomDetails?.is_archived) {
+        showNotification('Archived chats', 'This conversation is saved as read-only history.');
+        return;
+    }
+
     const message = currentMessagesById[messageId];
     if (!message) return;
 
@@ -1170,6 +1193,11 @@ function clearReply() {
 }
 
 function startEdit(messageId) {
+    if (currentChatRoomDetails?.is_archived) {
+        showNotification('Archived chats', 'This conversation is saved as read-only history.');
+        return;
+    }
+
     const message = currentMessagesById[messageId];
     if (!message || !message.can_edit) return;
 
@@ -1209,6 +1237,11 @@ function scrollToMessage(messageId) {
 
 async function togglePin(messageId) {
     if (!currentRoomId) return;
+
+    if (currentChatRoomDetails?.is_archived) {
+        showNotification('Archived chats', 'This conversation is saved as read-only history.');
+        return;
+    }
 
     try {
         const response = await fetch(`/chat/rooms/${currentRoomId}/messages/${messageId}/pin`, {
@@ -1535,6 +1568,11 @@ document.getElementById('sendMessageForm').addEventListener('submit', async func
     e.preventDefault();
     
     if (!currentRoomId) return;
+
+    if (currentChatRoomDetails?.is_archived) {
+        showNotification('Archived chats', 'This conversation is saved as read-only history.');
+        return;
+    }
     
     const messageText = document.getElementById('messageText').value.trim();
     const fileInput = document.getElementById('fileInput');

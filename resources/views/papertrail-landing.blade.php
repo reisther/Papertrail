@@ -251,72 +251,75 @@
                         </div>
                     @endif
                     
+                    <!-- Role Selection -->
+                    <div>
+                        <label for="role" class="block text-sm font-medium text-gray-700">Sign up as</label>
+                        <select id="role" name="role" required class="mt-1 block w-full px-3 py-2 border border-blue-300 rounded-md shadow-sm bg-blue-50 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <option value="Student" {{ old('role') === 'Student' ? 'selected' : '' }}>Member</option>
+                            <option value="Leader" {{ old('role') === 'Leader' ? 'selected' : '' }}>Leader</option>
+                            <option value="Teacher" {{ old('role') === 'Teacher' ? 'selected' : '' }}>Adviser</option>
+                        </select>
+                    </div>
+
                     <!-- Name Fields -->
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label for="firstname" class="block text-sm font-medium text-gray-700">First Name</label>
-                            <input type="text" id="firstname" name="firstname" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <input type="text" id="firstname" name="firstname" value="{{ old('firstname') }}" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                         </div>
                         <div>
                             <label for="lastname" class="block text-sm font-medium text-gray-700">Last Name</label>
-                            <input type="text" id="lastname" name="lastname" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <input type="text" id="lastname" name="lastname" value="{{ old('lastname') }}" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                         </div>
                     </div>
                     <div>
                         <label for="middlename" class="block text-sm font-medium text-gray-700">Middle Name</label>
-                        <input type="text" id="middlename" name="middlename" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <input type="text" id="middlename" name="middlename" value="{{ old('middlename') }}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                     </div>
 
                     <!-- Academic Information -->
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label for="campus" class="block text-sm font-medium text-gray-700">Campus</label>
-                            <input type="text" id="campus" name="campus" required placeholder="e.g., Main Campus" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <input type="text" id="campus" name="campus" value="{{ old('campus') }}" required placeholder="e.g., Main Campus" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                         </div>
                         <div>
                             <label for="course" class="block text-sm font-medium text-gray-700">Course</label>
-                            <input type="text" id="course" name="course" required placeholder="e.g., Computer Science" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <input type="text" id="course" name="course" value="{{ old('course') }}" required placeholder="e.g., Computer Science" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                         </div>
                     </div>
-                    <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-4">
                         <div>
                             <label for="section" class="block text-sm font-medium text-gray-700">Section</label>
-                            <input type="text" id="section" name="section" required placeholder="e.g., A, B, C" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <input type="text" id="section" name="section" value="{{ old('section') }}" required placeholder="e.g., A, B, C" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                         </div>
                         <div>
-                            <label for="id_document" class="block text-sm font-medium text-gray-700">ID Document (Photo/PDF)</label>
+                            <label for="id_document_file" class="block text-sm font-medium text-gray-700">ID Document (Photo/PDF)</label>
                             <p class="text-xs text-gray-500 mb-2">Upload your Student ID or Employee ID for admin verification</p>
-                            <div id="dropzone" class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-blue-400 transition-colors">
-                                <div class="space-y-1 text-center">
-                                    <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                            <div id="dropzone" class="mt-1 flex justify-center px-4 py-5 border-2 border-gray-300 border-dashed rounded-md hover:border-blue-400 transition-colors">
+                                <div class="w-full max-w-full space-y-2 text-center">
+                                    <svg class="mx-auto h-10 w-10 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
                                         <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                                     </svg>
-                                    <div class="flex text-sm text-gray-600">
-                                        <label for="id_document_file" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
+                                    <div class="flex flex-wrap items-center justify-center gap-x-1 text-sm text-gray-600">
+                                        <label for="id_document_file" class="relative cursor-pointer rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
                                             <span>Upload a file</span>
                                             <input id="id_document_file" name="id_document_file" type="file" accept=".jpg,.jpeg,.png,.pdf" class="sr-only" required>
                                         </label>
-                                        <p class="pl-1">or drag and drop</p>
+                                        <span>or drag and drop</span>
                                     </div>
                                     <p class="text-xs text-gray-500">PNG, JPG, PDF up to 10MB</p>
-                                    <p class="text-xs text-yellow-600 mt-1">⚠️ Account will be pending until admin verifies your ID</p>
-                                    <div id="file-info" class="hidden mt-2 text-sm text-green-600"></div>
+                                    <p class="text-xs text-yellow-700 leading-snug">Account will be pending until admin verifies your ID</p>
+                                    <div id="file-info" class="hidden mx-auto mt-2 max-w-full rounded-md bg-green-50 px-3 py-2 text-sm text-green-700 break-words"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Role Selection (Student Only) -->
-                    <div>
-                        <label for="role" class="block text-sm font-medium text-gray-700">Role</label>
-                        <input type="text" id="role" name="role" value="Student" readonly class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-600 cursor-not-allowed">
-                        <p class="text-xs text-gray-500 mt-1">Only students can register. Teachers are created by admin.</p>
-                    </div>
-
                     <!-- Contact Information -->
                     <div>
                         <label for="signup-email" class="block text-sm font-medium text-gray-700">Email</label>
-                        <input type="email" id="signup-email" name="email" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <input type="email" id="signup-email" name="email" value="{{ old('email') }}" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                     </div>
 
                     <!-- Password Fields -->
@@ -474,6 +477,7 @@
 
                 // Show file info
                 fileInfo.textContent = `Selected: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+                fileInfo.title = file.name;
                 fileInfo.classList.remove('hidden');
             }
         }

@@ -119,87 +119,27 @@
                                     Meeting
                                 </h3>
                                 <div class="space-y-4">
-                                    <!-- Meeting Platform Info -->
                                     <div>
                                         <div class="text-sm text-gray-600 mb-1">Meeting Platform:</div>
                                         <div class="flex items-center space-x-2">
-                                            @if($defenseSchedule->meeting_platform === 'google_meet')
-                                                <svg class="w-5 h-5 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
-                                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                                                </svg>
-                                                <span class="font-medium text-blue-600">Google Meet</span>
-                                            @elseif($defenseSchedule->meeting_platform === 'zoom')
-                                                <span class="font-medium text-blue-600">Zoom</span>
-                                            @elseif($defenseSchedule->meeting_platform === 'teams')
-                                                <span class="font-medium text-blue-600">Microsoft Teams</span>
-                                            @else
-                                                <span class="font-medium text-gray-600">Manual Link</span>
-                                            @endif
+                                            <span class="font-medium text-gray-600">Manual Link</span>
                                         </div>
                                     </div>
 
-                                    <!-- Meeting Actions -->
                                     @if($defenseSchedule->effective_meeting_link)
                                         <div>
                                             <div class="text-sm text-gray-600 mb-2">Online Meeting:</div>
                                             <div class="flex flex-col space-y-2">
-                                                <!-- Join Meeting Button -->
                                                 <a href="{{ $defenseSchedule->effective_meeting_link }}" target="_blank" rel="noopener noreferrer"
                                                    class="inline-flex items-center justify-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
                                                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
                                                     </svg>
-                                                    Join {{ $defenseSchedule->meeting_platform === 'google_meet' ? 'Google Meet' : 'Meeting' }}
+                                                    Join Meeting
                                                 </a>
-
-                                                <!-- Calendar Link (if available) -->
-                                                @if($defenseSchedule->google_calendar_link)
-                                                    <a href="{{ $defenseSchedule->google_calendar_link }}" target="_blank" 
-                                                       class="inline-flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
-                                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                                                        </svg>
-                                                        View in Google Calendar
-                                                    </a>
-                                                @endif
-
-                                                <!-- Update Google Meet Button (for editors) -->
-                                                @if($defenseSchedule->canEdit(Auth::user()) && $defenseSchedule->google_event_id)
-                                                    <form method="POST" action="{{ route('defense-schedule.update-google-meet', $defenseSchedule) }}" class="inline">
-                                                        @csrf
-                                                        <button type="submit" 
-                                                                class="inline-flex items-center justify-center bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors w-full">
-                                                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                                                            </svg>
-                                                            Update Google Meet
-                                                        </button>
-                                                    </form>
-                                                @endif
                                             </div>
                                         </div>
                                     @else
-                                        <!-- Create Google Meet Button (for editors when no meeting link exists) -->
-                                        @if($defenseSchedule->canEdit(Auth::user()))
-                                            <div>
-                                                <div class="text-sm text-gray-600 mb-2">No meeting link set</div>
-                                                <form method="POST" action="{{ route('defense-schedule.create-google-meet', $defenseSchedule) }}" class="inline">
-                                                    @csrf
-                                                    <button type="submit" 
-                                                            class="inline-flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
-                                                        <svg class="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                                                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                                                        </svg>
-                                                        Create Google Meet
-                                                    </button>
-                                                </form>
-                                            </div>
-                                        @else
-                                            <div class="text-gray-500 italic">No meeting link available</div>
-                                        @endif
-                                    @endif
-                                    
-                                    @if(!$defenseSchedule->meeting_link)
                                         <div class="text-gray-500 italic">No meeting link specified</div>
                                     @endif
                                 </div>

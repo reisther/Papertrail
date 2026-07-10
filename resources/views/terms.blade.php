@@ -5,10 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Terms and Conditions - Paper Trail</title>
     
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=poppins:400,500,600,700&display=swap" rel="stylesheet" />
-    
     <!-- Scripts -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
@@ -98,7 +94,7 @@
                     <h2 class="text-xl font-semibold text-gray-900 mb-4">8. Contact Information</h2>
                     <p class="text-gray-700 mb-6">
                         For questions about these Terms and Conditions or our Privacy Policy, please contact us at:
-                        <a href="mailto:papertrail@gmail.com" class="text-blue-600 hover:text-blue-800 underline">papertrail@gmail.com</a>
+                        <a href="mailto:support@papertrailpsu.com" class="text-blue-600 hover:text-blue-800 underline">support@papertrailpsu.com</a>
                     </p>
 
                     <div class="bg-gray-50 border rounded-lg p-4 mt-8">

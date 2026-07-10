@@ -40,7 +40,15 @@
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
                                 <div>
                                     <p class="text-sm font-medium text-gray-500">Role</p>
-                                    <p class="text-gray-900">{{ $user->role }}</p>
+                                    <p class="mt-1">
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold uppercase tracking-wide
+                                            @if($user->role === 'Leader') bg-indigo-100 text-indigo-800 ring-2 ring-indigo-300
+                                            @elseif($user->role === 'Teacher') bg-purple-100 text-purple-800 ring-2 ring-purple-300
+                                            @else bg-green-100 text-green-800 ring-2 ring-green-300
+                                            @endif">
+                                            Signing up as {{ $user->role_display_name }}
+                                        </span>
+                                    </p>
                                 </div>
                                 <div>
                                     <p class="text-sm font-medium text-gray-500">Campus</p>

@@ -11,6 +11,7 @@
                 ->withCount('documents')
                 ->first()?->documents_count ?? 0
             : 0;
+        $hasActiveAdviserTasks = $group && $group->status !== 'archived' && filled($group->adviser_id);
     @endphp
 
     <x-slot name="header">
@@ -124,7 +125,7 @@
                     <div class="grid grid-cols-1 {{ $user->isStudentGroupRole() ? 'md:grid-cols-3' : 'md:grid-cols-2' }} gap-6">
                         <div class="bg-blue-50 p-6 rounded-lg">
                             <h4 class="font-semibold text-blue-800">My Projects</h4>
-                            <p class="text-2xl font-bold text-blue-600">{{ $user->accessibleProjects()->count() }}</p>
+                            <p class="text-2xl font-bold text-blue-600">{{ $user->activeAccessibleProjects()->count() }}</p>
                             <a href="{{ route('projects.index') }}" class="text-blue-600 hover:text-blue-800 text-sm">View all -></a>
                         </div>
                         
@@ -140,9 +141,9 @@
                             <div class="bg-indigo-50 p-6 rounded-lg">
                                 <h4 class="font-semibold text-indigo-800">Adviser Tasks</h4>
                                 <p class="text-2xl font-bold text-indigo-600">
-                                    {{ ($group && $group->adviser_id) ? $group->tasks()->where('adviser_id', $group->adviser_id)->count() : 0 }}
+                                    {{ $hasActiveAdviserTasks ? $group->tasks()->where('adviser_id', $group->adviser_id)->count() : 0 }}
                                 </p>
-                                @if($group)
+                                @if($hasActiveAdviserTasks)
                                     <a href="{{ route('todo.index') }}" class="text-indigo-600 hover:text-indigo-800 text-sm">Open checklist -></a>
                                 @endif
                             </div>

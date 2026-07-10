@@ -187,6 +187,10 @@ class Document extends Model
      */
     public function canEdit(User $user): bool
     {
+        if ($this->project->isArchivedForUser($user)) {
+            return false;
+        }
+
         // Only document uploader, project owner, or admin can edit documents
         // Teachers/advisers can view and download but not edit
         return $this->uploaded_by === $user->id || 

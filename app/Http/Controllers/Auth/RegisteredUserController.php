@@ -43,7 +43,7 @@ class RegisteredUserController extends Controller
             'section' => ['required', 'string', 'max:255'],
             'id_document_file' => ['required', 'file', 'mimes:jpeg,jpg,png,pdf', 'max:10240'], // 10MB max
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
-            'role' => ['required', 'string', 'in:Student'], // Only allow Student
+            'role' => ['required', 'string', 'in:Student,Leader,Teacher'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'terms' => ['required', 'accepted'],
         ]);
@@ -84,7 +84,7 @@ class RegisteredUserController extends Controller
                     ],
                     [
                         'title' => 'New sign-up pending',
-                        'body' => "{$user->name} submitted an account verification request.",
+                        'body' => "{$user->name} submitted an account verification request as {$user->role_display_name}.",
                         'action_url' => route('admin.view-user', $user),
                         'created_at' => $user->created_at ?? now(),
                         'updated_at' => now(),

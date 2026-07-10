@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\SendChatMentionDigestEmail;
+use App\Models\AdviserStudent;
 use App\Models\ChatRoom;
 use App\Models\ChatMessage;
 use App\Models\AppNotification;
@@ -42,6 +43,19 @@ class ChatController extends BaseController
      * Display chat interface
      */
     public function index()
+    {
+        return $this->chatPage(false);
+    }
+
+    /**
+     * Display archived chat history.
+     */
+    public function archived()
+    {
+        return $this->chatPage(true);
+    }
+
+    private function chatPage(bool $archivedOnly)
     {
         $user = Auth::user();
         $this->abortIfWebsiteAdmin();
@@ -90,16 +104,24 @@ class ChatController extends BaseController
             ->orderBy('updated_at', 'desc')
             ->get()
             ->unique('id')
-            ->values()
-            ->map(function ($room) use ($user, $pinnedRoomIds) {
+            ->values();
+
+        $archivedRoomIds = ChatRoom::archivedIdsForRoomIds($chatRooms->pluck('id'));
+        $unreadCountsByRoom = $this->unreadCountsForRooms($chatRooms->pluck('id'), $user);
+
+        $chatRooms = $chatRooms
+            ->map(function ($room) use ($user, $pinnedRoomIds, $archivedRoomIds, $unreadCountsByRoom) {
                 if (!$room->hasParticipant($user) && !$this->hasLeftChatRoom($room, $user) && $this->canAccessChatRoom($room, $user)) {
                     $room->addParticipant($user, $room->created_by === $user->id ? 'admin' : 'member');
                 }
 
-                $room->unread_count = $room->getUnreadCountForUser($user);
+                $room->unread_count = (int) ($unreadCountsByRoom[$room->id] ?? 0);
                 $room->is_pinned = $pinnedRoomIds->contains($room->id);
+                $room->is_archived = $archivedRoomIds->contains($room->id);
                 return $room;
             })
+            ->filter(fn ($room) => $archivedOnly ? $room->is_archived : ! $room->is_archived)
+            ->values()
             ->sort(function ($firstRoom, $secondRoom) {
                 if ($firstRoom->is_pinned !== $secondRoom->is_pinned) {
                     return $firstRoom->is_pinned ? -1 : 1;
@@ -109,11 +131,38 @@ class ChatController extends BaseController
             })
             ->values();
 
-        $availableProjects = $accessibleProjects
-            ->filter(fn (Project $project) => $this->canCreateProjectChatRoom($project, $user))
-            ->values();
+        $availableProjects = $archivedOnly
+            ? collect()
+            : $accessibleProjects
+                ->filter(fn (Project $project) => $this->canCreateProjectChatRoom($project, $user))
+                ->values();
+        $isArchivedChatsPage = $archivedOnly;
 
-        return view('chat.index', compact('chatRooms', 'availableProjects'));
+        return view('chat.index', compact('chatRooms', 'availableProjects', 'isArchivedChatsPage'));
+    }
+
+    private function unreadCountsForRooms($roomIds, User $user)
+    {
+        $roomIds = collect($roomIds)->filter()->unique()->values();
+
+        if ($roomIds->isEmpty()) {
+            return collect();
+        }
+
+        return ChatMessage::query()
+            ->select('chat_messages.chat_room_id', DB::raw('COUNT(*) as unread_count'))
+            ->join('chat_participants', function ($join) use ($user) {
+                $join->on('chat_participants.chat_room_id', '=', 'chat_messages.chat_room_id')
+                    ->where('chat_participants.user_id', '=', $user->id);
+            })
+            ->whereIn('chat_messages.chat_room_id', $roomIds)
+            ->where('chat_messages.user_id', '!=', $user->id)
+            ->where(function ($query) {
+                $query->whereNull('chat_participants.last_read_at')
+                    ->orWhereColumn('chat_messages.created_at', '>', 'chat_participants.last_read_at');
+            })
+            ->groupBy('chat_messages.chat_room_id')
+            ->pluck('unread_count', 'chat_messages.chat_room_id');
     }
 
     /**
@@ -254,6 +303,7 @@ class ChatController extends BaseController
                 return response()->json(['error' => 'Access denied'], 403);
             }
 
+            $isArchived = $this->isArchivedChatRoom($chatRoom);
             $currentUserId = Auth::id();
             
             $messages = $chatRoom->messages()
@@ -265,7 +315,7 @@ class ChatController extends BaseController
                                     $deletedForUsers = $message->deleted_for_users ?? [];
                                     return !in_array($currentUserId, $deletedForUsers);
                                 })
-                                ->map(function ($message) use ($currentUserId) {
+                                ->map(function ($message) use ($currentUserId, $isArchived) {
                                     // Handle case where user might be deleted
                                     $user = $message->user;
                                     $userName = $user ? ($user->firstname . ' ' . $user->lastname) : 'Deleted User';
@@ -311,8 +361,9 @@ class ChatController extends BaseController
                                         'is_edited' => $message->is_edited,
                                         'is_seen' => $isSeenByCurrentUser,
                                         'seen_by_count' => count($seenByOthers),
-                                        'can_delete' => $userId === $currentUserId, // User can delete their own messages
-                                        'can_edit' => $userId === $currentUserId && $message->message_type === 'text',
+                                        'is_archived' => $isArchived,
+                                        'can_delete' => ! $isArchived && $userId === $currentUserId,
+                                        'can_edit' => ! $isArchived && $userId === $currentUserId && $message->message_type === 'text',
                                         'reactions' => $message->getReactionsSummary(),
                                         'created_at' => $message->created_at->format('Y-m-d H:i:s'),
                                         'created_at_human' => $message->created_at->diffForHumans(),
@@ -382,6 +433,10 @@ class ChatController extends BaseController
         // Check if user is a participant
         if (!$chatRoom->hasParticipant($user)) {
             return response()->json(['error' => 'Access denied'], 403);
+        }
+
+        if ($this->isArchivedChatRoom($chatRoom)) {
+            return $this->archivedChatResponse();
         }
 
         $validator = Validator::make($request->all(), [
@@ -512,7 +567,9 @@ class ChatController extends BaseController
 
         $chatRoom->load(['participants:id,firstname,lastname,profile_picture_path,updated_at', 'project:id,title,owner_id,adviser_id']);
         $currentUser = Auth::user();
-        $canManageParticipants = $this->isChatAdmin($chatRoom, $currentUser);
+        $archivedRelationship = $this->archivedRelationshipForChatRoom($chatRoom);
+        $isArchived = (bool) $archivedRelationship;
+        $canManageParticipants = ! $isArchived && $this->isChatAdmin($chatRoom, $currentUser);
         $isRoomPinned = Schema::hasTable('chat_room_pins')
             && DB::table('chat_room_pins')
                 ->where('chat_room_id', $chatRoom->id)
@@ -551,6 +608,10 @@ class ChatController extends BaseController
                 'can_manage_participants' => $canManageParticipants,
                 'can_delete' => $canManageParticipants,
                 'is_pinned' => $isRoomPinned,
+                'is_archived' => $isArchived,
+                'archived_at' => optional($archivedRelationship?->archived_at)->format('Y-m-d H:i:s'),
+                'archived_label' => $isArchived ? 'Archived chats' : null,
+                'can_send_messages' => ! $isArchived,
                 'project' => $chatRoom->project,
                 'participants' => $displayParticipants->map(function ($user) use ($chatRoom) {
                     $initials = strtoupper(substr($user->firstname ?? '', 0, 1) . substr($user->lastname ?? '', 0, 1));
@@ -647,6 +708,10 @@ class ChatController extends BaseController
 
     private function syncProjectChatParticipants(ChatRoom $chatRoom): void
     {
+        if ($this->isArchivedChatRoom($chatRoom)) {
+            return;
+        }
+
         $project = $chatRoom->project ?: $chatRoom->project()->with(['owner', 'adviser', 'members'])->first();
 
         if (!$project) {
@@ -694,7 +759,7 @@ class ChatController extends BaseController
             ->unique('id');
 
         $approvedAdvisers = $students
-            ->flatMap(fn (User $student) => $student->advisers()->approved()->with('adviser')->get()->pluck('adviser'))
+            ->flatMap(fn (User $student) => $student->advisers()->approved()->active()->with('adviser')->get()->pluck('adviser'))
             ->filter();
 
         return collect([$project->owner])
@@ -972,6 +1037,24 @@ class ChatController extends BaseController
         return false;
     }
 
+    private function archivedRelationshipForChatRoom(ChatRoom $chatRoom): ?AdviserStudent
+    {
+        return $chatRoom->archivedRelationship();
+    }
+
+    private function isArchivedChatRoom(ChatRoom $chatRoom): bool
+    {
+        return $chatRoom->isArchived();
+    }
+
+    private function archivedChatResponse(): JsonResponse
+    {
+        return response()->json([
+            'error' => 'This chat has been archived. Chat history is available, but new chat activity is disabled.',
+            'is_archived' => true,
+        ], 423);
+    }
+
     private function canBeAddedToChatRoom(ChatRoom $chatRoom, User $user): bool
     {
         if ($user->isAdmin()) {
@@ -1012,6 +1095,10 @@ class ChatController extends BaseController
 
             if (!$this->isChatAdmin($chatRoom, $currentUser)) {
                 return response()->json(['error' => 'Only chat admins can add participants'], 403);
+            }
+
+            if ($this->isArchivedChatRoom($chatRoom)) {
+                return $this->archivedChatResponse();
             }
 
             $validator = Validator::make($request->all(), [
@@ -1075,6 +1162,10 @@ class ChatController extends BaseController
                 return response()->json(['error' => 'Only chat admins can remove participants'], 403);
             }
 
+            if ($this->isArchivedChatRoom($chatRoom)) {
+                return $this->archivedChatResponse();
+            }
+
             $validator = Validator::make($request->all(), [
                 'user_id' => 'required|exists:users,id',
             ]);
@@ -1127,6 +1218,10 @@ class ChatController extends BaseController
 
             if (!$this->isChatAdmin($chatRoom, $currentUser)) {
                 return response()->json(['error' => 'Only chat admins can update participant roles'], 403);
+            }
+
+            if ($this->isArchivedChatRoom($chatRoom)) {
+                return $this->archivedChatResponse();
             }
 
             $validator = Validator::make($request->all(), [
@@ -1188,6 +1283,10 @@ class ChatController extends BaseController
 
             if (!$chatRoom->hasParticipant($currentUser)) {
                 return response()->json(['error' => 'Access denied'], 403);
+            }
+
+            if ($this->isArchivedChatRoom($chatRoom)) {
+                return $this->archivedChatResponse();
             }
 
             if ($message->chat_room_id !== $chatRoom->id) {
@@ -1255,6 +1354,10 @@ class ChatController extends BaseController
         try {
             if (!$chatRoom->hasParticipant(Auth::user())) {
                 return response()->json(['error' => 'Access denied'], 403);
+            }
+
+            if ($this->isArchivedChatRoom($chatRoom)) {
+                return $this->archivedChatResponse();
             }
 
             // Check if user owns the message or is admin
@@ -1370,6 +1473,10 @@ class ChatController extends BaseController
                 return response()->json(['error' => 'Access denied'], 403);
             }
 
+            if ($this->isArchivedChatRoom($chatRoom)) {
+                return $this->archivedChatResponse();
+            }
+
             if ($message->chat_room_id !== $chatRoom->id) {
                 return response()->json(['error' => 'Message not found in this chat room'], 404);
             }
@@ -1400,6 +1507,10 @@ class ChatController extends BaseController
 
             if (!$chatRoom->hasParticipant($currentUser) && !$this->canAccessChatRoom($chatRoom, $currentUser)) {
                 return response()->json(['error' => 'Access denied'], 403);
+            }
+
+            if ($this->isArchivedChatRoom($chatRoom)) {
+                return $this->archivedChatResponse();
             }
 
             if (!Schema::hasTable('chat_room_pins')) {
@@ -1464,6 +1575,14 @@ class ChatController extends BaseController
                 return response()->json(['error' => 'Only chat admins can add participants'], 403);
             }
 
+            if ($this->isArchivedChatRoom($chatRoom)) {
+                return response()->json([
+                    'success' => true,
+                    'users' => [],
+                    'message' => 'Archived chats are read-only.',
+                ]);
+            }
+
             // Get users who are not already participants
             $existingParticipantIds = $chatRoom->participants()->pluck('users.id')->toArray();
             
@@ -1510,6 +1629,10 @@ class ChatController extends BaseController
             // Check if user is participant
             if (!$chatRoom->hasParticipant($currentUser)) {
                 return response()->json(['error' => 'You are not a participant in this chat room'], 400);
+            }
+
+            if ($this->isArchivedChatRoom($chatRoom)) {
+                return $this->archivedChatResponse();
             }
 
             if ($this->isChatAdmin($chatRoom, $currentUser)) {
@@ -1559,6 +1682,10 @@ class ChatController extends BaseController
                 return response()->json(['error' => 'Only chat admins can delete this chat room'], 403);
             }
 
+            if ($this->isArchivedChatRoom($chatRoom)) {
+                return $this->archivedChatResponse();
+            }
+
             // Store room name for response
             $roomName = $chatRoom->name;
 
@@ -1592,6 +1719,10 @@ class ChatController extends BaseController
             // Check if user is participant
             if (!$chatRoom->hasParticipant(Auth::user())) {
                 return response()->json(['error' => 'Access denied'], 403);
+            }
+
+            if ($this->isArchivedChatRoom($chatRoom)) {
+                return $this->archivedChatResponse();
             }
 
             $validator = Validator::make($request->all(), [
@@ -1645,6 +1776,13 @@ class ChatController extends BaseController
                 return response()->json(['error' => 'Access denied'], 403);
             }
 
+            if ($this->isArchivedChatRoom($chatRoom)) {
+                return response()->json([
+                    'success' => true,
+                    'typing_users' => [],
+                ]);
+            }
+
             $currentUserId = Auth::id();
             $typingUsers = [];
 
@@ -1693,6 +1831,10 @@ class ChatController extends BaseController
             // Check if user is participant
             if (!$chatRoom->hasParticipant(Auth::user())) {
                 return response()->json(['error' => 'Access denied'], 403);
+            }
+
+            if ($this->isArchivedChatRoom($chatRoom)) {
+                return $this->archivedChatResponse();
             }
 
             // Validate that message belongs to this chat room

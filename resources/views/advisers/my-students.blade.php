@@ -9,6 +9,9 @@
                             <span class="inline-flex items-center justify-center bg-blue-100 text-blue-800 px-3 py-2 rounded-md text-sm font-medium leading-none min-h-9">
                                 {{ $students->count() }} Students
                             </span>
+                            <span class="inline-flex items-center justify-center bg-gray-100 text-gray-700 px-3 py-2 rounded-md text-sm font-medium leading-none min-h-9">
+                                {{ $archivedStudents->count() }} Archived
+                            </span>
                             <a href="{{ route('advisers.pending-requests') }}" 
                                class="inline-flex items-center justify-center bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-md text-sm transition-colors min-h-9">
                                 View Pending Requests
@@ -65,14 +68,17 @@
                                         </span>
                                         <div class="grid grid-cols-1 items-stretch gap-2 sm:grid-cols-3">
                                             @if($group)
-                                                <a href="{{ route('group-description.details', $group) }}"
+                                                <a href="{{ route('projects.show', $group) }}"
                                                    class="inline-flex h-10 w-full items-center justify-center rounded-md bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100">
-                                                    Show
+                                                    Project
                                                 </a>
                                             @else
                                                 <span class="hidden sm:block"></span>
                                             @endif
-                                            <form method="POST" action="{{ route('advisers.archive', $relationship) }}" class="contents">
+                                            <form method="POST"
+                                                  action="{{ route('advisers.archive', $relationship) }}"
+                                                  class="contents"
+                                                  onsubmit="return confirm('Are you sure you want to archive this group? The chats and uploaded files will move to read-only archive history, and students will no longer be able to chat with you in this group.');">
                                                 @csrf
                                                 @method('PATCH')
                                                 <button type="submit" class="inline-flex h-10 w-full items-center justify-center rounded-md bg-gray-50 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">
@@ -104,6 +110,56 @@
                                class="bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-3 rounded-md transition-colors">
                                 Check Pending Requests
                             </a>
+                        </div>
+                    @endif
+
+                    @if ($archivedStudents->count() > 0)
+                        <div class="mt-10 border-t border-gray-200 pt-8">
+                            <div class="mb-4 flex items-center justify-between">
+                                <h3 class="text-xl font-bold text-gray-900">Archived History</h3>
+                                <span class="rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700">Archived chats are read-only</span>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                @foreach ($archivedStudents as $relationship)
+                                    @php
+                                        $leader = $relationship->student;
+                                        $group = $leader->ownedProjects->first();
+                                        $archivedRoom = $group?->chatRooms?->first();
+                                    @endphp
+                                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-6 flex h-full flex-col">
+                                        <div class="mb-4">
+                                            <h4 class="text-lg font-semibold text-gray-900">{{ $group?->title ?? 'No group name yet' }}</h4>
+                                            <p class="text-sm text-gray-600">Leader: {{ $leader->name }}</p>
+                                        </div>
+                                        <div class="space-y-2 mb-4">
+                                            <p class="text-sm"><span class="font-medium">Course:</span> {{ $leader->course }}</p>
+                                            <p class="text-sm"><span class="font-medium">Approved:</span> {{ optional($relationship->responded_at)->format('M j, Y') }}</p>
+                                            <p class="text-sm"><span class="font-medium">Archived:</span> {{ optional($relationship->archived_at)->format('M j, Y') }}</p>
+                                        </div>
+                                        <div class="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4">
+                                            <span class="inline-flex w-fit items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-200 text-gray-700">
+                                                Archived Group
+                                            </span>
+                                            <div class="flex flex-wrap gap-2">
+                                                @if($group)
+                                                    <a href="{{ route('group-description.details', $group) }}"
+                                                       class="inline-flex h-10 items-center justify-center rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">
+                                                        Group Details
+                                                    </a>
+                                                    <a href="{{ route('projects.show', $group) }}"
+                                                       class="inline-flex h-10 items-center justify-center rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">
+                                                        Archived files
+                                                    </a>
+                                                @endif
+                                                <a href="{{ $archivedRoom ? route('chat.archived', ['room' => $archivedRoom->id]) : route('chat.archived') }}"
+                                                   class="inline-flex h-10 items-center justify-center rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">
+                                                    Archived chats
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
                         </div>
                     @endif
                 </div>

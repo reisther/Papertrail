@@ -71,55 +71,20 @@ class EmailNotificationService
         );
     }
 
-    public function sendGoogleMeetCreated(DefenseSchedule $schedule): void
-    {
-        $schedule->loadMissing('student', 'adviser', 'project.owner', 'project.members', 'creator');
-
-        $recipients = $this->defenseScheduleRecipients($schedule);
-        $creatorName = $schedule->creator?->name ?? 'A PaperTrail user';
-
-        $details = collect([
-            "Title: {$schedule->title}",
-            "Starts: {$schedule->start_time?->format('M d, Y h:i A')}",
-            "Ends: {$schedule->end_time?->format('M d, Y h:i A')}",
-            $schedule->meeting_link ? "Google Meet: {$schedule->meeting_link}" : null,
-            $schedule->google_calendar_link ? "Calendar: {$schedule->google_calendar_link}" : null,
-        ])->filter()->implode("\n");
-
-        $this->sendToUsers(
-            $recipients,
-            'PaperTrail: Google Meet created',
-            $this->messageHtml(
-                'Google Meet created',
-                "{$creatorName} created a Google Meet for {$schedule->title}.",
-                $details,
-                'You are receiving this because you are listed as a participant for this schedule.'
-            ),
-            $this->notificationFrom()
-        );
-    }
-
     public function sendMeetingScheduled(DefenseSchedule $schedule): int
     {
         $schedule->loadMissing('student', 'adviser', 'project.owner', 'project.members', 'creator');
 
         $recipients = $this->defenseScheduleRecipients($schedule);
         $creatorName = $schedule->creator?->name ?? 'A PaperTrail user';
-        $platform = match ($schedule->meeting_platform) {
-            'google_meet' => 'Google Meet',
-            'zoom' => 'Zoom',
-            'teams' => 'Microsoft Teams',
-            default => 'Manual link',
-        };
 
         $details = collect([
             "Title: {$schedule->title}",
             $schedule->project?->title ? "Project: {$schedule->project->title}" : null,
             "Starts: {$schedule->start_time?->format('M d, Y h:i A')}",
             "Ends: {$schedule->end_time?->format('M d, Y h:i A')}",
-            "Platform: {$platform}",
+            "Platform: Manual link",
             $schedule->meeting_link ? "Meeting link: {$schedule->meeting_link}" : null,
-            $schedule->google_calendar_link ? "Calendar: {$schedule->google_calendar_link}" : null,
         ])->filter()->implode("\n");
 
         return $this->sendToUsers(

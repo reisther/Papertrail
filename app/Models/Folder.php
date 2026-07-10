@@ -126,6 +126,10 @@ class Folder extends Model
      */
     public function canEdit(User $user): bool
     {
+        if ($this->project->isArchivedForUser($user)) {
+            return false;
+        }
+
         if ($this->isSubmissionsFolder()) {
             return false;
         }

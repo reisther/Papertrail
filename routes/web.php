@@ -509,6 +509,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
 
         $advisees = \App\Models\Project::query()
             ->where('adviser_id', Auth::id())
+            ->where('status', '!=', 'archived')
             ->with(['owner', 'tasks'])
             ->latest('updated_at')
             ->get()
@@ -550,11 +551,16 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
         }
 
         $manuscriptStages = $manuscriptStages();
-        $projects = \App\Models\Project::where('adviser_id', Auth::id())->orderBy('title')->get();
+        $projects = \App\Models\Project::where('adviser_id', Auth::id())
+            ->where('status', '!=', 'archived')
+            ->orderBy('title')
+            ->get();
         $selectedProjectId = $request->integer('project_id') ?: $projects->first()?->id;
         $selectedProject = $projects->firstWhere('id', $selectedProjectId);
+        $projectIds = $projects->pluck('id');
         $todos = \App\Models\ProjectTask::query()
             ->where('adviser_id', Auth::id())
+            ->whereIn('project_id', $projectIds)
             ->when($selectedProject, fn ($query) => $query->where('project_id', $selectedProject->id))
             ->orderBy('chapter')
             ->orderBy('created_at')
@@ -577,23 +583,30 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
 
         $manuscriptStages = $manuscriptStages();
         if ($user->isTeacher()) {
-            $projects = \App\Models\Project::where('adviser_id', $user->id)->orderBy('title')->get();
+            $projects = \App\Models\Project::where('adviser_id', $user->id)
+                ->where('status', '!=', 'archived')
+                ->orderBy('title')
+                ->get();
         } elseif ($user->canLeadGroup()) {
             $projects = $user->ownedProjects()
                 ->with(['owner', 'members'])
                 ->whereNotNull('adviser_id')
+                ->where('status', '!=', 'archived')
                 ->orderBy('title')
                 ->get();
         } else {
             $projects = $user->joinedProjects()
                 ->with(['owner', 'members'])
                 ->whereNotNull('adviser_id')
+                ->where('status', '!=', 'archived')
                 ->orderBy('title')
                 ->get();
         }
         $selectedProjectId = $request->integer('project_id') ?: $projects->first()?->id;
         $selectedProject = $projects->firstWhere('id', $selectedProjectId);
+        $projectIds = $projects->pluck('id');
         $todos = \App\Models\ProjectTask::query()
+            ->whereIn('project_id', $projectIds)
             ->when($user->isTeacher(), fn ($query) => $query->where('adviser_id', $user->id))
             ->when($user->canLeadGroup(), fn ($query) => $query->whereHas('project', fn ($project) => $project->where('owner_id', $user->id)))
             ->when($user->isStudent() && ! $user->canLeadGroup(), fn ($query) => $query->whereHas('project.members', fn ($members) => $members->where('users.id', $user->id)))
@@ -643,6 +656,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
         ]);
 
         $projects = \App\Models\Project::where('adviser_id', Auth::id())
+            ->where('status', '!=', 'archived')
             ->when($validated['assignment_scope'] === 'project', fn ($query) => $query->where('id', $validated['project_id']))
             ->when($validated['assignment_scope'] === 'course', function ($query) use ($validated) {
                 $query->where(function ($courseQuery) use ($validated) {
@@ -684,6 +698,9 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
             abort(403, 'Access denied.');
         }
         $task->loadMissing('project.owner');
+        if (! $task->project || $task->project->adviser_id !== Auth::id() || $task->project->status === 'archived') {
+            abort(403, 'Archived group tasks cannot be changed.');
+        }
 
         $validated = $request->validate([
             'chapter' => 'required|integer|min:0|max:5',
@@ -693,6 +710,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
         if ($task->course_task_group_id) {
             \App\Models\ProjectTask::where('adviser_id', Auth::id())
                 ->where('course_task_group_id', $task->course_task_group_id)
+                ->whereHas('project', fn ($project) => $project->where('adviser_id', Auth::id())->where('status', '!=', 'archived'))
                 ->update($validated);
         } elseif ($taskCourse = ($task->assignment_course ?? $task->project?->group_course ?? $task->project?->owner?->course)) {
             \App\Models\ProjectTask::where('adviser_id', Auth::id())
@@ -702,6 +720,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
                     $query->where('group_course', $taskCourse)
                         ->orWhereHas('owner', fn ($ownerQuery) => $ownerQuery->where('course', $taskCourse));
                 })
+                ->whereHas('project', fn ($project) => $project->where('adviser_id', Auth::id())->where('status', '!=', 'archived'))
                 ->update($validated);
         } else {
             $task->update($validated);
@@ -714,10 +733,14 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
             abort(403, 'Access denied.');
         }
         $task->loadMissing('project.owner');
+        if (! $task->project || $task->project->adviser_id !== Auth::id() || $task->project->status === 'archived') {
+            abort(403, 'Archived group tasks cannot be deleted.');
+        }
 
         if ($task->course_task_group_id) {
             \App\Models\ProjectTask::where('adviser_id', Auth::id())
                 ->where('course_task_group_id', $task->course_task_group_id)
+                ->whereHas('project', fn ($project) => $project->where('adviser_id', Auth::id())->where('status', '!=', 'archived'))
                 ->delete();
         } elseif ($taskCourse = ($task->assignment_course ?? $task->project?->group_course ?? $task->project?->owner?->course)) {
             \App\Models\ProjectTask::where('adviser_id', Auth::id())
@@ -727,6 +750,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
                     $query->where('group_course', $taskCourse)
                         ->orWhereHas('owner', fn ($ownerQuery) => $ownerQuery->where('course', $taskCourse));
                 })
+                ->whereHas('project', fn ($project) => $project->where('adviser_id', Auth::id())->where('status', '!=', 'archived'))
                 ->delete();
         } else {
             $task->delete();
@@ -739,6 +763,9 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
 
         if (!Auth::user()->canLeadGroup() || $task->project?->owner_id !== Auth::id()) {
             abort(403, 'Access denied.');
+        }
+        if ($task->project->status === 'archived' || ! $task->project->adviser_id) {
+            abort(403, 'Archived group tasks cannot be changed.');
         }
 
         $completionUsers = collect([$task->project->owner])
@@ -808,6 +835,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
     Route::delete('/admin/users/{user}', [AdminController::class, 'deleteUser'])->name('admin.delete-user');
 
     // Project routes
+    Route::get('/projects/archived', [ProjectController::class, 'archived'])->name('projects.archived');
     Route::resource('projects', ProjectController::class);
     Route::post('/projects/{project}/invitations', [ProjectController::class, 'generateInvitation'])->name('projects.invitations.generate');
     Route::get('/project-invitations/{token}', [ProjectController::class, 'showInvitation'])->name('projects.accept-invitation');
@@ -824,15 +852,11 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
     Route::resource('defense-schedule', DefenseScheduleController::class);
     Route::get('/defense-schedule-events', [DefenseScheduleController::class, 'getEvents'])->name('defense-schedule.events');
     Route::get('/students/{student}/projects', [DefenseScheduleController::class, 'getStudentProjects'])->name('students.projects');
-    Route::post('/defense-schedule/{defenseSchedule}/create-google-meet', [DefenseScheduleController::class, 'createGoogleMeet'])->name('defense-schedule.create-google-meet');
-    Route::post('/defense-schedule/{defenseSchedule}/update-google-meet', [DefenseScheduleController::class, 'updateGoogleMeet'])->name('defense-schedule.update-google-meet');
-    Route::get('/setup-google-auth', [DefenseScheduleController::class, 'setupGoogleAuth'])->name('setup-google-auth');
-    Route::get('/auth/google/callback', [DefenseScheduleController::class, 'handleGoogleCallback'])->name('google-auth-callback');
-    Route::delete('/google-calendar', [DefenseScheduleController::class, 'disconnectGoogleAuth'])->name('google-calendar.disconnect');
     
     // Chat routes
     Route::prefix('chat')->name('chat.')->middleware('auth')->group(function () {
         Route::get('/', [ChatController::class, 'index'])->name('index');
+        Route::get('/archived', [ChatController::class, 'archived'])->name('archived');
         Route::get('/files/{message}', [ChatController::class, 'showFile'])->name('files.show');
         Route::post('/rooms', [ChatController::class, 'store'])->name('rooms.store');
         Route::get('/rooms/{chatRoom}', [ChatController::class, 'show'])->name('rooms.show');
