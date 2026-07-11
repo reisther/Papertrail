@@ -1065,7 +1065,11 @@ class ChatController extends BaseController
 
         $project = $chatRoom->project ?: $chatRoom->project()->first();
 
-        return $project && (int) $project->owner_id === (int) $user->id;
+        return $project
+            && (
+                (int) $project->owner_id === (int) $user->id
+                || $project->members()->where('users.id', $user->id)->exists()
+            );
     }
 
     private function archivedChatResponse(): JsonResponse

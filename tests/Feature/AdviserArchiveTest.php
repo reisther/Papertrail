@@ -162,6 +162,44 @@ class AdviserArchiveTest extends TestCase
             ->assertDontSee('Old Archived Group Chat');
     }
 
+    public function test_archived_group_chat_stays_visible_for_member_who_is_still_in_group(): void
+    {
+        [$leader, $adviser, $group, $member] = $this->archivedAdviserGroup();
+        $chatRoom = ChatRoom::create([
+            'name' => 'Still Member Archived Chat',
+            'description' => 'Archived adviser chat for current group members.',
+            'type' => 'project',
+            'project_id' => $group->id,
+            'created_by' => $leader->id,
+            'is_active' => true,
+        ]);
+
+        $chatRoom->participants()->attach($leader->id, [
+            'role' => 'admin',
+            'joined_at' => now(),
+        ]);
+        $chatRoom->participants()->attach($member->id, [
+            'role' => 'member',
+            'joined_at' => now(),
+        ]);
+        $chatRoom->participants()->attach($adviser->id, [
+            'role' => 'moderator',
+            'joined_at' => now(),
+        ]);
+
+        $this
+            ->actingAs($member)
+            ->get(route('chat.archived'))
+            ->assertOk()
+            ->assertSee('Still Member Archived Chat');
+
+        $this
+            ->actingAs($member)
+            ->getJson(route('chat.rooms.show', $chatRoom))
+            ->assertOk()
+            ->assertJsonPath('chat_room.is_archived', true);
+    }
+
     public function test_leader_chat_page_does_not_show_archived_chats_button(): void
     {
         [$leader] = $this->archivedAdviserGroup();
