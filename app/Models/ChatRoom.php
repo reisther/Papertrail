@@ -127,6 +127,7 @@ class ChatRoom extends Model
                     ->when($lastReadAt, function ($query) use ($lastReadAt) {
                         return $query->where('created_at', '>', $lastReadAt);
                     })
+                    ->where('message_type', '!=', 'system')
                     ->where('user_id', '!=', $user->id)
                     ->count();
     }

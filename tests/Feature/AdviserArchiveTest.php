@@ -8,6 +8,7 @@ use App\Models\Project;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -275,7 +276,32 @@ class AdviserArchiveTest extends TestCase
 
     public function test_same_adviser_request_restores_archived_group_when_approved(): void
     {
-        [$leader, $adviser, $group] = $this->archivedAdviserGroup();
+        [$leader, $adviser, $group, $member] = $this->archivedAdviserGroup();
+        $chatRoom = ChatRoom::create([
+            'name' => 'Reactivated Adviser Chat',
+            'description' => 'Archived chat that will be reactivated.',
+            'type' => 'project',
+            'project_id' => $group->id,
+            'created_by' => $leader->id,
+            'is_active' => true,
+        ]);
+        $oldReadAt = now()->subDays(2);
+
+        foreach ([$leader, $member, $adviser] as $participant) {
+            $chatRoom->participants()->attach($participant->id, [
+                'role' => $participant->id === $leader->id ? 'admin' : ($participant->id === $adviser->id ? 'moderator' : 'member'),
+                'joined_at' => now()->subDays(5),
+                'last_read_at' => $oldReadAt,
+            ]);
+        }
+
+        $chatRoom->messages()->create([
+            'user_id' => $adviser->id,
+            'message' => 'Archived chat update',
+            'message_type' => 'system',
+            'created_at' => now()->subDay(),
+            'updated_at' => now()->subDay(),
+        ]);
 
         $this
             ->actingAs($leader)
@@ -304,6 +330,24 @@ class AdviserArchiveTest extends TestCase
         $this->assertNull($relationship->archived_at);
         $this->assertSame($adviser->id, $group->refresh()->adviser_id);
         $this->assertSame(1, AdviserStudent::count());
+
+        $participantRows = DB::table('chat_participants')
+            ->where('chat_room_id', $chatRoom->id)
+            ->get();
+
+        $this->assertCount(3, $participantRows);
+        $participantRows->each(function ($participantRow) use ($oldReadAt) {
+            $this->assertNotNull($participantRow->last_read_at);
+            $this->assertGreaterThan($oldReadAt->timestamp, strtotime($participantRow->last_read_at));
+        });
+
+        $chatRooms = $this
+            ->actingAs($leader)
+            ->get(route('chat.index'))
+            ->assertOk()
+            ->viewData('chatRooms');
+
+        $this->assertSame(0, $chatRooms->firstWhere('id', $chatRoom->id)->unread_count);
     }
 
     public function test_rejected_reactivation_request_keeps_group_archived(): void

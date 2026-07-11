@@ -166,6 +166,7 @@ class ChatController extends BaseController
                     ->where('chat_participants.user_id', '=', $user->id);
             })
             ->whereIn('chat_messages.chat_room_id', $roomIds)
+            ->where('chat_messages.message_type', '!=', 'system')
             ->where('chat_messages.user_id', '!=', $user->id)
             ->where(function ($query) {
                 $query->whereNull('chat_participants.last_read_at')
@@ -593,7 +594,7 @@ class ChatController extends BaseController
                 ->where('chat_room_id', $chatRoom->id)
                 ->where('user_id', $currentUser->id)
                 ->exists();
-        $displayParticipants = $chatRoom->participants->values();
+        $displayParticipants = $this->displayableUsersForRoom($chatRoom);
         $mentionParticipants = $this->mentionableUsersForRoom($chatRoom);
 
         return response()->json([
@@ -949,9 +950,38 @@ class ChatController extends BaseController
 
     private function mentionableUsersForRoom(ChatRoom $chatRoom)
     {
-        $chatRoom->loadMissing(['participants']);
+        return $this->displayableUsersForRoom($chatRoom)
+            ->values();
+    }
 
-        return $chatRoom->participants->values();
+    private function displayableUsersForRoom(ChatRoom $chatRoom)
+    {
+        $chatRoom->loadMissing(['participants', 'project.owner', 'project.adviser', 'project.members']);
+
+        if (! $chatRoom->project_id || ! $chatRoom->project) {
+            return $chatRoom->participants->values();
+        }
+
+        $chatParticipantsById = $chatRoom->participants->keyBy('id');
+
+        return $this->getProjectChatParticipants($chatRoom->project)
+            ->reject(fn (User $user) => $this->hasLeftChatRoom($chatRoom, $user))
+            ->map(function (User $user) use ($chatParticipantsById) {
+                $chatParticipant = $chatParticipantsById->get($user->id);
+
+                if ($chatParticipant) {
+                    return $chatParticipant;
+                }
+
+                $user->setRelation('pivot', (object) [
+                    'role' => 'member',
+                ]);
+                $user->is_group_only_participant = true;
+
+                return $user;
+            })
+            ->unique('id')
+            ->values();
     }
 
     private function isChatAdmin(ChatRoom $chatRoom, User $user): bool

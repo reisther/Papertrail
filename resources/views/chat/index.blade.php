@@ -942,6 +942,19 @@ function displayMessages(messages) {
     const wasNearBottom = isMessagesNearBottom();
     
     container.innerHTML = messages.map(message => {
+        const isSystemMessage = message.message_type === 'system';
+
+        if (isSystemMessage) {
+            return `
+                <div class="flex justify-center px-3" data-message-id="${message.id}">
+                    <div class="max-w-[85%] text-center text-xs font-medium leading-relaxed text-gray-500">
+                        <span>${escapeHtml(message.message)}</span>
+                        <span class="ml-1 whitespace-nowrap text-gray-400">${escapeHtml(message.created_at_human)}</span>
+                    </div>
+                </div>
+            `;
+        }
+
         const isOwnMessage = message.user.id === currentUserId;
         const messageClass = isOwnMessage ? 'ml-auto bg-blue-600 text-white' : 'mr-auto bg-gray-100 text-gray-900';
         const avatarHtml = renderMessageAvatar(message.user);

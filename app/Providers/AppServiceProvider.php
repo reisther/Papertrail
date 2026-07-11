@@ -49,25 +49,71 @@ class AppServiceProvider extends ServiceProvider
             $cacheKey = "navigation-counts:{$user->id}";
 
             $counts = Cache::remember($cacheKey, now()->addSeconds(15), function () use ($user) {
-                $chatRoomIds = DB::table('chat_participants')
-                    ->join('chat_rooms', 'chat_rooms.id', '=', 'chat_participants.chat_room_id')
-                    ->where('chat_participants.user_id', $user->id)
-                    ->where('chat_rooms.is_active', true)
-                    ->pluck('chat_rooms.id');
+                $accessibleProjectIds = $user->accessibleProjects()->pluck('id');
+                $leaveTrackingEnabled = Schema::hasTable('chat_participant_leaves');
 
-                $archivedChatRoomIds = ChatRoom::archivedIdsForRoomIds($chatRoomIds);
-                $activeChatRoomIds = $chatRoomIds
-                    ->reject(fn ($roomId) => $archivedChatRoomIds->contains($roomId))
+                $chatRooms = ChatRoom::query()
+                    ->where('is_active', true)
+                    ->where(function ($rooms) use ($user, $accessibleProjectIds, $leaveTrackingEnabled) {
+                        $rooms->where('created_by', $user->id)
+                            ->orWhereHas('participants', function ($participants) use ($user) {
+                                $participants->where('users.id', $user->id);
+                            })
+                            ->when($accessibleProjectIds->isNotEmpty(), function ($rooms) use ($accessibleProjectIds, $user, $leaveTrackingEnabled) {
+                                $rooms->orWhere(function ($projectRooms) use ($accessibleProjectIds, $user, $leaveTrackingEnabled) {
+                                    $projectRooms->whereIn('project_id', $accessibleProjectIds);
+
+                                    if ($leaveTrackingEnabled) {
+                                        $projectRooms->whereNotExists(function ($leaves) use ($user) {
+                                            $leaves->select(DB::raw(1))
+                                                ->from('chat_participant_leaves')
+                                                ->whereColumn('chat_participant_leaves.chat_room_id', 'chat_rooms.id')
+                                                ->where('chat_participant_leaves.user_id', $user->id);
+                                        });
+                                    }
+                                });
+                            });
+                    })
+                    ->with('project')
+                    ->get()
+                    ->unique('id')
                     ->values();
 
-                $chatUnreadCount = $activeChatRoomIds->isEmpty()
+                $archivedChatRoomIds = ChatRoom::archivedIdsForRoomIds($chatRooms->pluck('id'));
+                $visibleActiveChatRoomIds = $chatRooms
+                    ->filter(function (ChatRoom $room) use ($user, $archivedChatRoomIds) {
+                        $isArchived = $archivedChatRoomIds->contains($room->id);
+
+                        if ($isArchived) {
+                            $archivedRelationship = $room->archivedRelationship();
+
+                            if ($archivedRelationship) {
+                                $project = $room->project;
+                                $canViewArchivedRoom = (int) $archivedRelationship->student_id === (int) $user->id
+                                    || (int) $archivedRelationship->adviser_id === (int) $user->id
+                                    || (int) ($project?->owner_id) === (int) $user->id
+                                    || (bool) ($project && $project->members()->where('users.id', $user->id)->exists());
+
+                                if (! $canViewArchivedRoom) {
+                                    return false;
+                                }
+                            }
+                        }
+
+                        return $user->isStudentGroupRole() || ! $isArchived;
+                    })
+                    ->pluck('id')
+                    ->values();
+
+                $chatUnreadCount = $visibleActiveChatRoomIds->isEmpty()
                     ? 0
                     : ChatMessage::query()
                         ->join('chat_participants', function ($join) use ($user) {
                             $join->on('chat_participants.chat_room_id', '=', 'chat_messages.chat_room_id')
                                 ->where('chat_participants.user_id', '=', $user->id);
                         })
-                        ->whereIn('chat_messages.chat_room_id', $activeChatRoomIds)
+                        ->whereIn('chat_messages.chat_room_id', $visibleActiveChatRoomIds)
+                        ->where('chat_messages.message_type', '!=', 'system')
                         ->where('chat_messages.user_id', '!=', $user->id)
                         ->where(function ($query) {
                             $query->whereNull('chat_participants.last_read_at')

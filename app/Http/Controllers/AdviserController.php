@@ -10,6 +10,7 @@ use App\Models\ProjectTask;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use App\Models\TitleSubmission;
@@ -175,7 +176,7 @@ class AdviserController extends Controller
             return back()->with('success', 'Request rejected. The group remains in archived history.');
         }
 
-        DB::transaction(function () use ($adviserStudent, $request) {
+        DB::transaction(function () use ($adviserStudent, $request, $wasArchivedReactivation) {
             $adviserStudent->update([
                 'status' => $request->status,
                 'response_message' => $request->response_message,
@@ -197,10 +198,16 @@ class AdviserController extends Controller
                 ->each
                 ->syncCourseTasksFromAdviser();
 
-            ChatRoom::whereIn('project_id', Project::where('owner_id', $adviserStudent->student_id)->pluck('id'))
+            $projectIds = $projects->pluck('id');
+
+            ChatRoom::whereIn('project_id', $projectIds)
                 ->where('type', 'project')
                 ->get()
                 ->each(fn (ChatRoom $room) => $room->addParticipant($adviserStudent->adviser, 'moderator'));
+
+            if ($wasArchivedReactivation) {
+                $this->markProjectChatRoomsRead($projectIds);
+            }
         });
 
         $statusText = $request->status === 'approved' ? 'approved' : 'rejected';
@@ -282,6 +289,30 @@ class AdviserController extends Controller
         ProjectTask::whereIn('project_id', $projectIds)
             ->where('adviser_id', $adviserId)
             ->delete();
+    }
+
+    private function markProjectChatRoomsRead($projectIds): void
+    {
+        $chatRoomIds = ChatRoom::whereIn('project_id', $projectIds)
+            ->where('type', 'project')
+            ->pluck('id');
+
+        if ($chatRoomIds->isEmpty()) {
+            return;
+        }
+
+        DB::table('chat_participants')
+            ->whereIn('chat_room_id', $chatRoomIds)
+            ->update([
+                'last_read_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        DB::table('chat_participants')
+            ->whereIn('chat_room_id', $chatRoomIds)
+            ->pluck('user_id')
+            ->unique()
+            ->each(fn ($userId) => Cache::forget("navigation-counts:{$userId}"));
     }
 
     /**

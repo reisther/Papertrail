@@ -46,6 +46,89 @@ class ChatMembershipTest extends TestCase
         $this->assertFalse($chatRoom->fresh()->hasParticipant($member));
     }
 
+    public function test_project_chat_names_include_group_members_except_users_removed_from_that_room(): void
+    {
+        [$leader, $removedMember, $group] = $this->groupWithMember();
+        $currentMember = User::factory()->create([
+            'role' => 'Student',
+            'course' => 'Information Technology',
+            'section' => 'IT-4A',
+        ]);
+        $group->members()->attach($currentMember->id, [
+            'role' => 'member',
+            'joined_at' => now(),
+        ]);
+
+        $chatRoom = $this->projectChatRoom($group, 'Team Names Chat');
+
+        $chatRoom->participants()->attach($leader->id, [
+            'role' => 'admin',
+            'joined_at' => now(),
+        ]);
+        $chatRoom->participants()->attach($removedMember->id, [
+            'role' => 'member',
+            'joined_at' => now(),
+        ]);
+
+        $this
+            ->actingAs($leader)
+            ->deleteJson(route('chat.rooms.remove-participant', $chatRoom), [
+                'user_id' => $removedMember->id,
+            ])
+            ->assertOk();
+
+        $response = $this
+            ->actingAs($leader)
+            ->getJson(route('chat.rooms.show', $chatRoom))
+            ->assertOk();
+
+        $response
+            ->assertJsonFragment([
+                'id' => $currentMember->id,
+                'name' => $currentMember->firstname . ' ' . $currentMember->lastname,
+            ])
+            ->assertJsonMissing([
+                'id' => $removedMember->id,
+                'name' => $removedMember->firstname . ' ' . $removedMember->lastname,
+            ]);
+    }
+
+    public function test_system_messages_do_not_create_unread_chat_badges(): void
+    {
+        [$leader, $member, $group] = $this->groupWithMember();
+        $chatRoom = $this->projectChatRoom($group, 'System Message Chat');
+
+        $chatRoom->participants()->attach($leader->id, [
+            'role' => 'admin',
+            'joined_at' => now(),
+            'last_read_at' => now()->subDay(),
+        ]);
+        $chatRoom->participants()->attach($member->id, [
+            'role' => 'member',
+            'joined_at' => now(),
+            'last_read_at' => now()->subDay(),
+        ]);
+
+        $chatRoom->messages()->create([
+            'user_id' => $leader->id,
+            'message' => 'This adviser chat has been archived. The conversation is now read-only.',
+            'message_type' => 'system',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->assertSame(0, $chatRoom->getUnreadCountForUser($member));
+
+        $chatRooms = $this
+            ->actingAs($member)
+            ->get(route('chat.index'))
+            ->assertOk()
+            ->assertDontSee('<span class="chat-nav-unread-count', false)
+            ->viewData('chatRooms');
+
+        $this->assertSame(0, $chatRooms->firstWhere('id', $chatRoom->id)->unread_count);
+    }
+
     public function test_group_member_removal_detaches_member_from_all_project_chat_rooms(): void
     {
         [$leader, $member, $group] = $this->groupWithMember();
