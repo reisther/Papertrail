@@ -104,6 +104,64 @@ class AdviserArchiveTest extends TestCase
             ->assertJsonPath('messages.0.can_edit', false);
     }
 
+    public function test_archived_old_group_chat_does_not_follow_member_into_another_group(): void
+    {
+        [$leader, $adviser, $oldGroup, $member] = $this->archivedAdviserGroup();
+        $oldChatRoom = ChatRoom::create([
+            'name' => 'Old Archived Group Chat',
+            'description' => 'Old group adviser conversation.',
+            'type' => 'project',
+            'project_id' => $oldGroup->id,
+            'created_by' => $leader->id,
+            'is_active' => true,
+        ]);
+
+        $oldChatRoom->participants()->attach($leader->id, [
+            'role' => 'admin',
+            'joined_at' => now(),
+        ]);
+        $oldChatRoom->participants()->attach($member->id, [
+            'role' => 'member',
+            'joined_at' => now(),
+        ]);
+        $oldChatRoom->participants()->attach($adviser->id, [
+            'role' => 'moderator',
+            'joined_at' => now(),
+        ]);
+
+        $oldGroup->members()->detach($member->id);
+
+        $newLeader = User::factory()->create([
+            'role' => 'Leader',
+            'course' => 'Information Technology',
+            'section' => 'IT-4A',
+        ]);
+        $newGroup = Project::create([
+            'title' => 'New Active Group',
+            'description' => 'A new group for this member.',
+            'group_course' => 'Information Technology',
+            'owner_id' => $newLeader->id,
+            'status' => 'active',
+        ]);
+        $newGroup->members()->attach($member->id, [
+            'role' => 'member',
+            'joined_at' => now(),
+        ]);
+
+        $this
+            ->actingAs($member)
+            ->get(route('chat.index'))
+            ->assertOk()
+            ->assertSee('New Active Group - Project Chat')
+            ->assertDontSee('Old Archived Group Chat');
+
+        $this
+            ->actingAs($member)
+            ->get(route('chat.archived'))
+            ->assertOk()
+            ->assertDontSee('Old Archived Group Chat');
+    }
+
     public function test_leader_chat_page_does_not_show_archived_chats_button(): void
     {
         [$leader] = $this->archivedAdviserGroup();

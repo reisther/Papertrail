@@ -121,6 +121,10 @@ class ChatController extends BaseController
                 return $room;
             })
             ->filter(function ($room) use ($archivedOnly, $user) {
+                if ($room->is_archived && ! $this->canViewArchivedChatRoom($room, $user)) {
+                    return false;
+                }
+
                 if ($archivedOnly) {
                     return $room->is_archived;
                 }
@@ -310,6 +314,10 @@ class ChatController extends BaseController
             }
 
             $isArchived = $this->isArchivedChatRoom($chatRoom);
+            if ($isArchived && ! $this->canViewArchivedChatRoom($chatRoom, Auth::user())) {
+                return response()->json(['error' => 'Access denied'], 403);
+            }
+
             $currentUserId = Auth::id();
             
             $messages = $chatRoom->messages()
@@ -575,6 +583,10 @@ class ChatController extends BaseController
         $currentUser = Auth::user();
         $archivedRelationship = $this->archivedRelationshipForChatRoom($chatRoom);
         $isArchived = (bool) $archivedRelationship;
+        if ($isArchived && ! $this->canViewArchivedChatRoom($chatRoom, $currentUser)) {
+            return response()->json(['error' => 'Access denied'], 403);
+        }
+
         $canManageParticipants = ! $isArchived && $this->isChatAdmin($chatRoom, $currentUser);
         $isRoomPinned = Schema::hasTable('chat_room_pins')
             && DB::table('chat_room_pins')
@@ -1033,6 +1045,27 @@ class ChatController extends BaseController
     private function isArchivedChatRoom(ChatRoom $chatRoom): bool
     {
         return $chatRoom->isArchived();
+    }
+
+    private function canViewArchivedChatRoom(ChatRoom $chatRoom, User $user): bool
+    {
+        $archivedRelationship = $this->archivedRelationshipForChatRoom($chatRoom);
+
+        if (! $archivedRelationship) {
+            return true;
+        }
+
+        if ((int) $archivedRelationship->student_id === (int) $user->id) {
+            return true;
+        }
+
+        if ((int) $archivedRelationship->adviser_id === (int) $user->id) {
+            return true;
+        }
+
+        $project = $chatRoom->project ?: $chatRoom->project()->first();
+
+        return $project && (int) $project->owner_id === (int) $user->id;
     }
 
     private function archivedChatResponse(): JsonResponse
