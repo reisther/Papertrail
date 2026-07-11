@@ -454,6 +454,7 @@ class ChatController extends BaseController
             $chatRoom->participants()
                      ->wherePivot('user_id', Auth::id())
                      ->updateExistingPivot(Auth::id(), ['last_read_at' => now()]);
+            Cache::forget("navigation-counts:" . Auth::id());
 
             return response()->json(['messages' => $messages]);
             

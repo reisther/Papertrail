@@ -225,6 +225,12 @@ class ChatMembershipTest extends TestCase
             ->assertOk()
             ->assertJsonPath('total', 0)
             ->assertJsonPath("rooms.{$chatRoom->id}", 0);
+
+        $this
+            ->actingAs($member)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertDontSee('<span class="chat-nav-unread-count', false);
     }
 
     public function test_group_member_removal_detaches_member_from_all_project_chat_rooms(): void
