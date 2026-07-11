@@ -581,26 +581,8 @@ class ChatController extends BaseController
                 ->where('chat_room_id', $chatRoom->id)
                 ->where('user_id', $currentUser->id)
                 ->exists();
+        $displayParticipants = $chatRoom->participants->values();
         $mentionParticipants = $this->mentionableUsersForRoom($chatRoom);
-        $chatParticipantsById = $chatRoom->participants->keyBy('id');
-        $displayParticipants = $mentionParticipants
-            ->map(function (User $user) use ($chatParticipantsById) {
-                $chatParticipant = $chatParticipantsById->get($user->id);
-
-                if ($chatParticipant) {
-                    return $chatParticipant;
-                }
-
-                $user->setRelation('pivot', (object) [
-                    'role' => 'member',
-                ]);
-                $user->is_group_only_participant = true;
-
-                return $user;
-            })
-            ->merge($chatRoom->participants->reject(fn (User $user) => $mentionParticipants->contains('id', $user->id)))
-            ->unique('id')
-            ->values();
 
         return response()->json([
             'chat_room' => [
@@ -618,7 +600,12 @@ class ChatController extends BaseController
                 'archived_at' => optional($archivedRelationship?->archived_at)->format('Y-m-d H:i:s'),
                 'archived_label' => $isArchived ? 'Archived chats' : null,
                 'can_send_messages' => ! $isArchived,
-                'project' => $chatRoom->project,
+                'project' => $chatRoom->project ? [
+                    'id' => $chatRoom->project->id,
+                    'title' => $chatRoom->project->title,
+                    'owner_id' => $chatRoom->project->owner_id,
+                    'adviser_id' => $chatRoom->project->adviser_id,
+                ] : null,
                 'participants' => $displayParticipants->map(function ($user) use ($chatRoom) {
                     $initials = strtoupper(substr($user->firstname ?? '', 0, 1) . substr($user->lastname ?? '', 0, 1));
                     $isParticipantAdmin = ($user->pivot->role ?? 'member') === 'admin';
@@ -750,11 +737,15 @@ class ChatController extends BaseController
             }
         }
 
-        if ($chatRoom->wasRecentlyCreated) {
-            $chatRoom->participants()
-                ->whereNotIn('users.id', $allowedIds)
-                ->detach();
-        }
+        $retainedIds = collect($allowedIds)
+            ->push($chatRoom->created_by)
+            ->filter()
+            ->unique()
+            ->all();
+
+        $chatRoom->participants()
+            ->whereNotIn('users.id', $retainedIds)
+            ->detach();
     }
 
     private function getProjectChatParticipants(Project $project)
@@ -948,18 +939,7 @@ class ChatController extends BaseController
     {
         $chatRoom->loadMissing(['participants']);
 
-        if ($chatRoom->project_id) {
-            $project = Project::with(['owner', 'adviser', 'members'])->find($chatRoom->project_id);
-
-            if (! $project) {
-                return $chatRoom->participants;
-            }
-
-            return $this->getProjectChatParticipants($project)
-                ->values();
-        }
-
-        return $chatRoom->participants;
+        return $chatRoom->participants->values();
     }
 
     private function isChatAdmin(ChatRoom $chatRoom, User $user): bool

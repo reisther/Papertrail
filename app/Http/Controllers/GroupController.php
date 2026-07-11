@@ -180,13 +180,9 @@ class GroupController extends Controller
 
         $group->members()->detach($member->id);
 
-        $projectChat = ChatRoom::where('project_id', $group->id)
-            ->where('type', 'project')
-            ->first();
-
-        if ($projectChat) {
-            $projectChat->participants()->detach($member->id);
-        }
+        ChatRoom::where('project_id', $group->id)
+            ->get()
+            ->each(fn (ChatRoom $chatRoom) => $chatRoom->participants()->detach($member->id));
 
         return back()->with('success', "{$member->name} was removed from the group.");
     }
