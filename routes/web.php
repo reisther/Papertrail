@@ -857,6 +857,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
     Route::prefix('chat')->name('chat.')->middleware('auth')->group(function () {
         Route::get('/', [ChatController::class, 'index'])->name('index');
         Route::get('/archived', [ChatController::class, 'archived'])->name('archived');
+        Route::get('/unread-summary', [ChatController::class, 'unreadSummary'])->name('unread-summary');
         Route::get('/files/{message}', [ChatController::class, 'showFile'])->name('files.show');
         Route::post('/rooms', [ChatController::class, 'store'])->name('rooms.store');
         Route::get('/rooms/{chatRoom}', [ChatController::class, 'show'])->name('rooms.show');

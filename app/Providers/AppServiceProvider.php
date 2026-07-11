@@ -108,7 +108,7 @@ class AppServiceProvider extends ServiceProvider
                 $chatUnreadCount = $visibleActiveChatRoomIds->isEmpty()
                     ? 0
                     : ChatMessage::query()
-                        ->join('chat_participants', function ($join) use ($user) {
+                        ->leftJoin('chat_participants', function ($join) use ($user) {
                             $join->on('chat_participants.chat_room_id', '=', 'chat_messages.chat_room_id')
                                 ->where('chat_participants.user_id', '=', $user->id);
                         })

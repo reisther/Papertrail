@@ -161,7 +161,7 @@ class ChatController extends BaseController
 
         return ChatMessage::query()
             ->select('chat_messages.chat_room_id', DB::raw('COUNT(*) as unread_count'))
-            ->join('chat_participants', function ($join) use ($user) {
+            ->leftJoin('chat_participants', function ($join) use ($user) {
                 $join->on('chat_participants.chat_room_id', '=', 'chat_messages.chat_room_id')
                     ->where('chat_participants.user_id', '=', $user->id);
             })
@@ -174,6 +174,70 @@ class ChatController extends BaseController
             })
             ->groupBy('chat_messages.chat_room_id')
             ->pluck('unread_count', 'chat_messages.chat_room_id');
+    }
+
+    public function unreadSummary(): JsonResponse
+    {
+        $user = Auth::user();
+        $this->abortIfWebsiteAdmin();
+
+        $visibleRoomIds = $this->visibleActiveChatRoomIdsFor($user);
+        $unreadCountsByRoom = $this->unreadCountsForRooms($visibleRoomIds, $user);
+
+        return response()->json([
+            'total' => (int) $unreadCountsByRoom->sum(),
+            'rooms' => $visibleRoomIds
+                ->mapWithKeys(fn ($roomId) => [(string) $roomId => (int) ($unreadCountsByRoom[$roomId] ?? 0)])
+                ->all(),
+        ]);
+    }
+
+    private function visibleActiveChatRoomIdsFor(User $user)
+    {
+        $accessibleProjectIds = $user->accessibleProjects()->pluck('id');
+        $leaveTrackingEnabled = Schema::hasTable('chat_participant_leaves');
+
+        $chatRooms = ChatRoom::query()
+            ->where('is_active', true)
+            ->where(function ($rooms) use ($user, $accessibleProjectIds, $leaveTrackingEnabled) {
+                $rooms->where('created_by', $user->id)
+                    ->orWhereHas('participants', function ($participants) use ($user) {
+                        $participants->where('users.id', $user->id);
+                    })
+                    ->when($accessibleProjectIds->isNotEmpty(), function ($rooms) use ($accessibleProjectIds, $user, $leaveTrackingEnabled) {
+                        $rooms->orWhere(function ($projectRooms) use ($accessibleProjectIds, $user, $leaveTrackingEnabled) {
+                            $projectRooms->whereIn('project_id', $accessibleProjectIds);
+
+                            if ($leaveTrackingEnabled) {
+                                $projectRooms->whereNotExists(function ($leaves) use ($user) {
+                                    $leaves->select(DB::raw(1))
+                                        ->from('chat_participant_leaves')
+                                        ->whereColumn('chat_participant_leaves.chat_room_id', 'chat_rooms.id')
+                                        ->where('chat_participant_leaves.user_id', $user->id);
+                                });
+                            }
+                        });
+                    });
+            })
+            ->with('project')
+            ->get()
+            ->unique('id')
+            ->values();
+
+        $archivedRoomIds = ChatRoom::archivedIdsForRoomIds($chatRooms->pluck('id'));
+
+        return $chatRooms
+            ->filter(function (ChatRoom $room) use ($user, $archivedRoomIds) {
+                $isArchived = $archivedRoomIds->contains($room->id);
+
+                if ($isArchived && ! $this->canViewArchivedChatRoom($room, $user)) {
+                    return false;
+                }
+
+                return $user->isStudentGroupRole() || ! $isArchived;
+            })
+            ->pluck('id')
+            ->values();
     }
 
     /**
@@ -514,6 +578,7 @@ class ChatController extends BaseController
             $this->createMentionNotifications($chatRoom, $message, $user, $request->input('mention_user_ids', []));
 
             $chatRoom->touch();
+            $this->clearChatNavigationCacheForRoom($chatRoom);
 
             return response()->json([
                 'success' => true,
@@ -982,6 +1047,27 @@ class ChatController extends BaseController
             })
             ->unique('id')
             ->values();
+    }
+
+    private function clearChatNavigationCacheForRoom(ChatRoom $chatRoom): void
+    {
+        $userIds = DB::table('chat_participants')
+            ->where('chat_room_id', $chatRoom->id)
+            ->pluck('user_id');
+
+        if ($chatRoom->project_id) {
+            $project = Project::with(['owner', 'adviser', 'members'])->find($chatRoom->project_id);
+
+            if ($project) {
+                $userIds = $userIds->merge($this->getProjectChatParticipants($project)->pluck('id'));
+            }
+        }
+
+        $userIds
+            ->push($chatRoom->created_by)
+            ->filter()
+            ->unique()
+            ->each(fn ($userId) => Cache::forget("navigation-counts:{$userId}"));
     }
 
     private function isChatAdmin(ChatRoom $chatRoom, User $user): bool

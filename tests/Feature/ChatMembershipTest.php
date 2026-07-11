@@ -129,6 +129,104 @@ class ChatMembershipTest extends TestCase
         $this->assertSame(0, $chatRooms->firstWhere('id', $chatRoom->id)->unread_count);
     }
 
+    public function test_real_messages_create_unread_badge_for_visible_project_chat(): void
+    {
+        [$leader, $member, $group] = $this->groupWithMember();
+        $chatRoom = $this->projectChatRoom($group, 'Unread Message Chat');
+
+        $chatRoom->participants()->attach($leader->id, [
+            'role' => 'admin',
+            'joined_at' => now(),
+            'last_read_at' => now(),
+        ]);
+
+        $chatRoom->messages()->create([
+            'user_id' => $leader->id,
+            'message' => 'Please check the latest draft.',
+            'message_type' => 'text',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this
+            ->actingAs($member)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('<span class="chat-nav-unread-count', false);
+
+        $chatRooms = $this
+            ->actingAs($member)
+            ->get(route('chat.index'))
+            ->assertOk()
+            ->viewData('chatRooms');
+
+        $this->assertSame(1, $chatRooms->firstWhere('id', $chatRoom->id)->unread_count);
+    }
+
+    public function test_sending_chat_message_creates_unread_badge_for_room_users(): void
+    {
+        [$leader, $member, $group] = $this->groupWithMember();
+        $chatRoom = $this->projectChatRoom($group, 'Sent Message Badge Chat');
+
+        $chatRoom->participants()->attach($leader->id, [
+            'role' => 'admin',
+            'joined_at' => now(),
+            'last_read_at' => now(),
+        ]);
+
+        $this
+            ->actingAs($leader)
+            ->postJson(route('chat.rooms.send-message', $chatRoom), [
+                'message' => 'New message for the group.',
+            ])
+            ->assertOk();
+
+        $this
+            ->actingAs($member)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('<span class="chat-nav-unread-count', false);
+    }
+
+    public function test_unread_summary_updates_after_room_messages_are_loaded(): void
+    {
+        [$leader, $member, $group] = $this->groupWithMember();
+        $chatRoom = $this->projectChatRoom($group, 'Live Summary Chat');
+
+        $chatRoom->participants()->attach($leader->id, [
+            'role' => 'admin',
+            'joined_at' => now(),
+            'last_read_at' => now(),
+        ]);
+
+        $chatRoom->messages()->create([
+            'user_id' => $leader->id,
+            'message' => 'Live unread summary message.',
+            'message_type' => 'text',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this
+            ->actingAs($member)
+            ->getJson(route('chat.unread-summary'))
+            ->assertOk()
+            ->assertJsonPath('total', 1)
+            ->assertJsonPath("rooms.{$chatRoom->id}", 1);
+
+        $this
+            ->actingAs($member)
+            ->getJson(route('chat.rooms.messages', $chatRoom))
+            ->assertOk();
+
+        $this
+            ->actingAs($member)
+            ->getJson(route('chat.unread-summary'))
+            ->assertOk()
+            ->assertJsonPath('total', 0)
+            ->assertJsonPath("rooms.{$chatRoom->id}", 0);
+    }
+
     public function test_group_member_removal_detaches_member_from_all_project_chat_rooms(): void
     {
         [$leader, $member, $group] = $this->groupWithMember();

@@ -547,6 +547,9 @@ let currentChatRoomDetails = null;
 let selectedMentionIds = new Set();
 let mentionParticipantsLoadedForRoomId = null;
 let mentionParticipantsLoading = false;
+let unreadBadgePollingInterval = null;
+const isArchivedChatsPage = @json($isArchivedChatsPage ?? false);
+const chatIndexUrl = @json(route('chat.index'));
 
 // Modal functions
 function showNotification(title, message, type = 'info') {
@@ -600,6 +603,11 @@ function handleConfirmation() {
 
 // Initialize chat interface
 document.addEventListener('DOMContentLoaded', function() {
+    if (!isArchivedChatsPage) {
+        refreshUnreadBadges();
+        unreadBadgePollingInterval = setInterval(refreshUnreadBadges, 5000);
+    }
+
     const requestedRoomId = @json(request('room'));
     const requestedRoom = requestedRoomId
         ? document.querySelector(`.chat-room-item[data-room-id="${requestedRoomId}"]`)
@@ -697,6 +705,121 @@ function decrementChatNavUnreadCount(unreadCount) {
             badge.remove();
         }
     });
+}
+
+function chatNavLinks() {
+    return Array.from(document.querySelectorAll('a'))
+        .filter(link => link.href === chatIndexUrl);
+}
+
+function setChatNavUnreadCount(count) {
+    const nextCount = Number(count || 0);
+
+    document.querySelectorAll('.chat-nav-unread-count').forEach(badge => {
+        if (nextCount > 0) {
+            badge.dataset.unreadCount = String(nextCount);
+            badge.textContent = formatUnreadCount(nextCount);
+        } else {
+            badge.remove();
+        }
+    });
+
+    if (nextCount <= 0) return;
+
+    chatNavLinks().forEach(link => {
+        if (link.querySelector('.chat-nav-unread-count')) return;
+
+        const badge = document.createElement('span');
+        badge.className = link.classList.contains('justify-between')
+            ? 'chat-nav-unread-count min-w-5 h-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white'
+            : 'chat-nav-unread-count ml-1.5 h-5 min-w-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white';
+        badge.dataset.unreadCount = String(nextCount);
+        badge.textContent = formatUnreadCount(nextCount);
+        link.appendChild(badge);
+    });
+}
+
+function setRoomUnreadCount(roomId, count) {
+    const roomItem = document.querySelector(`.chat-room-item[data-room-id="${roomId}"]`);
+    if (!roomItem) return;
+
+    const nextCount = Number(count || 0);
+    let badge = roomItem.querySelector('.chat-room-unread-count');
+
+    if (nextCount <= 0) {
+        badge?.remove();
+        return;
+    }
+
+    if (!badge) {
+        const actions = roomItem.querySelector('.flex.shrink-0.items-center.gap-2');
+        if (!actions) return;
+
+        badge = document.createElement('span');
+        badge.className = 'chat-room-unread-count bg-blue-600 text-white text-xs rounded-full px-2 py-1';
+        actions.prepend(badge);
+    }
+
+    badge.dataset.unreadCount = String(nextCount);
+    badge.textContent = formatUnreadCount(nextCount);
+}
+
+function updateFolderUnreadCounts() {
+    document.querySelectorAll('details.chat-room-folder').forEach(folder => {
+        const total = Array.from(folder.querySelectorAll('.chat-room-unread-count'))
+            .reduce((sum, badge) => sum + Number(badge.dataset.unreadCount || badge.textContent || 0), 0);
+        let folderBadge = folder.querySelector('.chat-folder-unread-count');
+
+        if (total <= 0) {
+            folderBadge?.remove();
+            return;
+        }
+
+        if (!folderBadge) {
+            const badgeWrap = folder.querySelector('summary span.flex.shrink-0.items-center.gap-2');
+            if (!badgeWrap) return;
+
+            folderBadge = document.createElement('span');
+            folderBadge.className = 'chat-folder-unread-count text-xs rounded-full bg-red-600 px-2 py-1 font-semibold text-white';
+            folderBadge.title = 'Unread chats';
+            badgeWrap.prepend(folderBadge);
+        }
+
+        folderBadge.dataset.unreadCount = String(total);
+        folderBadge.textContent = formatUnreadCount(total);
+    });
+}
+
+async function refreshUnreadBadges() {
+    if (isArchivedChatsPage) return;
+
+    try {
+        const response = await fetch('/chat/unread-summary', {
+            headers: { 'Accept': 'application/json' }
+        });
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const roomCounts = data.rooms || {};
+
+        if (currentRoomId && Object.prototype.hasOwnProperty.call(roomCounts, String(currentRoomId))) {
+            roomCounts[String(currentRoomId)] = 0;
+        }
+
+        document.querySelectorAll('.chat-room-item').forEach(roomItem => {
+            const roomId = roomItem.dataset.roomId;
+            setRoomUnreadCount(roomId, roomCounts[String(roomId)] || 0);
+        });
+
+        updateFolderUnreadCounts();
+
+        const total = Object.values(roomCounts)
+            .reduce((sum, value) => sum + Number(value || 0), 0);
+        setChatNavUnreadCount(total);
+    } catch (error) {
+        console.error('Error refreshing unread badges:', error);
+    }
 }
 
 function clearChatRoomUnreadCount(roomId) {
@@ -926,6 +1049,7 @@ async function loadMessages(roomId) {
         if (data.messages) {
             displayMessages(data.messages);
             clearChatRoomUnreadCount(roomId);
+            refreshUnreadBadges();
         }
     } catch (error) {
         console.error('Error loading messages:', error);
