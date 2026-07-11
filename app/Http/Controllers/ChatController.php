@@ -120,7 +120,13 @@ class ChatController extends BaseController
                 $room->is_archived = $archivedRoomIds->contains($room->id);
                 return $room;
             })
-            ->filter(fn ($room) => $archivedOnly ? $room->is_archived : ! $room->is_archived)
+            ->filter(function ($room) use ($archivedOnly, $user) {
+                if ($archivedOnly) {
+                    return $room->is_archived;
+                }
+
+                return $user->isStudentGroupRole() || ! $room->is_archived;
+            })
             ->values()
             ->sort(function ($firstRoom, $secondRoom) {
                 if ($firstRoom->is_pinned !== $secondRoom->is_pinned) {
@@ -981,10 +987,12 @@ class ChatController extends BaseController
         }
 
         if ($project->canEdit($user)) {
-            return true;
+            return ! $project->isArchivedForUser($user);
         }
 
-        return $user->isTeacher() && $project->canAccess($user);
+        return $user->isTeacher()
+            && $project->canAccess($user)
+            && ! $project->isArchivedForUser($user);
     }
 
     private function defaultChatProjectFor(User $user): ?Project

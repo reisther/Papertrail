@@ -17,7 +17,6 @@
                                 @php
                                     $isArchived = filled($relationship->archived_at);
                                     $group = $relationship->student?->ownedProjects?->first();
-                                    $archivedRoom = $group?->chatRooms?->first();
                                 @endphp
                                 <div class="{{ $isArchived ? 'bg-gray-50' : 'bg-white' }} border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
                                     <div class="flex items-center space-x-4 mb-4">
@@ -50,12 +49,7 @@
                                         <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ $isArchived ? 'bg-gray-200 text-gray-700' : 'bg-green-100 text-green-800' }}">
                                             {{ $isArchived ? 'Archived Adviser' : 'Active Adviser' }}
                                         </span>
-                                        @if($isArchived)
-                                            <a href="{{ $archivedRoom ? route('chat.archived', ['room' => $archivedRoom->id]) : route('chat.archived') }}"
-                                               class="inline-flex h-9 items-center justify-center rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200">
-                                                Archived chats
-                                            </a>
-                                        @else
+                                        @unless($isArchived)
                                             <form method="POST" action="{{ route('advisers.release', $relationship) }}">
                                                 @csrf
                                                 @method('DELETE')
@@ -63,7 +57,7 @@
                                                     Remove Adviser
                                                 </button>
                                             </form>
-                                        @endif
+                                        @endunless
                                     </div>
                                 </div>
                             @endforeach

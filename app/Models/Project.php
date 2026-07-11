@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class Project extends Model
 {
@@ -241,6 +242,35 @@ class Project extends Model
             ->first();
     }
 
+    public function archivedAdviserRelationship(): ?AdviserStudent
+    {
+        if (! Schema::hasColumn('adviser_student', 'archived_at')) {
+            return null;
+        }
+
+        $studentIds = collect([$this->owner_id])
+            ->merge($this->members()->pluck('users.id'))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($studentIds->isEmpty()) {
+            return null;
+        }
+
+        return AdviserStudent::query()
+            ->approved()
+            ->archived()
+            ->whereIn('student_id', $studentIds)
+            ->latest('archived_at')
+            ->first();
+    }
+
+    public function hasArchivedAdviserRelationship(): bool
+    {
+        return (bool) $this->archivedAdviserRelationship();
+    }
+
     public function isArchivedForAdviser(User $user): bool
     {
         return (bool) $this->archivedAdviserRelationshipFor($user);
@@ -248,7 +278,9 @@ class Project extends Model
 
     public function isArchivedForUser(User $user): bool
     {
-        return $this->status === 'archived' || $this->isArchivedForAdviser($user);
+        return $this->status === 'archived'
+            || $this->isArchivedForAdviser($user)
+            || $this->hasArchivedAdviserRelationship();
     }
 
     public function canUploadDocuments(User $user): bool

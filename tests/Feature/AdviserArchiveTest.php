@@ -7,6 +7,8 @@ use App\Models\ChatRoom;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class AdviserArchiveTest extends TestCase
@@ -28,7 +30,7 @@ class AdviserArchiveTest extends TestCase
             ->assertSee(route('group-description.details', $group), false);
     }
 
-    public function test_archived_adviser_shows_archived_chats_action_to_student_leader(): void
+    public function test_archived_adviser_chat_stays_visible_in_regular_leader_chats(): void
     {
         [$leader, $adviser, $group] = $this->archivedAdviserGroup();
         $chatRoom = ChatRoom::create([
@@ -56,8 +58,15 @@ class AdviserArchiveTest extends TestCase
         $response
             ->assertOk()
             ->assertSee('Archived Adviser')
-            ->assertSee('Archived chats')
-            ->assertSee(route('chat.archived', ['room' => $chatRoom->id]), false);
+            ->assertDontSee('Archived chats')
+            ->assertDontSee(route('chat.archived', ['room' => $chatRoom->id]), false);
+
+        $this
+            ->actingAs($leader)
+            ->get(route('chat.index'))
+            ->assertOk()
+            ->assertSee('PaperTrail Group Chat')
+            ->assertSee('Archived');
     }
 
     public function test_archived_chat_messages_can_be_loaded(): void
@@ -93,6 +102,79 @@ class AdviserArchiveTest extends TestCase
             ->assertJsonPath('messages.0.message', 'Hi')
             ->assertJsonPath('messages.0.is_archived', true)
             ->assertJsonPath('messages.0.can_edit', false);
+    }
+
+    public function test_leader_chat_page_does_not_show_archived_chats_button(): void
+    {
+        [$leader] = $this->archivedAdviserGroup();
+
+        $this
+            ->actingAs($leader)
+            ->get(route('chat.index'))
+            ->assertOk()
+            ->assertDontSee(route('chat.archived'), false);
+    }
+
+    public function test_archived_group_details_still_show_the_adviser(): void
+    {
+        [$leader, $adviser] = $this->archivedAdviserGroup();
+
+        $this
+            ->actingAs($leader)
+            ->get(route('group-description.show'))
+            ->assertOk()
+            ->assertSee($adviser->name);
+    }
+
+    public function test_archived_group_files_are_read_only_for_students(): void
+    {
+        Storage::fake('public');
+
+        [$leader, , $group] = $this->archivedAdviserGroup();
+
+        $this
+            ->actingAs($leader)
+            ->get(route('projects.index'))
+            ->assertOk()
+            ->assertSee($group->title)
+            ->assertSee('Archived')
+            ->assertDontSee(route('projects.archived'), false);
+
+        $this
+            ->actingAs($leader)
+            ->get(route('projects.show', $group))
+            ->assertOk()
+            ->assertSee('Archived files')
+            ->assertDontSee('Upload Files');
+
+        $this
+            ->actingAs($leader)
+            ->post(route('projects.upload-documents', $group), [
+                'files' => [UploadedFile::fake()->create('chapter-5.pdf', 100, 'application/pdf')],
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_archived_group_files_are_visible_to_members_in_projects(): void
+    {
+        [$leader, , $group, $member] = $this->archivedAdviserGroup();
+
+        $group->update(['status' => 'archived']);
+
+        $this
+            ->actingAs($member)
+            ->get(route('projects.index'))
+            ->assertOk()
+            ->assertSee($group->title)
+            ->assertSee('Archived')
+            ->assertDontSee(route('projects.archived'), false);
+
+        $this
+            ->actingAs($member)
+            ->get(route('projects.show', $group))
+            ->assertOk()
+            ->assertSee('Archived files')
+            ->assertDontSee('Upload Files');
     }
 
     public function test_same_adviser_request_restores_archived_group_when_approved(): void
@@ -197,6 +279,6 @@ class AdviserArchiveTest extends TestCase
             'archived_at' => now()->subDay(),
         ]);
 
-        return [$leader, $adviser, $group];
+        return [$leader, $adviser, $group, $member];
     }
 }

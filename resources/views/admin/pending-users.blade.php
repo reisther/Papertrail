@@ -5,18 +5,18 @@
         </h2>
     </x-slot>
 
-    <div class="py-12">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+    <div class="py-6 sm:py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6 text-gray-900">
-                    <div class="flex justify-between items-center mb-6">
-                        <h3 class="text-lg font-semibold">Document Verification Queue</h3>
-                        <div class="flex items-center space-x-2">
+                <div class="p-4 text-gray-900 sm:p-6">
+                    <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <h3 class="text-xl font-semibold leading-snug sm:text-lg">Document Verification Queue</h3>
+                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-2 sm:gap-0">
                             <span class="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium">
                                 {{ $pendingUsers->count() }} Pending
                             </span>
                             <a href="{{ route('admin.dashboard') }}" 
-                               class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm transition-colors">
+                               class="inline-flex items-center justify-center rounded-md bg-gray-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-700">
                                 ← Back to Dashboard
                             </a>
                         </div>
@@ -25,18 +25,18 @@
                     @if ($pendingUsers->count() > 0)
                         <div class="grid grid-cols-1 gap-6">
                             @foreach ($pendingUsers as $user)
-                                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-                                    <div class="flex items-start justify-between">
-                                        <div class="flex-1">
-                                            <div class="flex items-center space-x-4 mb-4">
-                                                <div class="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center">
+                                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 sm:p-6">
+                                    <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                                        <div class="min-w-0 flex-1">
+                                            <div class="mb-4 flex items-start gap-3 sm:gap-4">
+                                                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-300 sm:h-12 sm:w-12">
                                                     <svg class="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
                                                         <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path>
                                                     </svg>
                                                 </div>
-                                                <div>
-                                                    <h4 class="text-lg font-semibold text-gray-900">{{ $user->name }}</h4>
-                                                    <p class="text-sm text-gray-600">{{ $user->email }}</p>
+                                                <div class="min-w-0">
+                                                    <h4 class="break-words text-lg font-semibold leading-snug text-gray-900">{{ $user->name }}</h4>
+                                                    <p class="break-all text-sm text-gray-600">{{ $user->email }}</p>
                                                     <div class="mt-2 flex flex-wrap items-center gap-2">
                                                         <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide
                                                             @if($user->role === 'Leader') bg-indigo-100 text-indigo-800 ring-2 ring-indigo-300
@@ -50,7 +50,7 @@
                                                 </div>
                                             </div>
                                             
-                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                            <div class="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                                                 <div>
                                                     <p class="text-sm"><span class="font-medium">Campus:</span> {{ $user->campus }}</p>
                                                     <p class="text-sm"><span class="font-medium">Section:</span> {{ $user->section }}</p>
@@ -69,8 +69,8 @@
                                             <div class="mb-4">
                                                 <p class="text-sm font-medium text-gray-700 mb-2">Uploaded Document:</p>
                                                 @if ($user->hasDocument())
-                                                    <div class="flex items-center space-x-3">
-                                                        <div class="flex items-center space-x-2">
+                                                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                                                        <div class="flex items-center gap-2">
                                                             @if ($user->isDocumentImage())
                                                                 <svg class="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
                                                                     <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"></path>
@@ -90,7 +90,7 @@
                                                         </div>
                                                         <a href="{{ route('admin.view-document', $user) }}" 
                                                            target="_blank"
-                                                           class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                                           class="text-sm font-medium text-blue-600 hover:text-blue-800">
                                                             View Document →
                                                         </a>
                                                     </div>
@@ -100,24 +100,24 @@
                                             </div>
                                         </div>
                                         
-                                        <div class="ml-6 flex flex-col space-y-2">
+                                        <div class="grid w-full grid-cols-1 gap-2 sm:grid-cols-3 lg:w-40 lg:grid-cols-1">
                                             <a href="{{ route('admin.view-user', $user) }}" 
-                                               class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm text-center transition-colors">
+                                               class="inline-flex min-h-11 items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-center text-sm font-medium text-white transition-colors hover:bg-blue-700">
                                                 Review Details
                                             </a>
                                             
                                             @if ($user->hasDocument())
                                                 <button onclick="openVerifyModal({{ $user->id }}, '{{ $user->name }}')" 
-                                                        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm transition-colors">
+                                                        class="min-h-11 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700">
                                                     Quick Approve
                                                 </button>
                                                 <button onclick="openRejectModal({{ $user->id }}, '{{ $user->name }}')" 
-                                                        class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm transition-colors">
+                                                        class="min-h-11 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700">
                                                     Reject
                                                 </button>
                                             @else
                                                 <button disabled 
-                                                        class="bg-gray-300 text-gray-500 px-4 py-2 rounded-md text-sm cursor-not-allowed">
+                                                        class="min-h-11 cursor-not-allowed rounded-md bg-gray-300 px-4 py-2 text-sm font-medium text-gray-500 sm:col-span-2 lg:col-span-1">
                                                     No Document
                                                 </button>
                                             @endif
@@ -148,7 +148,7 @@
 
     <!-- Quick Verify Modal -->
     <div id="verifyModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
-        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="relative top-20 mx-auto w-[calc(100%-2rem)] max-w-md rounded-md border bg-white p-5 shadow-lg">
             <div class="mt-3">
                 <h3 class="text-lg font-medium text-gray-900 mb-4">
                     Approve Registration for <span id="verifyUserName"></span>
@@ -166,13 +166,13 @@
                                   placeholder="Add any notes about the verification..."></textarea>
                     </div>
                     
-                    <div class="flex justify-end space-x-3">
+                    <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end sm:space-x-3 sm:gap-0">
                         <button type="button" onclick="closeVerifyModal()" 
-                                class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
+                                class="rounded-md bg-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-400">
                             Cancel
                         </button>
                         <button type="submit" 
-                                class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md">
+                                class="rounded-md bg-green-600 px-4 py-2 text-white hover:bg-green-700">
                             Approve Registration
                         </button>
                     </div>
@@ -183,7 +183,7 @@
 
     <!-- Reject Modal -->
     <div id="rejectModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
-        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="relative top-20 mx-auto w-[calc(100%-2rem)] max-w-md rounded-md border bg-white p-5 shadow-lg">
             <div class="mt-3">
                 <h3 class="text-lg font-medium text-gray-900 mb-4">
                     Reject Registration for <span id="rejectUserName"></span>
@@ -201,13 +201,13 @@
                                   placeholder="Please provide a reason for rejection..."></textarea>
                     </div>
                     
-                    <div class="flex justify-end space-x-3">
+                    <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end sm:space-x-3 sm:gap-0">
                         <button type="button" onclick="closeRejectModal()" 
-                                class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
+                                class="rounded-md bg-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-400">
                             Cancel
                         </button>
                         <button type="submit" 
-                                class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">
+                                class="rounded-md bg-red-600 px-4 py-2 text-white hover:bg-red-700">
                             Reject Registration
                         </button>
                     </div>

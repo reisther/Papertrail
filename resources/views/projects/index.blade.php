@@ -1,6 +1,7 @@
 <x-app-layout>
     @php
         $isArchivedProjectsPage = $isArchivedProjectsPage ?? false;
+        $showArchivedProjectsLink = $isArchivedProjectsPage || ! Auth::user()->isStudentGroupRole();
     @endphp
 
     <x-slot name="header">
@@ -9,11 +10,13 @@
                 {{ $isArchivedProjectsPage ? __('Archived Projects') : __('My Projects') }}
             </h2>
             <div class="flex flex-wrap items-center gap-2">
-                <a href="{{ $isArchivedProjectsPage ? route('projects.index') : route('projects.archived') }}"
-                   class="inline-flex items-center justify-center rounded-md {{ $isArchivedProjectsPage ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-800 hover:bg-gray-900 text-white' }} px-4 py-2 text-sm font-medium transition-colors">
-                    {{ $isArchivedProjectsPage ? 'Active Projects' : 'Archived Projects' }}
-                </a>
-                @if($isArchivedProjectsPage && (Auth::user()->isStudentGroupRole() || Auth::user()->isTeacher()))
+                @if($showArchivedProjectsLink)
+                    <a href="{{ $isArchivedProjectsPage ? route('projects.index') : route('projects.archived') }}"
+                       class="inline-flex items-center justify-center rounded-md {{ $isArchivedProjectsPage ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-800 hover:bg-gray-900 text-white' }} px-4 py-2 text-sm font-medium transition-colors">
+                        {{ $isArchivedProjectsPage ? 'Active Projects' : 'Archived Projects' }}
+                    </a>
+                @endif
+                @if($isArchivedProjectsPage && Auth::user()->isTeacher())
                     <a href="{{ route('chat.archived') }}"
                        class="inline-flex items-center justify-center rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200">
                         Archived Chats
@@ -150,7 +153,7 @@
                                            class="text-blue-600 hover:text-blue-800 text-sm font-medium">
                                             View
                                         </a>
-                                        @if($isArchivedProjectsPage && (Auth::user()->isStudentGroupRole() || Auth::user()->isTeacher()))
+                                        @if($isArchivedProjectsPage && Auth::user()->isTeacher())
                                             @php($archivedChatRoom = $project->chatRooms->first())
                                             <a href="{{ $archivedChatRoom ? route('chat.archived', ['room' => $archivedChatRoom->id]) : route('chat.archived') }}"
                                                class="text-gray-600 hover:text-gray-800 text-sm font-medium">

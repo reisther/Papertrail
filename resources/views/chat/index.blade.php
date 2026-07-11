@@ -3,6 +3,7 @@
         $memberWithoutGroup = Auth::user()->isStudent() && Auth::user()->joinedProjects()->doesntExist();
         $leaderWithoutGroup = Auth::user()->canLeadGroup() && Auth::user()->ownedProjects()->doesntExist();
         $isArchivedChatsPage = $isArchivedChatsPage ?? false;
+        $showArchivedChatsLink = $isArchivedChatsPage || Auth::user()->isTeacher();
     @endphp
 
     <x-slot name="header">
@@ -17,10 +18,12 @@
                 <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">{{ $isArchivedChatsPage ? 'Archived Chats' : 'Chat & Collaboration' }}</h1>
                 <p class="mt-2 text-gray-600">{{ $isArchivedChatsPage ? 'Review saved adviser chat history after a group is archived.' : 'Communicate with your project team and advisers in real-time' }}</p>
             </div>
-            <a href="{{ $isArchivedChatsPage ? route('chat.index') : route('chat.archived') }}"
-               class="inline-flex h-10 items-center justify-center rounded-md {{ $isArchivedChatsPage ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-800 hover:bg-gray-900 text-white' }} px-4 py-2 text-sm font-medium transition-colors">
-                {{ $isArchivedChatsPage ? 'Active Chats' : 'Archived Chats' }}
-            </a>
+            @if($showArchivedChatsLink)
+                <a href="{{ $isArchivedChatsPage ? route('chat.index') : route('chat.archived') }}"
+                   class="inline-flex h-10 items-center justify-center rounded-md {{ $isArchivedChatsPage ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-800 hover:bg-gray-900 text-white' }} px-4 py-2 text-sm font-medium transition-colors">
+                    {{ $isArchivedChatsPage ? 'Active Chats' : 'Archived Chats' }}
+                </a>
+            @endif
         </div>
 
         @if($leaderWithoutGroup && ! $isArchivedChatsPage)

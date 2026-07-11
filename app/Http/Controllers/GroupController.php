@@ -36,15 +36,17 @@ class GroupController extends Controller
         $approvedAdviserRelationship = null;
         if ($group?->adviser) {
             $approvedAdviser = $group->adviser;
-            $approvedAdviserRelationship = $group->owner?->advisers()
+            $approvedAdviserRelationship = $group->owner?->adviserRequests()
                 ->where('adviser_id', $group->adviser_id)
+                ->approved()
                 ->first();
         } else {
             $leader = $user->canLeadGroup() ? $user : $group?->owner;
-            $approvedAdviserRelationship = $leader?->advisers()
+            $approvedAdviserRelationship = $leader?->adviserRequests()
                 ->approved()
                 ->with('adviser')
                 ->latest('responded_at')
+                ->latest('archived_at')
                 ->first();
             $approvedAdviser = $approvedAdviserRelationship?->adviser;
         }
@@ -82,16 +84,18 @@ class GroupController extends Controller
 
         $group = $project->load(['owner', 'adviser', 'members']);
         $approvedAdviser = $group->adviser;
-        $approvedAdviserRelationship = $group->owner?->advisers()
+        $approvedAdviserRelationship = $group->owner?->adviserRequests()
             ->where('adviser_id', $group->adviser_id)
+            ->approved()
             ->first();
 
         if (!$approvedAdviserRelationship) {
-            $approvedAdviserRelationship = $group->owner?->advisers()
+            $approvedAdviserRelationship = $group->owner?->adviserRequests()
                 ->approved()
                 ->with('adviser')
                 ->when($user->isTeacher(), fn ($query) => $query->where('adviser_id', $user->id))
                 ->latest('responded_at')
+                ->latest('archived_at')
                 ->first();
             $approvedAdviser = $approvedAdviserRelationship?->adviser;
         }

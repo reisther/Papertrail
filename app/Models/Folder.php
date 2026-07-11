@@ -8,6 +8,49 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Folder extends Model
 {
+    public const DEFAULT_PROJECT_FOLDERS = [
+        [
+            'name' => 'Concept Paper',
+            'description' => 'Concept paper drafts and related documents.',
+            'color' => '#7C3AED',
+        ],
+        [
+            'name' => 'Chapter 1',
+            'description' => 'Chapter 1 drafts and related documents.',
+            'color' => '#2563EB',
+        ],
+        [
+            'name' => 'Chapter 2',
+            'description' => 'Chapter 2 drafts and related documents.',
+            'color' => '#059669',
+        ],
+        [
+            'name' => 'Chapter 3',
+            'description' => 'Chapter 3 drafts and related documents.',
+            'color' => '#D97706',
+        ],
+        [
+            'name' => 'Chapter 4',
+            'description' => 'Chapter 4 drafts and related documents.',
+            'color' => '#DC2626',
+        ],
+        [
+            'name' => 'Chapter 5',
+            'description' => 'Chapter 5 drafts and related documents.',
+            'color' => '#0891B2',
+        ],
+        [
+            'name' => 'Final Manuscript',
+            'description' => 'Final paper, appendices, and related completion documents.',
+            'color' => '#4F46E5',
+        ],
+        [
+            'name' => 'Submissions',
+            'description' => 'Student work submissions for this project.',
+            'color' => '#2563EB',
+        ],
+    ];
+
     protected $fillable = [
         'name',
         'description',
@@ -130,7 +173,7 @@ class Folder extends Model
             return false;
         }
 
-        if ($this->isSubmissionsFolder()) {
+        if ($this->isDefaultProjectFolder()) {
             return false;
         }
 
@@ -152,5 +195,16 @@ class Folder extends Model
     public function isSubmissionsFolder(): bool
     {
         return $this->parent_id === null && $this->name === 'Submissions';
+    }
+
+    public function isDefaultProjectFolder(): bool
+    {
+        return $this->parent_id === null
+            && in_array($this->name, self::defaultProjectFolderNames(), true);
+    }
+
+    public static function defaultProjectFolderNames(): array
+    {
+        return array_column(self::DEFAULT_PROJECT_FOLDERS, 'name');
     }
 }

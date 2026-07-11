@@ -46,14 +46,16 @@ class ProjectController extends Controller
                         ->when($archivedProjectIds->isNotEmpty(), fn ($archived) => $archived->orWhereIn('id', $archivedProjectIds));
                 });
             })
-            ->when(! $archivedOnly, function ($query) use ($archivedProjectIds) {
-                $query->where('status', '!=', 'archived')
-                    ->when($archivedProjectIds->isNotEmpty(), fn ($active) => $active->whereNotIn('id', $archivedProjectIds));
+            ->when(! $archivedOnly, function ($query) use ($archivedProjectIds, $user) {
+                $query->when(! $user->isStudentGroupRole(), function ($active) use ($archivedProjectIds) {
+                    $active->where('status', '!=', 'archived')
+                        ->when($archivedProjectIds->isNotEmpty(), fn ($active) => $active->whereNotIn('id', $archivedProjectIds));
+                });
             })
             ->orderBy('updated_at', 'desc')
             ->paginate(12);
-        $projects->getCollection()->transform(function (Project $project) use ($archivedProjectIds) {
-            $project->is_archived_for_current_user = $project->status === 'archived' || $archivedProjectIds->contains($project->id);
+        $projects->getCollection()->transform(function (Project $project) use ($user) {
+            $project->is_archived_for_current_user = $project->isArchivedForUser($user);
 
             return $project;
         });
@@ -101,7 +103,7 @@ class ProjectController extends Controller
             'status' => 'draft',
         ]);
 
-        $this->ensureSubmissionsFolder($project);
+        $this->ensureDefaultProjectFolders($project);
 
         return redirect()->route('projects.show', $project)
             ->with('success', 'Project created successfully!');
@@ -117,6 +119,8 @@ class ProjectController extends Controller
         if (!$project->canAccess($user)) {
             abort(403, 'Access denied.');
         }
+
+        $this->ensureDefaultProjectFolders($project);
 
         $project->load(['owner', 'adviser'])
             ->loadCount(['documents', 'folders'])
@@ -140,7 +144,7 @@ class ProjectController extends Controller
             $documents = $currentFolder->documents()->with('uploader')->orderBy('name')->get();
             $breadcrumb = $currentFolder->breadcrumb;
         } else {
-            $folders = $project->rootFolders()->withCount('documents')->orderBy('name')->get();
+            $folders = $this->sortDefaultProjectFolders($project->rootFolders()->withCount('documents')->get());
             $documents = $project->rootDocuments()->with('uploader')->orderBy('name')->get();
             $breadcrumb = [];
         }
@@ -215,31 +219,9 @@ class ProjectController extends Controller
             abort(403, 'Access denied.');
         }
 
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'parent_id' => 'nullable|exists:folders,id',
-            'color' => 'nullable|string|regex:/^#[0-9A-Fa-f]{6}$/',
-        ]);
+        $this->ensureDefaultProjectFolders($project);
 
-        // Verify parent folder belongs to this project
-        if ($request->parent_id) {
-            $parentFolder = Folder::findOrFail($request->parent_id);
-            if ($parentFolder->project_id !== $project->id) {
-                abort(400, 'Invalid parent folder.');
-            }
-        }
-
-        Folder::create([
-            'name' => $request->name,
-            'description' => $request->description,
-            'project_id' => $project->id,
-            'parent_id' => $request->parent_id,
-            'created_by' => Auth::id(),
-            'color' => $request->color ?? '#3B82F6',
-        ]);
-
-        return back()->with('success', 'Folder created successfully!');
+        return back()->with('error', 'Projects are limited to Concept Paper, Chapters 1-5, Final Manuscript, and Submissions. New folders cannot be created.');
     }
 
     /**
@@ -405,18 +387,39 @@ class ProjectController extends Controller
 
     private function ensureSubmissionsFolder(Project $project): Folder
     {
-        return Folder::firstOrCreate(
-            [
-                'project_id' => $project->id,
-                'parent_id' => null,
-                'name' => 'Submissions',
-            ],
-            [
-                'description' => 'Student work submissions for this project.',
-                'created_by' => $project->owner_id,
-                'color' => '#2563EB',
-            ]
-        );
+        $this->ensureDefaultProjectFolders($project);
+
+        return Folder::where('project_id', $project->id)
+            ->whereNull('parent_id')
+            ->where('name', 'Submissions')
+            ->firstOrFail();
+    }
+
+    private function ensureDefaultProjectFolders(Project $project): void
+    {
+        foreach (Folder::DEFAULT_PROJECT_FOLDERS as $folder) {
+            Folder::firstOrCreate(
+                [
+                    'project_id' => $project->id,
+                    'parent_id' => null,
+                    'name' => $folder['name'],
+                ],
+                [
+                    'description' => $folder['description'],
+                    'created_by' => $project->owner_id,
+                    'color' => $folder['color'],
+                ]
+            );
+        }
+    }
+
+    private function sortDefaultProjectFolders($folders)
+    {
+        $defaultOrder = array_flip(Folder::defaultProjectFolderNames());
+
+        return $folders
+            ->sortBy(fn (Folder $folder) => sprintf('%03d-%s', $defaultOrder[$folder->name] ?? 999, $folder->name))
+            ->values();
     }
 
     /**

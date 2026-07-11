@@ -28,7 +28,7 @@
                 </div>
             </div>
             <div class="flex space-x-2">
-                <a href="{{ $isArchivedForCurrentUser ? route('projects.archived') : route('projects.index') }}" 
+                <a href="{{ $isArchivedForCurrentUser && Auth::user()->isTeacher() ? route('projects.archived') : route('projects.index') }}" 
                    class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
                     ← Back to Projects
                 </a>
@@ -151,15 +151,6 @@
                                 {{ $currentFolder && $currentFolder->id === $submissionFolder->id ? 'Submit Work' : 'Upload Files' }}
                             </button>
                         @endif
-                        @if($canDeleteProjectItems)
-                            <button onclick="openFolderModal()" 
-                                    class="inline-flex items-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm">
-                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                                </svg>
-                                New Folder
-                            </button>
-                        @endif
                         @if(!$canEditProject)
                             <div class="flex items-center text-sm text-gray-600 bg-gray-50 px-4 py-2 rounded-lg">
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -191,7 +182,7 @@
                                                 <svg class="w-12 h-12 mb-2" style="color: {{ $folder->color }}" fill="currentColor" viewBox="0 0 20 20">
                                                     <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path>
                                                 </svg>
-                                                @if($canDeleteProjectItems && ! $folder->isSubmissionsFolder())
+                                                @if($canDeleteProjectItems && ! $folder->isDefaultProjectFolder())
                                                     <button onclick="event.stopPropagation(); deleteFolder({{ $folder->id }}, '{{ $folder->name }}')" 
                                                             class="absolute -top-1 -right-1 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center justify-center">
                                                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -291,7 +282,7 @@
                         </div>
                         <h3 class="text-xl font-semibold text-gray-900 mb-3">No Files Yet</h3>
                         @if($canUploadToProject)
-                            <p class="text-gray-600 mb-8 max-w-md mx-auto">Start by uploading your project documents or creating folders to organize your work.</p>
+                            <p class="text-gray-600 mb-8 max-w-md mx-auto">Start by uploading your project documents.</p>
                             <div class="flex flex-col sm:flex-row justify-center gap-3">
                                 <button onclick="openUploadModal()" 
                                         class="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm">
@@ -300,18 +291,9 @@
                                     </svg>
                                     Upload Files
                                 </button>
-                                @if($canDeleteProjectItems)
-                                <button onclick="openFolderModal()" 
-                                        class="inline-flex items-center bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm">
-                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                                    </svg>
-                                    Create Folder
-                                </button>
-                                @endif
                             </div>
                         @else
-                            <p class="text-gray-600 mb-4 max-w-md mx-auto">{{ $isArchivedForCurrentUser ? 'This archived project does not have saved files yet.' : "This project doesn't have any files yet. The project owner can upload documents and create folders." }}</p>
+                            <p class="text-gray-600 mb-4 max-w-md mx-auto">{{ $isArchivedForCurrentUser ? 'This archived project does not have saved files yet.' : "This project doesn't have any files yet. The project owner can upload documents." }}</p>
                             <div class="inline-flex items-center text-sm text-gray-500 bg-gray-50 px-4 py-2 rounded-lg">
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
@@ -366,50 +348,6 @@
         </div>
     </div>
     @endif
-
-    <!-- Folder Modal -->
-    <div id="folderModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
-        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div class="mt-3">
-                <h3 class="text-lg font-medium text-gray-900 mb-4">Create New Folder</h3>
-                
-                <form method="POST" action="{{ route('projects.create-folder', $project) }}">
-                    @csrf
-                    @if($currentFolder)
-                        <input type="hidden" name="parent_id" value="{{ $currentFolder->id }}">
-                    @endif
-                    
-                    <div class="mb-4">
-                        <label for="folder_name" class="block text-sm font-medium text-gray-700 mb-2">
-                            Folder Name
-                        </label>
-                        <input type="text" id="folder_name" name="name" required
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                               placeholder="Enter folder name">
-                    </div>
-
-                    <div class="mb-4">
-                        <label for="folder_color" class="block text-sm font-medium text-gray-700 mb-2">
-                            Folder Color
-                        </label>
-                        <input type="color" id="folder_color" name="color" value="#3B82F6"
-                               class="w-full h-10 border border-gray-300 rounded-md">
-                    </div>
-                    
-                    <div class="flex justify-end space-x-3">
-                        <button type="button" onclick="closeFolderModal()" 
-                                class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
-                            Cancel
-                        </button>
-                        <button type="submit" 
-                                class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md">
-                            Create Folder
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
 
     <!-- Delete Document Modal -->
     <div id="deleteDocumentModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
@@ -476,14 +414,6 @@
             document.getElementById('uploadModal')?.classList.add('hidden');
         }
 
-        function openFolderModal() {
-            document.getElementById('folderModal').classList.remove('hidden');
-        }
-
-        function closeFolderModal() {
-            document.getElementById('folderModal').classList.add('hidden');
-        }
-
         function navigateToFolder(folderId) {
             window.location.href = `{{ route('projects.show', $project) }}?folder=${folderId}`;
         }
@@ -546,10 +476,6 @@
         // Close modals when clicking outside
         document.getElementById('uploadModal')?.addEventListener('click', function(e) {
             if (e.target === this) closeUploadModal();
-        });
-
-        document.getElementById('folderModal').addEventListener('click', function(e) {
-            if (e.target === this) closeFolderModal();
         });
 
         document.getElementById('deleteDocumentModal').addEventListener('click', function(e) {
