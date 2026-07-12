@@ -120,12 +120,6 @@
                             <p id="archivedChatNotice" class="mt-1 hidden text-sm font-medium text-gray-600">Archived chats: this conversation is saved as read-only history.</p>
                         </div>
                         <div class="flex shrink-0 items-center space-x-1 sm:space-x-2">
-                            <button id="previousUnreadChatBtn" onclick="goToPreviousUnreadChat()" class="relative hidden text-gray-400 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40" title="Go to previous unread chat" aria-label="Go to previous unread chat">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l-7 7 7 7"></path>
-                                </svg>
-                                <span id="previousUnreadChatCount" class="hidden absolute -right-1 -top-1 min-w-5 h-5 rounded-full bg-red-600 px-1 text-center text-[11px] font-semibold leading-5 text-white"></span>
-                            </button>
                             <button id="pinnedMessagesButton" onclick="togglePinnedMessagesPanel()" class="relative text-gray-400 hover:text-yellow-700 p-2 rounded-lg hover:bg-yellow-50" title="View Pinned Messages">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 4l5 5-4 4v5l-2 2-5-5-4 4-1-1 4-4-5-5 2-2h5l4-4z"></path>
@@ -900,64 +894,8 @@ function clearChatRoomUnreadCount(roomId) {
     updateUnreadNavigationButton();
 }
 
-function unreadRoomItems() {
-    return Array.from(document.querySelectorAll('.chat-room-item'))
-        .filter(roomItem => {
-            const roomId = roomItem.dataset.roomId;
-            const count = Number(roomItem.dataset.unreadCount || 0);
-
-            return count > 0 && String(roomId) !== String(currentRoomId);
-        });
-}
-
 function updateUnreadNavigationButton() {
-    const button = document.getElementById('previousUnreadChatBtn');
-    const countBadge = document.getElementById('previousUnreadChatCount');
-
-    const unreadItems = unreadRoomItems();
-    const totalUnread = unreadItems.reduce((sum, roomItem) => {
-        return sum + Number(roomItem.dataset.unreadCount || 0);
-    }, 0);
-
-    if (button && countBadge) {
-        button.classList.toggle('hidden', totalUnread <= 0);
-        button.disabled = totalUnread <= 0;
-        countBadge.classList.toggle('hidden', totalUnread <= 0);
-        countBadge.textContent = formatUnreadCount(totalUnread);
-    }
-
     updateJumpToUnreadButton();
-}
-
-function goToPreviousUnreadChat() {
-    const unreadItems = unreadRoomItems();
-    if (unreadItems.length === 0) return;
-
-    const allRooms = Array.from(document.querySelectorAll('.chat-room-item'));
-    const currentIndex = allRooms.findIndex(roomItem => String(roomItem.dataset.roomId) === String(currentRoomId));
-    let targetRoom = unreadItems[unreadItems.length - 1];
-
-    if (currentIndex > -1) {
-        const previousUnread = unreadItems
-            .filter(roomItem => allRooms.indexOf(roomItem) < currentIndex)
-            .pop();
-
-        targetRoom = previousUnread || unreadItems[unreadItems.length - 1];
-    }
-
-    const folder = targetRoom.closest('details.chat-room-folder');
-    if (folder) {
-        folder.open = true;
-    }
-
-    targetRoom.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    selectChatRoom(targetRoom.dataset.roomId);
-}
-
-function unreadRoomTotal() {
-    return unreadRoomItems().reduce((sum, roomItem) => {
-        return sum + Number(roomItem.dataset.unreadCount || 0);
-    }, 0);
 }
 
 function updateJumpToUnreadButton() {
@@ -986,19 +924,6 @@ function updateJumpToUnreadButton() {
         return;
     }
 
-    const otherUnreadTotal = unreadRoomTotal();
-    if (otherUnreadTotal > 0) {
-        button.dataset.jumpMode = 'room';
-        label.textContent = otherUnreadTotal === 1 ? 'Jump to unread chat' : 'Jump to unread chats';
-        countBadge.textContent = formatUnreadCount(otherUnreadTotal);
-        countBadge.classList.remove('hidden');
-        iconPath.setAttribute('d', 'M5 12h14M12 5l7 7-7 7');
-        button.classList.remove('hidden');
-        button.classList.add('inline-flex');
-        positionJumpToUnreadButton();
-        return;
-    }
-
     button.classList.add('hidden');
     button.classList.remove('inline-flex');
     button.dataset.jumpMode = '';
@@ -1018,10 +943,7 @@ function handleJumpToUnread() {
 
     if (mode === 'message' && currentUnreadAnchorMessageId) {
         scrollToUnreadMessages();
-        return;
     }
-
-    goToPreviousUnreadChat();
 }
 
 function showChatPanelView() {
