@@ -956,7 +956,7 @@ class ChatController extends BaseController
                 [
                     'title' => 'You were mentioned in chat',
                     'body' => $sender->name . ' mentioned you in ' . $chatRoom->name . '.',
-                    'action_url' => route('chat.index', ['room' => $chatRoom->id]),
+                    'action_url' => route('chat.index', ['room' => $chatRoom->id, 'message' => $message->id]),
                     'data' => [
                         'chat_room_id' => $chatRoom->id,
                         'chat_message_id' => $message->id,

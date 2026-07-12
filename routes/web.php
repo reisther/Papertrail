@@ -228,6 +228,14 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
         $notification->markRead();
         Cache::forget('navigation-counts:' . Auth::id());
 
+        $data = $notification->data ?? [];
+        if ($notification->type === 'chat_mention' && ! empty($data['chat_room_id']) && ! empty($data['chat_message_id'])) {
+            return redirect(route('chat.index', [
+                'room' => $data['chat_room_id'],
+                'message' => $data['chat_message_id'],
+            ]));
+        }
+
         return redirect($notification->action_url ?: route('notifications.index'));
     })->name('notifications.open');
     Route::patch('/notifications/{notification}/unread', function (AppNotification $notification) {

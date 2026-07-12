@@ -558,6 +558,9 @@ let unreadBadgePollingInterval = null;
 let locallyReadRoomIds = new Set();
 let currentRoomInitialUnreadCount = 0;
 let currentUnreadAnchorMessageId = null;
+let pendingMessageJumpId = null;
+let pendingMessageJumpRoomId = null;
+let pendingMessageJumpAttempts = 0;
 const isArchivedChatsPage = @json($isArchivedChatsPage ?? false);
 const chatIndexUrl = @json(route('chat.index'));
 
@@ -618,23 +621,6 @@ document.addEventListener('DOMContentLoaded', function() {
         unreadBadgePollingInterval = setInterval(refreshUnreadBadges, 5000);
     }
 
-    const requestedRoomId = @json(request('room'));
-    const requestedRoom = requestedRoomId
-        ? document.querySelector(`.chat-room-item[data-room-id="${requestedRoomId}"]`)
-        : null;
-
-    if (requestedRoom) {
-        selectChatRoom(requestedRoomId);
-        return;
-    }
-
-    // Auto-select first room if available
-    const firstRoom = document.querySelector('.chat-room-item');
-    if (firstRoom && window.innerWidth >= 1024) {
-        const roomId = firstRoom.dataset.roomId;
-        selectChatRoom(roomId);
-    }
-
     const messagesContainer = document.getElementById('messagesContainer');
     if (messagesContainer) {
         messagesContainer.addEventListener('scroll', updateScrollToBottomButton);
@@ -650,16 +636,37 @@ document.addEventListener('DOMContentLoaded', function() {
 
         positionJumpToUnreadButton();
     });
+
+    const requestedRoomId = @json(request('room'));
+    const requestedMessageId = @json(request('message'));
+    const requestedRoom = requestedRoomId
+        ? document.querySelector(`.chat-room-item[data-room-id="${requestedRoomId}"]`)
+        : null;
+
+    if (requestedRoom) {
+        selectChatRoom(requestedRoomId, requestedMessageId);
+        return;
+    }
+
+    // Auto-select first room if available
+    const firstRoom = document.querySelector('.chat-room-item');
+    if (firstRoom && window.innerWidth >= 1024) {
+        const roomId = firstRoom.dataset.roomId;
+        selectChatRoom(roomId);
+    }
 });
 
 // Select and load a chat room
-function selectChatRoom(roomId) {
+function selectChatRoom(roomId, targetMessageId = null) {
     clearEdit();
     clearReply();
     clearFileSelection();
     currentRoomId = roomId;
     currentRoomInitialUnreadCount = 0;
     currentUnreadAnchorMessageId = null;
+    pendingMessageJumpId = targetMessageId ? String(targetMessageId) : null;
+    pendingMessageJumpRoomId = pendingMessageJumpId ? String(roomId) : null;
+    pendingMessageJumpAttempts = 0;
     selectedMentionIds.clear();
     mentionParticipantsLoadedForRoomId = null;
     hideMentionSuggestions();
@@ -1306,17 +1313,24 @@ function displayMessages(messages) {
         markMessagesAsSeen(unseenMessageIds);
     }
     
+    const hasPendingMessageJump = pendingMessageJumpId && String(pendingMessageJumpRoomId) === String(currentRoomId);
+
     // Smart scroll: auto-scroll on initial load, after sending message, or if user was near the bottom.
+    const shouldPreserveMessageJump = isInitialLoad && hasPendingMessageJump;
     const shouldPreserveUnreadJump = isInitialLoad && currentUnreadAnchorMessageId && currentRoomInitialUnreadCount > 0;
-    if (!shouldPreserveUnreadJump && (isInitialLoad || shouldScrollToBottom || wasNearBottom)) {
+    if (!shouldPreserveMessageJump && !shouldPreserveUnreadJump && (isInitialLoad || shouldScrollToBottom || wasNearBottom)) {
         scrollMessagesToBottom();
         isInitialLoad = false; // Reset flag after initial scroll
         shouldScrollToBottom = false; // Reset flag after forced scroll
-    } else if (shouldPreserveUnreadJump) {
+    } else if (shouldPreserveMessageJump || shouldPreserveUnreadJump) {
         isInitialLoad = false;
     }
     updateScrollToBottomButton();
     updateJumpToUnreadButton();
+
+    if (hasPendingMessageJump) {
+        requestAnimationFrame(jumpToPendingMessage);
+    }
 }
 
 function firstUnreadMessageIdFor(messages, currentUserId, wasNearBottom) {
@@ -1522,15 +1536,56 @@ function clearEdit() {
     document.getElementById('messageText').value = '';
 }
 
-function scrollToMessage(messageId) {
+function scrollToMessage(messageId, ringClass = 'ring-yellow-300', highlightMs = 3000) {
+    const container = document.getElementById('messagesContainer');
     const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
-    if (!messageElement) return;
+    if (!container || !messageElement) return false;
 
-    messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    messageElement.classList.add('ring-2', 'ring-yellow-300', 'rounded-lg');
+    const centerMessageInContainer = (smooth = true) => {
+        const containerRect = container.getBoundingClientRect();
+        const messageRect = messageElement.getBoundingClientRect();
+        const centeredTop = container.scrollTop
+            + (messageRect.top - containerRect.top)
+            - ((container.clientHeight - messageElement.offsetHeight) / 2);
+
+        container.scrollTo({
+            top: Math.max(0, centeredTop),
+            behavior: smooth ? 'smooth' : 'auto'
+        });
+    };
+
+    centerMessageInContainer(true);
+    requestAnimationFrame(() => centerMessageInContainer(false));
+    setTimeout(() => centerMessageInContainer(false), 250);
+    setTimeout(() => centerMessageInContainer(false), 600);
+    messageElement.classList.add('ring-2', ringClass, 'rounded-lg');
     setTimeout(() => {
-        messageElement.classList.remove('ring-2', 'ring-yellow-300', 'rounded-lg');
-    }, 1400);
+        messageElement.classList.remove('ring-2', ringClass, 'rounded-lg');
+    }, highlightMs);
+    return true;
+}
+
+function jumpToPendingMessage() {
+    if (!pendingMessageJumpId || String(pendingMessageJumpRoomId) !== String(currentRoomId)) {
+        return;
+    }
+
+    const targetMessageId = pendingMessageJumpId;
+    if (!scrollToMessage(targetMessageId, 'ring-blue-300')) {
+        pendingMessageJumpAttempts += 1;
+        if (pendingMessageJumpAttempts >= 3) {
+            pendingMessageJumpId = null;
+            pendingMessageJumpRoomId = null;
+        }
+        return;
+    }
+
+    pendingMessageJumpId = null;
+    pendingMessageJumpRoomId = null;
+    pendingMessageJumpAttempts = 0;
+    currentRoomInitialUnreadCount = 0;
+    currentUnreadAnchorMessageId = null;
+    updateJumpToUnreadButton();
 }
 
 function scrollToUnreadMessages() {
