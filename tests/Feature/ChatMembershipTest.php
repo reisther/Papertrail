@@ -141,6 +141,11 @@ class ChatMembershipTest extends TestCase
             'joined_at' => now(),
             'last_read_at' => now(),
         ]);
+        $chatRoom->participants()->attach($member->id, [
+            'role' => 'member',
+            'joined_at' => now(),
+            'last_read_at' => now()->subMinute(),
+        ]);
 
         $chatRoom->messages()->create([
             'user_id' => $leader->id,
@@ -200,6 +205,11 @@ class ChatMembershipTest extends TestCase
             'joined_at' => now(),
             'last_read_at' => now(),
         ]);
+        $chatRoom->participants()->attach($member->id, [
+            'role' => 'member',
+            'joined_at' => now(),
+            'last_read_at' => now()->subMinute(),
+        ]);
 
         $chatRoom->messages()->create([
             'user_id' => $leader->id,
@@ -233,6 +243,39 @@ class ChatMembershipTest extends TestCase
             ->get(route('dashboard'))
             ->assertOk()
             ->assertDontSee('<span class="chat-nav-unread-count', false);
+    }
+
+    public function test_visible_project_chat_without_read_state_does_not_create_unread_badge(): void
+    {
+        [$leader, $member, $group] = $this->groupWithMember();
+        $chatRoom = $this->projectChatRoom($group, 'Unsynced Project Chat');
+
+        $chatRoom->participants()->attach($leader->id, [
+            'role' => 'admin',
+            'joined_at' => now(),
+            'last_read_at' => now(),
+        ]);
+
+        $chatRoom->messages()->create([
+            'user_id' => $leader->id,
+            'message' => 'Existing message before chat read state exists.',
+            'message_type' => 'text',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this
+            ->actingAs($member)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertDontSee('<span class="chat-nav-unread-count', false);
+
+        $this
+            ->actingAs($member)
+            ->getJson(route('chat.unread-summary'))
+            ->assertOk()
+            ->assertJsonPath('total', 0)
+            ->assertJsonPath("rooms.{$chatRoom->id}", 0);
     }
 
     public function test_readded_chat_participant_starts_with_existing_room_activity_read(): void

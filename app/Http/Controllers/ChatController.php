@@ -161,7 +161,7 @@ class ChatController extends BaseController
 
         return ChatMessage::query()
             ->select('chat_messages.chat_room_id', DB::raw('COUNT(*) as unread_count'))
-            ->leftJoin('chat_participants', function ($join) use ($user) {
+            ->join('chat_participants', function ($join) use ($user) {
                 $join->on('chat_participants.chat_room_id', '=', 'chat_messages.chat_room_id')
                     ->where('chat_participants.user_id', '=', $user->id);
             })
@@ -499,8 +499,17 @@ class ChatController extends BaseController
         $this->abortIfWebsiteAdmin();
 
         $user = Auth::user();
+        $participantIdsBeforeSync = DB::table('chat_participants')
+            ->where('chat_room_id', $chatRoom->id)
+            ->pluck('user_id');
 
         $this->syncChatRoomProjectParticipants($chatRoom);
+        $newlySyncedParticipantIds = DB::table('chat_participants')
+            ->where('chat_room_id', $chatRoom->id)
+            ->pluck('user_id')
+            ->diff($participantIdsBeforeSync)
+            ->reject(fn ($userId) => (int) $userId === (int) $user->id)
+            ->values();
 
         if (!$chatRoom->hasParticipant($user) && !$this->hasLeftChatRoom($chatRoom, $user) && $this->canAccessChatRoom($chatRoom, $user)) {
             $chatRoom->addParticipant($user, $chatRoom->created_by === $user->id ? 'admin' : 'member');
@@ -565,6 +574,16 @@ class ChatController extends BaseController
 
             if (!$message) {
                 return response()->json(['error' => 'Failed to send message'], 500);
+            }
+
+            if ($newlySyncedParticipantIds->isNotEmpty()) {
+                DB::table('chat_participants')
+                    ->where('chat_room_id', $chatRoom->id)
+                    ->whereIn('user_id', $newlySyncedParticipantIds)
+                    ->update([
+                        'last_read_at' => $message->created_at->copy()->subSecond(),
+                        'updated_at' => now(),
+                    ]);
             }
 
             if ($replyToId) {
@@ -818,9 +837,13 @@ class ChatController extends BaseController
             ->unique()
             ->all();
 
-        $chatRoom->participants()
+        $participantIdsToDetach = $chatRoom->participants()
             ->whereNotIn('users.id', $retainedIds)
-            ->detach();
+            ->pluck('users.id');
+
+        if ($participantIdsToDetach->isNotEmpty()) {
+            $chatRoom->participants()->detach($participantIdsToDetach);
+        }
     }
 
     private function getProjectChatParticipants(Project $project)

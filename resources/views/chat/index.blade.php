@@ -157,6 +157,13 @@
                 </div>
                 <!-- Messages Area -->
                 <div id="pinnedMessagesPanel" class="fixed left-3 right-3 z-30 hidden max-h-[min(60vh,22rem)] overflow-y-auto rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-3 shadow-xl sm:left-4 sm:right-4 sm:px-4 lg:absolute lg:left-3 lg:right-3"></div>
+                <button id="jumpToUnreadButton" type="button" onclick="handleJumpToUnread()" class="hidden absolute left-1/2 top-24 z-30 -translate-x-1/2 items-center gap-2 rounded-full border border-blue-200 bg-white px-4 py-2 text-sm font-semibold text-blue-700 shadow-lg transition hover:border-blue-300 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path id="jumpToUnreadIconPath" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                    <span id="jumpToUnreadButtonText">Jump to unread messages</span>
+                    <span id="jumpToUnreadButtonCount" class="hidden rounded-full bg-blue-600 px-2 py-0.5 text-[11px] font-semibold leading-4 text-white"></span>
+                </button>
 
                 <div id="messagesContainer" class="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4 hidden">
                     <!-- Messages will be loaded here -->
@@ -555,6 +562,8 @@ let mentionParticipantsLoadedForRoomId = null;
 let mentionParticipantsLoading = false;
 let unreadBadgePollingInterval = null;
 let locallyReadRoomIds = new Set();
+let currentRoomInitialUnreadCount = 0;
+let currentUnreadAnchorMessageId = null;
 const isArchivedChatsPage = @json($isArchivedChatsPage ?? false);
 const chatIndexUrl = @json(route('chat.index'));
 
@@ -644,6 +653,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (pinnedPanel && !pinnedPanel.classList.contains('hidden')) {
             positionPinnedMessagesPanel();
         }
+
+        positionJumpToUnreadButton();
     });
 });
 
@@ -653,6 +664,8 @@ function selectChatRoom(roomId) {
     clearReply();
     clearFileSelection();
     currentRoomId = roomId;
+    currentRoomInitialUnreadCount = 0;
+    currentUnreadAnchorMessageId = null;
     selectedMentionIds.clear();
     mentionParticipantsLoadedForRoomId = null;
     hideMentionSuggestions();
@@ -664,9 +677,11 @@ function selectChatRoom(roomId) {
     
     const selectedRoom = document.querySelector(`[data-room-id="${roomId}"]`);
     if (selectedRoom) {
+        currentRoomInitialUnreadCount = Math.max(0, Number(selectedRoom.dataset.unreadCount || 0));
         selectedRoom.classList.add('bg-blue-50', 'border-l-4', 'border-blue-500');
     }
     updateUnreadNavigationButton();
+    updateJumpToUnreadButton();
     
     // Show chat interface
     document.getElementById('welcomeMessage').classList.add('hidden');
@@ -676,6 +691,7 @@ function selectChatRoom(roomId) {
     showChatPanelView();
     clearReply();
     renderPinnedMessages([]);
+    positionJumpToUnreadButton();
     
     // Set flag for initial load
     isInitialLoad = true;
@@ -757,31 +773,40 @@ function setRoomUnreadCount(roomId, count) {
 
     const nextCount = Number(count || 0);
     let badge = roomItem.querySelector('.chat-room-unread-count');
+    roomItem.dataset.unreadCount = String(nextCount);
 
     if (nextCount <= 0) {
-        badge?.remove();
+        if (badge) {
+            badge.classList.add('hidden');
+            badge.dataset.unreadCount = '0';
+            badge.textContent = '0';
+            badge.setAttribute('aria-label', '0 unread messages');
+        }
         updateUnreadNavigationButton();
         return;
     }
 
     if (!badge) {
-        const actions = roomItem.querySelector('.flex.shrink-0.items-center.gap-2');
-        if (!actions) return;
+        const titleRow = roomItem.querySelector('.flex.min-w-0.items-center.gap-2');
+        if (!titleRow) return;
 
         badge = document.createElement('span');
-        badge.className = 'chat-room-unread-count bg-blue-600 text-white text-xs rounded-full px-2 py-1';
-        actions.prepend(badge);
+        badge.className = 'chat-room-unread-count shrink-0 rounded-full bg-red-600 px-2 py-0.5 text-[11px] font-semibold leading-5 text-white';
+        badge.title = 'Unread messages';
+        titleRow.appendChild(badge);
     }
 
+    badge.classList.remove('hidden');
     badge.dataset.unreadCount = String(nextCount);
     badge.textContent = formatUnreadCount(nextCount);
+    badge.setAttribute('aria-label', `${nextCount} unread messages`);
     updateUnreadNavigationButton();
 }
 
 function updateFolderUnreadCounts() {
     document.querySelectorAll('details.chat-room-folder').forEach(folder => {
-        const total = Array.from(folder.querySelectorAll('.chat-room-unread-count'))
-            .reduce((sum, badge) => sum + Number(badge.dataset.unreadCount || badge.textContent || 0), 0);
+        const total = Array.from(folder.querySelectorAll('.chat-room-item'))
+            .reduce((sum, roomItem) => sum + Number(roomItem.dataset.unreadCount || 0), 0);
         let folderBadge = folder.querySelector('.chat-folder-unread-count');
 
         if (total <= 0) {
@@ -857,29 +882,21 @@ function clearChatRoomUnreadCount(roomId) {
 
     locallyReadRoomIds.add(String(roomId));
     const roomBadge = roomItem.querySelector('.chat-room-unread-count');
-    const unreadCount = Number(roomBadge?.dataset.unreadCount || roomBadge?.textContent || 0);
+    const unreadCount = Number(roomItem.dataset.unreadCount || roomBadge?.dataset.unreadCount || roomBadge?.textContent || 0);
     if (!roomBadge || unreadCount <= 0) {
+        roomItem.dataset.unreadCount = '0';
+        updateFolderUnreadCounts();
         updateUnreadNavigationButton();
         return;
     }
 
-    roomBadge.remove();
+    roomItem.dataset.unreadCount = '0';
+    roomBadge.classList.add('hidden');
+    roomBadge.dataset.unreadCount = '0';
+    roomBadge.textContent = '0';
+    roomBadge.setAttribute('aria-label', '0 unread messages');
     decrementChatNavUnreadCount(unreadCount);
-
-    const folder = roomItem.closest('details.chat-room-folder');
-    const folderBadge = folder?.querySelector('.chat-folder-unread-count');
-    if (!folderBadge) return;
-
-    const folderUnreadCount = Number(folderBadge.dataset.unreadCount || folderBadge.textContent || 0);
-    const nextFolderUnreadCount = Math.max(0, folderUnreadCount - unreadCount);
-
-    if (nextFolderUnreadCount > 0) {
-        folderBadge.dataset.unreadCount = String(nextFolderUnreadCount);
-        folderBadge.textContent = formatUnreadCount(nextFolderUnreadCount);
-    } else {
-        folderBadge.remove();
-    }
-
+    updateFolderUnreadCounts();
     updateUnreadNavigationButton();
 }
 
@@ -887,8 +904,7 @@ function unreadRoomItems() {
     return Array.from(document.querySelectorAll('.chat-room-item'))
         .filter(roomItem => {
             const roomId = roomItem.dataset.roomId;
-            const badge = roomItem.querySelector('.chat-room-unread-count');
-            const count = Number(badge?.dataset.unreadCount || badge?.textContent || 0);
+            const count = Number(roomItem.dataset.unreadCount || 0);
 
             return count > 0 && String(roomId) !== String(currentRoomId);
         });
@@ -897,18 +913,20 @@ function unreadRoomItems() {
 function updateUnreadNavigationButton() {
     const button = document.getElementById('previousUnreadChatBtn');
     const countBadge = document.getElementById('previousUnreadChatCount');
-    if (!button || !countBadge) return;
 
     const unreadItems = unreadRoomItems();
     const totalUnread = unreadItems.reduce((sum, roomItem) => {
-        const badge = roomItem.querySelector('.chat-room-unread-count');
-        return sum + Number(badge?.dataset.unreadCount || badge?.textContent || 0);
+        return sum + Number(roomItem.dataset.unreadCount || 0);
     }, 0);
 
-    button.classList.toggle('hidden', totalUnread <= 0);
-    button.disabled = totalUnread <= 0;
-    countBadge.classList.toggle('hidden', totalUnread <= 0);
-    countBadge.textContent = formatUnreadCount(totalUnread);
+    if (button && countBadge) {
+        button.classList.toggle('hidden', totalUnread <= 0);
+        button.disabled = totalUnread <= 0;
+        countBadge.classList.toggle('hidden', totalUnread <= 0);
+        countBadge.textContent = formatUnreadCount(totalUnread);
+    }
+
+    updateJumpToUnreadButton();
 }
 
 function goToPreviousUnreadChat() {
@@ -934,6 +952,76 @@ function goToPreviousUnreadChat() {
 
     targetRoom.scrollIntoView({ behavior: 'smooth', block: 'center' });
     selectChatRoom(targetRoom.dataset.roomId);
+}
+
+function unreadRoomTotal() {
+    return unreadRoomItems().reduce((sum, roomItem) => {
+        return sum + Number(roomItem.dataset.unreadCount || 0);
+    }, 0);
+}
+
+function updateJumpToUnreadButton() {
+    const button = document.getElementById('jumpToUnreadButton');
+    const label = document.getElementById('jumpToUnreadButtonText');
+    const countBadge = document.getElementById('jumpToUnreadButtonCount');
+    const iconPath = document.getElementById('jumpToUnreadIconPath');
+    if (!button || !label || !countBadge || !iconPath) return;
+
+    if (!currentRoomId || isArchivedChatsPage || document.getElementById('messagesContainer')?.classList.contains('hidden')) {
+        button.classList.add('hidden');
+        button.classList.remove('inline-flex');
+        return;
+    }
+
+    if (currentUnreadAnchorMessageId) {
+        const unreadCount = Math.max(1, currentRoomInitialUnreadCount || 0);
+        button.dataset.jumpMode = 'message';
+        label.textContent = 'Jump to unread messages';
+        countBadge.textContent = formatUnreadCount(unreadCount);
+        countBadge.classList.toggle('hidden', unreadCount <= 1);
+        iconPath.setAttribute('d', 'M19 9l-7 7-7-7');
+        button.classList.remove('hidden');
+        button.classList.add('inline-flex');
+        positionJumpToUnreadButton();
+        return;
+    }
+
+    const otherUnreadTotal = unreadRoomTotal();
+    if (otherUnreadTotal > 0) {
+        button.dataset.jumpMode = 'room';
+        label.textContent = otherUnreadTotal === 1 ? 'Jump to unread chat' : 'Jump to unread chats';
+        countBadge.textContent = formatUnreadCount(otherUnreadTotal);
+        countBadge.classList.remove('hidden');
+        iconPath.setAttribute('d', 'M5 12h14M12 5l7 7-7 7');
+        button.classList.remove('hidden');
+        button.classList.add('inline-flex');
+        positionJumpToUnreadButton();
+        return;
+    }
+
+    button.classList.add('hidden');
+    button.classList.remove('inline-flex');
+    button.dataset.jumpMode = '';
+}
+
+function positionJumpToUnreadButton() {
+    const button = document.getElementById('jumpToUnreadButton');
+    const header = document.getElementById('chatHeader');
+    if (!button || !header) return;
+
+    button.style.top = `${header.offsetHeight + 12}px`;
+}
+
+function handleJumpToUnread() {
+    const button = document.getElementById('jumpToUnreadButton');
+    const mode = button?.dataset.jumpMode;
+
+    if (mode === 'message' && currentUnreadAnchorMessageId) {
+        scrollToUnreadMessages();
+        return;
+    }
+
+    goToPreviousUnreadChat();
 }
 
 function showChatPanelView() {
@@ -1063,6 +1151,8 @@ function clearActiveChatRoom(roomId = currentRoomId) {
     renderPinnedMessages([]);
 
     currentRoomId = null;
+    currentRoomInitialUnreadCount = 0;
+    currentUnreadAnchorMessageId = null;
     currentChatRoomDetails = null;
     currentMessagesById = {};
 
@@ -1077,6 +1167,7 @@ function clearActiveChatRoom(roomId = currentRoomId) {
     document.getElementById('typingIndicator').classList.add('hidden');
     document.getElementById('welcomeMessage').classList.remove('hidden');
     document.getElementById('messageText').value = '';
+    updateJumpToUnreadButton();
 
     if (window.innerWidth < 1024) {
         showChatRoomsView();
@@ -1156,12 +1247,17 @@ function displayMessages(messages) {
     currentMessagesById = Object.fromEntries(messages.map(message => [message.id, message]));
     renderPinnedMessages(messages);
     const wasNearBottom = isMessagesNearBottom();
+    currentUnreadAnchorMessageId = firstUnreadMessageIdFor(messages, currentUserId, wasNearBottom);
     
     container.innerHTML = messages.map(message => {
         const isSystemMessage = message.message_type === 'system';
+        const unreadDivider = String(message.id) === String(currentUnreadAnchorMessageId)
+            ? renderUnreadMessagesDivider(message.id)
+            : '';
 
         if (isSystemMessage) {
             return `
+                ${unreadDivider}
                 <div class="flex justify-center px-3" data-message-id="${message.id}">
                     <div class="max-w-[85%] text-center text-xs font-medium leading-relaxed text-gray-500">
                         <span>${escapeHtml(message.message)}</span>
@@ -1179,6 +1275,7 @@ function displayMessages(messages) {
             : '';
         
         return `
+            ${unreadDivider}
             <div class="flex ${isOwnMessage ? 'justify-end' : 'justify-start'} gap-2 group" data-message-id="${message.id}">
                 ${!isOwnMessage ? avatarHtml : ''}
                 <div class="flex max-w-[calc(100%-2.5rem)] flex-col ${isOwnMessage ? 'items-end' : 'items-start'}">
@@ -1288,12 +1385,42 @@ function displayMessages(messages) {
     }
     
     // Smart scroll: auto-scroll on initial load, after sending message, or if user was near the bottom.
-    if (isInitialLoad || shouldScrollToBottom || wasNearBottom) {
+    const shouldPreserveUnreadJump = isInitialLoad && currentUnreadAnchorMessageId && currentRoomInitialUnreadCount > 0;
+    if (!shouldPreserveUnreadJump && (isInitialLoad || shouldScrollToBottom || wasNearBottom)) {
         scrollMessagesToBottom();
         isInitialLoad = false; // Reset flag after initial scroll
         shouldScrollToBottom = false; // Reset flag after forced scroll
+    } else if (shouldPreserveUnreadJump) {
+        isInitialLoad = false;
     }
     updateScrollToBottomButton();
+    updateJumpToUnreadButton();
+}
+
+function firstUnreadMessageIdFor(messages, currentUserId, wasNearBottom) {
+    const unreadCandidates = messages.filter(message => {
+        return message.message_type !== 'system' && message.user?.id !== currentUserId;
+    });
+
+    if (currentRoomInitialUnreadCount > 0) {
+        return unreadCandidates.slice(-currentRoomInitialUnreadCount)[0]?.id || null;
+    }
+
+    if (wasNearBottom) {
+        return null;
+    }
+
+    return unreadCandidates.find(message => !message.is_seen)?.id || null;
+}
+
+function renderUnreadMessagesDivider(messageId) {
+    return `
+        <div class="flex items-center gap-3 py-1" data-unread-divider-for="${messageId}">
+            <div class="h-px flex-1 bg-blue-200"></div>
+            <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">Unread messages</span>
+            <div class="h-px flex-1 bg-blue-200"></div>
+        </div>
+    `;
 }
 
 function isMessagesNearBottom() {
@@ -1332,7 +1459,24 @@ function updateScrollToBottomButton() {
     const container = document.getElementById('messagesContainer');
     if (!button || !container || container.classList.contains('hidden')) return;
 
+    if (currentUnreadAnchorMessageId && isMessageElementVisible(currentUnreadAnchorMessageId)) {
+        currentRoomInitialUnreadCount = 0;
+        currentUnreadAnchorMessageId = null;
+        updateJumpToUnreadButton();
+    }
+
     button.classList.toggle('hidden', isMessagesNearBottom());
+}
+
+function isMessageElementVisible(messageId) {
+    const container = document.getElementById('messagesContainer');
+    const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+    if (!container || !messageElement) return false;
+
+    const containerRect = container.getBoundingClientRect();
+    const messageRect = messageElement.getBoundingClientRect();
+
+    return messageRect.top >= containerRect.top && messageRect.bottom <= containerRect.bottom;
 }
 
 function renderPinnedMessages(messages) {
@@ -1465,6 +1609,28 @@ function scrollToMessage(messageId) {
     setTimeout(() => {
         messageElement.classList.remove('ring-2', 'ring-yellow-300', 'rounded-lg');
     }, 1400);
+}
+
+function scrollToUnreadMessages() {
+    if (!currentUnreadAnchorMessageId) return;
+
+    const anchorMessageId = currentUnreadAnchorMessageId;
+    const unreadDivider = document.querySelector(`[data-unread-divider-for="${anchorMessageId}"]`);
+    const messageElement = document.querySelector(`[data-message-id="${anchorMessageId}"]`);
+    const target = unreadDivider || messageElement;
+    if (!target) return;
+
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    currentRoomInitialUnreadCount = 0;
+    currentUnreadAnchorMessageId = null;
+    updateJumpToUnreadButton();
+
+    if (messageElement) {
+        messageElement.classList.add('ring-2', 'ring-blue-300', 'rounded-lg');
+        setTimeout(() => {
+            messageElement.classList.remove('ring-2', 'ring-blue-300', 'rounded-lg');
+        }, 1400);
+    }
 }
 
 async function togglePin(messageId) {
