@@ -450,11 +450,7 @@ class ChatController extends BaseController
                                 })
                                 ->values(); // Reset array keys after filtering
 
-            // Mark messages as read
-            $chatRoom->participants()
-                     ->wherePivot('user_id', Auth::id())
-                     ->updateExistingPivot(Auth::id(), ['last_read_at' => now()]);
-            Cache::forget("navigation-counts:" . Auth::id());
+            $this->markChatRoomReadForUser($chatRoom, Auth::user());
 
             return response()->json(['messages' => $messages]);
             
@@ -877,23 +873,45 @@ class ChatController extends BaseController
             return;
         }
 
-        $lastReadAt = $chatRoom->participants()
-            ->where('users.id', $user->id)
-            ->first()
-            ?->pivot
-            ?->last_read_at;
-
         DB::table('chat_participant_leaves')->updateOrInsert(
             [
                 'chat_room_id' => $chatRoom->id,
                 'user_id' => $user->id,
             ],
             [
-                'left_at' => $lastReadAt ?? now(),
+                'left_at' => now(),
                 'created_at' => now(),
                 'updated_at' => now(),
             ]
         );
+    }
+
+    private function markChatRoomReadForUser(ChatRoom $chatRoom, User $user): void
+    {
+        if ($chatRoom->hasParticipant($user)) {
+            $chatRoom->participants()
+                ->wherePivot('user_id', $user->id)
+                ->updateExistingPivot($user->id, [
+                    'last_read_at' => now(),
+                    'updated_at' => now(),
+                ]);
+        }
+
+        $this->markChatMentionNotificationsRead($chatRoom, $user);
+        Cache::forget("navigation-counts:{$user->id}");
+    }
+
+    private function markChatMentionNotificationsRead(ChatRoom $chatRoom, User $user): void
+    {
+        if (!Schema::hasTable('app_notifications')) {
+            return;
+        }
+
+        AppNotification::where('user_id', $user->id)
+            ->where('type', 'chat_mention')
+            ->whereNull('read_at')
+            ->whereIn('data->chat_room_id', [(int) $chatRoom->id, (string) $chatRoom->id])
+            ->update(['read_at' => now()]);
     }
 
     private function createMentionNotifications(ChatRoom $chatRoom, ChatMessage $message, User $sender, array $mentionUserIds = []): void
@@ -1272,6 +1290,10 @@ class ChatController extends BaseController
                         'id' => $user->id,
                         'name' => $user->firstname . ' ' . $user->lastname
                     ];
+                }
+
+                if ($user) {
+                    $this->markChatRoomReadForUser($chatRoom, $user);
                 }
             }
 

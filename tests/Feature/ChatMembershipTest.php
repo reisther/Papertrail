@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\AppNotification;
 use App\Models\ChatRoom;
 use App\Models\Project;
+use App\Models\ProjectInvitation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -231,6 +233,152 @@ class ChatMembershipTest extends TestCase
             ->get(route('dashboard'))
             ->assertOk()
             ->assertDontSee('<span class="chat-nav-unread-count', false);
+    }
+
+    public function test_readded_chat_participant_starts_with_existing_room_activity_read(): void
+    {
+        [$leader, $member, $group] = $this->groupWithMember();
+        $chatRoom = $this->projectChatRoom($group, 'Rejoin Chat');
+
+        $chatRoom->participants()->attach($leader->id, [
+            'role' => 'admin',
+            'joined_at' => now(),
+            'last_read_at' => now(),
+        ]);
+        $chatRoom->participants()->attach($member->id, [
+            'role' => 'member',
+            'joined_at' => now(),
+            'last_read_at' => now()->subDay(),
+        ]);
+
+        $message = $chatRoom->messages()->create([
+            'user_id' => $leader->id,
+            'message' => 'This should not stay unread after rejoin.',
+            'message_type' => 'text',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $notification = AppNotification::create([
+            'user_id' => $member->id,
+            'type' => 'chat_mention',
+            'title' => 'You were mentioned in chat',
+            'body' => 'Mention before rejoin.',
+            'action_url' => route('chat.index', ['room' => $chatRoom->id]),
+            'source_type' => 'chat_message',
+            'source_id' => $message->id,
+            'data' => ['chat_room_id' => $chatRoom->id],
+        ]);
+
+        $this
+            ->actingAs($member)
+            ->postJson(route('chat.rooms.leave', $chatRoom))
+            ->assertOk();
+
+        $this
+            ->actingAs($leader)
+            ->postJson(route('chat.rooms.add-participants', $chatRoom), [
+                'user_ids' => [$member->id],
+            ])
+            ->assertOk();
+
+        $this->assertSame(0, $chatRoom->fresh()->getUnreadCountForUser($member));
+        $this->assertNotNull($notification->fresh()->read_at);
+
+        $this
+            ->actingAs($member)
+            ->getJson(route('chat.unread-summary'))
+            ->assertOk()
+            ->assertJsonPath('total', 0)
+            ->assertJsonPath("rooms.{$chatRoom->id}", 0);
+
+        $this->travel(1)->seconds();
+
+        $chatRoom->messages()->create([
+            'user_id' => $leader->id,
+            'message' => 'This new message should be unread.',
+            'message_type' => 'text',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this
+            ->actingAs($member)
+            ->getJson(route('chat.unread-summary'))
+            ->assertOk()
+            ->assertJsonPath('total', 1)
+            ->assertJsonPath("rooms.{$chatRoom->id}", 1);
+    }
+
+    public function test_group_invite_join_marks_all_existing_project_chat_rooms_read(): void
+    {
+        [$leader, $existingMember, $group] = $this->groupWithMember();
+        $newMember = User::factory()->create([
+            'role' => 'Student',
+            'course' => 'Information Technology',
+            'section' => 'IT-4A',
+        ]);
+
+        $firstRoom = $this->projectChatRoom($group, 'Project Chat');
+        $secondRoom = $this->projectChatRoom($group, 'Planning Chat');
+
+        foreach ([$firstRoom, $secondRoom] as $chatRoom) {
+            $chatRoom->participants()->attach($leader->id, [
+                'role' => 'admin',
+                'joined_at' => now(),
+                'last_read_at' => now(),
+            ]);
+
+            $message = $chatRoom->messages()->create([
+                'user_id' => $leader->id,
+                'message' => 'Message before the new member joined.',
+                'message_type' => 'text',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            AppNotification::create([
+                'user_id' => $newMember->id,
+                'type' => 'chat_mention',
+                'title' => 'You were mentioned in chat',
+                'body' => 'Mention before group join.',
+                'action_url' => route('chat.index', ['room' => $chatRoom->id]),
+                'source_type' => 'chat_message',
+                'source_id' => $message->id,
+                'data' => ['chat_room_id' => $chatRoom->id],
+            ]);
+        }
+
+        $invitation = ProjectInvitation::create([
+            'project_id' => $group->id,
+            'token' => 'join-existing-chat-rooms',
+            'created_by' => $leader->id,
+            'expires_at' => now()->addDay(),
+        ]);
+
+        $this
+            ->actingAs($newMember)
+            ->post(route('projects.accept-invitation.store', $invitation->token))
+            ->assertRedirect(route('projects.show', $group));
+
+        foreach ([$firstRoom, $secondRoom] as $chatRoom) {
+            $this->assertTrue($chatRoom->fresh()->hasParticipant($newMember));
+            $this->assertSame(0, $chatRoom->fresh()->getUnreadCountForUser($newMember));
+        }
+
+        $this->assertSame(
+            0,
+            AppNotification::where('user_id', $newMember->id)
+                ->where('type', 'chat_mention')
+                ->whereNull('read_at')
+                ->count()
+        );
+
+        $this
+            ->actingAs($newMember)
+            ->getJson(route('chat.unread-summary'))
+            ->assertOk()
+            ->assertJsonPath('total', 0);
     }
 
     public function test_group_member_removal_detaches_member_from_all_project_chat_rooms(): void

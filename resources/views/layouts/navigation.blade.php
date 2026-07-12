@@ -1,3 +1,21 @@
+@php
+    $desktopNavLink = function (bool $active, string $display = 'inline-flex') {
+        return trim($display . ' items-center whitespace-nowrap rounded-md border px-2 py-2 text-sm font-medium transition-colors xl:px-3 ' . (
+            $active
+                ? 'border-blue-200 bg-blue-50 text-blue-700 shadow-sm'
+                : 'border-transparent text-gray-500 hover:border-blue-100 hover:bg-blue-50/70 hover:text-blue-600'
+        ));
+    };
+
+    $mobileNavLink = function (bool $active, string $display = 'block') {
+        return trim($display . ' rounded-r-md border-l-4 px-3 py-2 text-sm font-medium transition-colors ' . (
+            $active
+                ? 'border-blue-500 bg-blue-50 text-blue-700'
+                : 'border-transparent text-gray-500 hover:border-blue-200 hover:bg-blue-50/70 hover:text-blue-600'
+        ));
+    };
+@endphp
+
  <!-- Header Navigation -->
     <header class="sticky top-0 z-50 bg-white border-b border-gray-200" x-data="{ mobileOpen: false }">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -22,31 +40,31 @@
                     @auth
                         @if(Auth::user()->role === 'Admin')
                             <a href="{{ route('admin.dashboard') }}"
-                                class="whitespace-nowrap px-2 py-2 text-sm font-medium text-gray-900 transition-colors hover:text-blue-600 xl:px-3">Dashboard</a>
+                                class="{{ $desktopNavLink(request()->routeIs('admin.dashboard')) }}">Dashboard</a>
                         @elseif(Auth::user()->role === 'Teacher')
                             <a href="{{ route('teacher.dashboard') }}"
-                                class="whitespace-nowrap px-2 py-2 text-sm font-medium text-gray-900 transition-colors hover:text-blue-600 xl:px-3">Dashboard</a>
+                                class="{{ $desktopNavLink(request()->routeIs('teacher.dashboard')) }}">Dashboard</a>
                         @else
                             <a href="{{ route('dashboard') }}"
-                                class="whitespace-nowrap px-2 py-2 text-sm font-medium text-gray-900 transition-colors hover:text-blue-600 xl:px-3">Dashboard</a>
+                                class="{{ $desktopNavLink(request()->routeIs('dashboard')) }}">Dashboard</a>
                         @endif
 
                         @if(Auth::user()->isStudentGroupRole() || Auth::user()->isTeacher())
                             <a href="{{ route('projects.index') }}"
-                                class="whitespace-nowrap px-2 py-2 text-sm font-medium text-gray-500 transition-colors hover:text-blue-600 xl:px-3">Projects</a>
+                                class="{{ $desktopNavLink(request()->routeIs('projects.*')) }}">Projects</a>
                         @endif
 
                         @if(Auth::user()->isStudentGroupRole())
                             <a href="{{ route('todo.index') }}"
-                                class="whitespace-nowrap px-2 py-2 text-sm font-medium text-gray-500 transition-colors hover:text-blue-600 xl:px-3">To-Do</a>
+                                class="{{ $desktopNavLink(request()->routeIs('todo.*')) }}">To-Do</a>
                         @endif
 
                         @if(Auth::user()->canLeadGroup())
                             <a href="{{ route('advisers.title-submission') }}"
-                                class="whitespace-nowrap px-2 py-2 text-sm font-medium text-gray-500 transition-colors hover:text-blue-600 xl:px-3">Find Advisers</a>
+                                class="{{ $desktopNavLink(request()->routeIs('advisers.title-submission', 'advisers.send-request', 'advisers.requests.*', 'advisers.my-advisers')) }}">Find Advisers</a>
                         @elseif(Auth::user()->isTeacher())
                             <a href="{{ route('advisers.pending-requests') }}"
-                                class="relative inline-flex items-center whitespace-nowrap px-2 py-2 text-sm font-medium text-gray-500 transition-colors hover:text-blue-600 xl:px-3">
+                                class="{{ $desktopNavLink(request()->routeIs('advisers.pending-requests', 'advisers.respond'), 'relative inline-flex') }}">
                                 Student Requests
                                 @if($studentRequestPendingCount > 0)
                                     <span class="ml-1.5 h-5 min-w-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white">
@@ -56,19 +74,19 @@
                             </a>
                         @elseif(Auth::user()->role === 'Admin')
                             <a href="{{ route('admin.pending-users') }}"
-                                class="whitespace-nowrap px-2 py-2 text-sm font-medium text-gray-500 transition-colors hover:text-blue-600 xl:px-3">Verify Users</a>
+                                class="{{ $desktopNavLink(request()->routeIs('admin.pending-users', 'admin.view-user', 'admin.view-document')) }}">Verify Users</a>
                             <a href="{{ route('admin.all-users') }}"
-                                class="whitespace-nowrap px-2 py-2 text-sm font-medium text-gray-500 transition-colors hover:text-blue-600 xl:px-3">User Management</a>
+                                class="{{ $desktopNavLink(request()->routeIs('admin.all-users', 'admin.update-user-role', 'admin.update-user-status', 'admin.delete-user')) }}">User Management</a>
                         @endif
 
                         @if(Auth::user()->isStudentGroupRole() || Auth::user()->isTeacher())
                             <a href="{{ route('defense-schedule.index') }}"
-                                class="whitespace-nowrap px-2 py-2 text-sm font-medium text-gray-500 transition-colors hover:text-blue-600 xl:px-3">Meeting Schedule</a>
+                                class="{{ $desktopNavLink(request()->routeIs('defense-schedule.*', 'students.projects')) }}">Meeting Schedule</a>
                         @endif
 
                         @if(Auth::user()->isStudentGroupRole() || Auth::user()->isTeacher())
                             <a href="{{ route('chat.index') }}"
-                                class="relative inline-flex items-center whitespace-nowrap px-2 py-2 text-sm font-medium text-gray-500 transition-colors hover:text-blue-600 xl:px-3">
+                                class="{{ $desktopNavLink(request()->routeIs('chat.*'), 'relative inline-flex') }}">
                                 Chat
                                 @if($chatUnreadCount > 0)
                                     <span class="chat-nav-unread-count ml-1.5 h-5 min-w-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white" data-unread-count="{{ $chatUnreadCount }}">
@@ -79,7 +97,7 @@
                         @endif
 
                         <a href="{{ route('notifications.index') }}"
-                            class="relative inline-flex items-center whitespace-nowrap px-2 py-2 text-sm font-medium text-gray-500 transition-colors hover:text-blue-600 xl:px-3">
+                            class="{{ $desktopNavLink(request()->routeIs('notifications.*'), 'relative inline-flex') }}">
                             Notifications
                             @if($notificationUnreadCount > 0)
                                 <span class="ml-1.5 h-5 min-w-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white">
@@ -145,10 +163,10 @@
             <nav x-show="mobileOpen" x-transition class="xl:hidden border-t border-gray-100 py-3 space-y-1">
                 @auth
                     @if(Auth::user()->role === 'Admin')
-                        <a href="{{ route('admin.dashboard') }}" class="block px-3 py-2 text-sm font-medium text-gray-900 hover:text-blue-600">Dashboard</a>
-                        <a href="{{ route('admin.pending-users') }}" class="block px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">Verify Users</a>
-                        <a href="{{ route('admin.all-users') }}" class="block px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">User Management</a>
-                        <a href="{{ route('notifications.index') }}" class="flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">
+                        <a href="{{ route('admin.dashboard') }}" class="{{ $mobileNavLink(request()->routeIs('admin.dashboard')) }}">Dashboard</a>
+                        <a href="{{ route('admin.pending-users') }}" class="{{ $mobileNavLink(request()->routeIs('admin.pending-users', 'admin.view-user', 'admin.view-document')) }}">Verify Users</a>
+                        <a href="{{ route('admin.all-users') }}" class="{{ $mobileNavLink(request()->routeIs('admin.all-users', 'admin.update-user-role', 'admin.update-user-status', 'admin.delete-user')) }}">User Management</a>
+                        <a href="{{ route('notifications.index') }}" class="{{ $mobileNavLink(request()->routeIs('notifications.*'), 'flex items-center justify-between') }}">
                             <span>Notifications</span>
                             @if($notificationUnreadCount > 0)
                                 <span class="min-w-5 h-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white">
@@ -157,9 +175,9 @@
                             @endif
                         </a>
                     @elseif(Auth::user()->role === 'Teacher')
-                        <a href="{{ route('teacher.dashboard') }}" class="block px-3 py-2 text-sm font-medium text-gray-900 hover:text-blue-600">Dashboard</a>
-                        <a href="{{ route('projects.index') }}" class="block px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">Projects</a>
-                        <a href="{{ route('advisers.pending-requests') }}" class="flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">
+                        <a href="{{ route('teacher.dashboard') }}" class="{{ $mobileNavLink(request()->routeIs('teacher.dashboard')) }}">Dashboard</a>
+                        <a href="{{ route('projects.index') }}" class="{{ $mobileNavLink(request()->routeIs('projects.*')) }}">Projects</a>
+                        <a href="{{ route('advisers.pending-requests') }}" class="{{ $mobileNavLink(request()->routeIs('advisers.pending-requests', 'advisers.respond'), 'flex items-center justify-between') }}">
                             <span>Student Requests</span>
                             @if($studentRequestPendingCount > 0)
                                 <span class="min-w-5 h-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white">
@@ -167,8 +185,8 @@
                                 </span>
                             @endif
                         </a>
-                        <a href="{{ route('defense-schedule.index') }}" class="block px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">Meeting Schedule</a>
-                        <a href="{{ route('chat.index') }}" class="flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">
+                        <a href="{{ route('defense-schedule.index') }}" class="{{ $mobileNavLink(request()->routeIs('defense-schedule.*', 'students.projects')) }}">Meeting Schedule</a>
+                        <a href="{{ route('chat.index') }}" class="{{ $mobileNavLink(request()->routeIs('chat.*'), 'flex items-center justify-between') }}">
                             <span>Chat</span>
                             @if($chatUnreadCount > 0)
                                 <span class="chat-nav-unread-count min-w-5 h-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white" data-unread-count="{{ $chatUnreadCount }}">
@@ -176,7 +194,7 @@
                                 </span>
                             @endif
                         </a>
-                        <a href="{{ route('notifications.index') }}" class="flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">
+                        <a href="{{ route('notifications.index') }}" class="{{ $mobileNavLink(request()->routeIs('notifications.*'), 'flex items-center justify-between') }}">
                             <span>Notifications</span>
                             @if($notificationUnreadCount > 0)
                                 <span class="min-w-5 h-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white">
@@ -185,14 +203,14 @@
                             @endif
                         </a>
                     @else
-                        <a href="{{ route('dashboard') }}" class="block px-3 py-2 text-sm font-medium text-gray-900 hover:text-blue-600">Dashboard</a>
-                        <a href="{{ route('projects.index') }}" class="block px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">Projects</a>
-                        <a href="{{ route('todo.index') }}" class="block px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">To-Do</a>
+                        <a href="{{ route('dashboard') }}" class="{{ $mobileNavLink(request()->routeIs('dashboard')) }}">Dashboard</a>
+                        <a href="{{ route('projects.index') }}" class="{{ $mobileNavLink(request()->routeIs('projects.*')) }}">Projects</a>
+                        <a href="{{ route('todo.index') }}" class="{{ $mobileNavLink(request()->routeIs('todo.*')) }}">To-Do</a>
                         @if(Auth::user()->canLeadGroup())
-                            <a href="{{ route('advisers.title-submission') }}" class="block px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">Find Advisers</a>
+                            <a href="{{ route('advisers.title-submission') }}" class="{{ $mobileNavLink(request()->routeIs('advisers.title-submission', 'advisers.send-request', 'advisers.requests.*', 'advisers.my-advisers')) }}">Find Advisers</a>
                         @endif
-                        <a href="{{ route('defense-schedule.index') }}" class="block px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">Meeting Schedule</a>
-                        <a href="{{ route('chat.index') }}" class="flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">
+                        <a href="{{ route('defense-schedule.index') }}" class="{{ $mobileNavLink(request()->routeIs('defense-schedule.*', 'students.projects')) }}">Meeting Schedule</a>
+                        <a href="{{ route('chat.index') }}" class="{{ $mobileNavLink(request()->routeIs('chat.*'), 'flex items-center justify-between') }}">
                             <span>Chat</span>
                             @if($chatUnreadCount > 0)
                                 <span class="chat-nav-unread-count min-w-5 h-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white" data-unread-count="{{ $chatUnreadCount }}">
@@ -200,7 +218,7 @@
                                 </span>
                             @endif
                         </a>
-                        <a href="{{ route('notifications.index') }}" class="flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-600">
+                        <a href="{{ route('notifications.index') }}" class="{{ $mobileNavLink(request()->routeIs('notifications.*'), 'flex items-center justify-between') }}">
                             <span>Notifications</span>
                             @if($notificationUnreadCount > 0)
                                 <span class="min-w-5 h-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white">

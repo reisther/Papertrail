@@ -4,11 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Models\Document;
 use App\Models\Folder;
+use App\Models\AppNotification;
 use App\Models\ChatRoom;
 use App\Models\Project;
 use App\Models\ProjectInvitation;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -307,17 +312,49 @@ class ProjectController extends Controller
                 'joined_at' => now(),
             ]);
 
-            $projectChat = ChatRoom::where('project_id', $project->id)
-                ->where('type', 'project')
-                ->first();
-
-            if ($projectChat) {
-                $projectChat->addParticipant($user, 'member');
-            }
+            $this->addUserToProjectChatRoomsAsRead($project, $user);
         }
 
         return redirect()->route('projects.show', $project)
             ->with('success', 'You joined the group project successfully.');
+    }
+
+    private function addUserToProjectChatRoomsAsRead(Project $project, User $user): void
+    {
+        $chatRooms = ChatRoom::where('project_id', $project->id)
+            ->where('type', 'project')
+            ->get();
+
+        if ($chatRooms->isEmpty()) {
+            return;
+        }
+
+        $chatRoomIds = $chatRooms->pluck('id')->all();
+
+        if (Schema::hasTable('chat_participant_leaves')) {
+            DB::table('chat_participant_leaves')
+                ->whereIn('chat_room_id', $chatRoomIds)
+                ->where('user_id', $user->id)
+                ->delete();
+        }
+
+        $chatRooms->each(fn (ChatRoom $chatRoom) => $chatRoom->addParticipant($user, 'member'));
+
+        if (Schema::hasTable('app_notifications')) {
+            $jsonRoomIds = collect($chatRoomIds)
+                ->flatMap(fn ($id) => [(int) $id, (string) $id])
+                ->unique()
+                ->values()
+                ->all();
+
+            AppNotification::where('user_id', $user->id)
+                ->where('type', 'chat_mention')
+                ->whereNull('read_at')
+                ->whereIn('data->chat_room_id', $jsonRoomIds)
+                ->update(['read_at' => now()]);
+        }
+
+        Cache::forget("navigation-counts:{$user->id}");
     }
 
     public function declineInvitation(string $token)
