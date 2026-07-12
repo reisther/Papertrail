@@ -11,6 +11,7 @@ use App\Models\AppNotification;
 use App\Models\DefenseSchedule;
 use App\Services\EmailNotificationService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
@@ -218,18 +219,21 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
     Route::patch('/notifications/{notification}/read', function (AppNotification $notification) {
         abort_unless($notification->user_id === Auth::id(), 403);
         $notification->markRead();
+        Cache::forget('navigation-counts:' . Auth::id());
 
         return back();
     })->name('notifications.read');
     Route::get('/notifications/{notification}/open', function (AppNotification $notification) {
         abort_unless($notification->user_id === Auth::id(), 403);
         $notification->markRead();
+        Cache::forget('navigation-counts:' . Auth::id());
 
         return redirect($notification->action_url ?: route('notifications.index'));
     })->name('notifications.open');
     Route::patch('/notifications/{notification}/unread', function (AppNotification $notification) {
         abort_unless($notification->user_id === Auth::id(), 403);
         $notification->markUnread();
+        Cache::forget('navigation-counts:' . Auth::id());
 
         return back();
     })->name('notifications.unread');
@@ -241,6 +245,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
             ->where('type', $type)
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
+        Cache::forget('navigation-counts:' . Auth::id());
 
         return back();
     })->name('notifications.sections.read');
