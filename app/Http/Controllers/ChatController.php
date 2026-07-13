@@ -1776,7 +1776,7 @@ class ChatController extends BaseController
             $availableUsers = User::whereNotIn('id', $existingParticipantIds)
                                  ->where('status', 'Verified') // Only verified users
                                  ->where('role', '!=', 'Admin')
-                                 ->select('id', 'firstname', 'lastname', 'email', 'role')
+                                 ->select('id', 'firstname', 'lastname', 'role')
                                  ->get()
                                  ->filter(fn (User $user) => $this->canBeAddedToChatRoom($chatRoom, $user))
                                  ->values()
@@ -1784,7 +1784,6 @@ class ChatController extends BaseController
                                      return [
                                          'id' => $user->id,
                                          'name' => $user->firstname . ' ' . $user->lastname,
-                                         'email' => $user->email,
                                          'role' => $user->role
                                      ];
                                  });

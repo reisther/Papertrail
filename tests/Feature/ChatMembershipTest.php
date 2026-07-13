@@ -451,6 +451,29 @@ class ChatMembershipTest extends TestCase
         }
     }
 
+    public function test_available_chat_members_response_hides_email_addresses(): void
+    {
+        [$leader, $member, $group] = $this->groupWithMember();
+        $chatRoom = $this->projectChatRoom($group, 'Private Add Member Chat');
+
+        $chatRoom->participants()->attach($leader->id, [
+            'role' => 'admin',
+            'joined_at' => now(),
+        ]);
+
+        $this
+            ->actingAs($leader)
+            ->getJson(route('chat.rooms.available-users', $chatRoom))
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => $member->id,
+                'name' => $member->firstname . ' ' . $member->lastname,
+                'role' => $member->role,
+            ])
+            ->assertJsonMissingPath('users.0.email')
+            ->assertDontSee($member->email);
+    }
+
     private function groupWithMember(): array
     {
         $leader = User::factory()->create([

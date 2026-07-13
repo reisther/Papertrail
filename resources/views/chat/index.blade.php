@@ -2205,7 +2205,7 @@ async function loadAvailableUsers() {
                     <input type="checkbox" id="user_${user.id}" value="${user.id}" class="rounded border-gray-300">
                     <label for="user_${user.id}" class="flex-1 cursor-pointer">
                         <div class="font-medium text-gray-900">${escapeHtml(user.name)}</div>
-                        <div class="text-sm text-gray-500">${escapeHtml(user.email)} (${escapeHtml(user.role)})</div>
+                        <div class="text-sm text-gray-500">${escapeHtml(user.role)}</div>
                     </label>
                 </div>
             `).join('');
