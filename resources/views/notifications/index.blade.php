@@ -73,14 +73,23 @@
                     <div class="border-b border-gray-100 px-4 py-4">
                         <div class="flex flex-wrap gap-2">
                             @foreach($sections as $section)
-                                @php($isActive = $activeSection && $activeSection['key'] === $section['key'])
+                                @php
+                                    $isActive = $activeSection && $activeSection['key'] === $section['key'];
+                                    $sectionUnreadCount = $section['items']->whereNull('read_at')->count();
+                                @endphp
                                 <a href="{{ route('notifications.index', ['type' => $section['key']]) }}"
                                    class="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition
                                         {{ $isActive ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                                     <span>{{ $section['title'] }}</span>
-                                    <span class="rounded-full px-2 py-0.5 text-xs {{ $isActive ? 'bg-white/20 text-white' : 'bg-white text-gray-600' }}">
-                                        {{ $section['items']->count() }}
-                                    </span>
+                                    @if($sectionUnreadCount > 0)
+                                        <span class="h-5 min-w-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white" aria-label="{{ $sectionUnreadCount }} unread {{ strtolower($section['title']) }} notifications">
+                                            {{ $sectionUnreadCount > 99 ? '99+' : $sectionUnreadCount }}
+                                        </span>
+                                    @else
+                                        <span class="h-5 min-w-5 rounded-full px-1.5 text-center text-[11px] font-semibold leading-5 {{ $isActive ? 'bg-white/20 text-white' : 'bg-white text-gray-500' }}" aria-label="No unread {{ strtolower($section['title']) }} notifications">
+                                            0
+                                        </span>
+                                    @endif
                                 </a>
                             @endforeach
                         </div>
@@ -95,6 +104,12 @@
                                 </div>
                                 @php($unreadCount = $activeSection['items']->whereNull('read_at')->count())
                                 <div class="flex flex-wrap items-center gap-2">
+                                    <span class="inline-flex w-fit items-center rounded-full {{ $unreadCount > 0 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600' }} px-3 py-1 text-xs font-semibold">
+                                        {{ $unreadCount > 99 ? '99+' : $unreadCount }} unread
+                                    </span>
+                                    <span class="inline-flex w-fit items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+                                        {{ $activeSection['items']->count() }} total
+                                    </span>
                                     @if($activeSection['items']->isNotEmpty())
                                         <form method="POST" action="{{ route('notifications.sections.read', $activeSection['type']) }}">
                                             @csrf
@@ -106,9 +121,6 @@
                                             </button>
                                         </form>
                                     @endif
-                                    <span class="inline-flex w-fit items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
-                                        {{ $activeSection['items']->count() }}
-                                    </span>
                                 </div>
                             </div>
 
