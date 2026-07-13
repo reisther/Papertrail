@@ -223,16 +223,9 @@ class AdviserController extends Controller
         $adviserName = $adviserStudent->adviser?->name ?? 'The adviser';
 
         if ($adviserStudent->status === 'approved') {
-            $projectIds = $this->affectedProjectIds($adviserStudent);
-
-            $this->deleteReleasedAdviserTasks($projectIds, $adviserStudent->adviser_id);
-
-            Project::whereIn('id', $projectIds)->update(['adviser_id' => null]);
-
-            ChatRoom::whereIn('project_id', $projectIds)
-                ->where('type', 'project')
-                ->get()
-                ->each(fn (ChatRoom $room) => $room->participants()->detach($adviserStudent->adviser_id));
+            return redirect()
+                ->route('advisers.title-submission')
+                ->with('error', "Accepted adviser requests can't be deleted from Find Advisers. Use Remove Adviser or Stop Advising to end the adviser assignment.");
         }
 
         $adviserStudent->delete();

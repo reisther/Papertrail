@@ -378,6 +378,40 @@ class AdviserArchiveTest extends TestCase
         $this->assertNull($group->refresh()->adviser_id);
     }
 
+    public function test_approved_adviser_request_cannot_be_removed_from_find_advisers(): void
+    {
+        $leader = User::factory()->create(['role' => 'Leader']);
+        $adviser = User::factory()->create(['role' => 'Teacher']);
+        $group = Project::create([
+            'title' => 'Accepted Adviser Group',
+            'description' => 'A group with an accepted adviser.',
+            'group_course' => 'Information Technology',
+            'owner_id' => $leader->id,
+            'adviser_id' => $adviser->id,
+            'status' => 'active',
+        ]);
+        $relationship = AdviserStudent::create([
+            'student_id' => $leader->id,
+            'adviser_id' => $adviser->id,
+            'status' => 'approved',
+            'message' => 'Please advise us.',
+            'response_message' => 'Approved.',
+            'responded_at' => now(),
+        ]);
+
+        $this
+            ->actingAs($leader)
+            ->delete(route('advisers.requests.remove', $relationship))
+            ->assertRedirect(route('advisers.title-submission'))
+            ->assertSessionHas('error');
+
+        $this->assertDatabaseHas('adviser_student', [
+            'id' => $relationship->id,
+            'status' => 'approved',
+        ]);
+        $this->assertSame($adviser->id, $group->refresh()->adviser_id);
+    }
+
     private function archivedAdviserGroup(): array
     {
         $leader = User::factory()->create([

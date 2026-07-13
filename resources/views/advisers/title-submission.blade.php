@@ -32,6 +32,12 @@
                 </div>
             @endif
 
+            @if(session('error'))
+                <div class="mb-6 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
+                    {{ session('error') }}
+                </div>
+            @endif
+
             @if($errors->any())
                 <div class="mb-6 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
                     {{ $errors->first() }}
@@ -75,13 +81,19 @@
                         Requested on {{ $activeRequest->created_at->format('M j, Y \a\t g:i A') }}.
                     </p>
 
-                    <form method="POST" action="{{ route('advisers.requests.remove', $activeRequest) }}" class="mt-6" onsubmit="return confirm('Remove this adviser request?');">
-                        @csrf
-                        @method('DELETE')
-                        <button type="submit" class="rounded-md bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">
-                            Remove Request
-                        </button>
-                    </form>
+                    @if($activeRequest->status === 'pending')
+                        <form method="POST" action="{{ route('advisers.requests.remove', $activeRequest) }}" class="mt-6" onsubmit="return confirm('Remove this adviser request?');">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="rounded-md bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">
+                                Remove Request
+                            </button>
+                        </form>
+                    @else
+                        <p class="mt-6 text-sm font-medium text-gray-500">
+                            Accepted adviser requests cannot be deleted here.
+                        </p>
+                    @endif
                 </div>
             @else
                 @if($latestRejectedRequest)

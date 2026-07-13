@@ -38,13 +38,19 @@
                                                 {{ ucfirst($request->status) }}
                                             </span>
                                             <p class="text-xs text-gray-500 mt-1">{{ $request->created_at->format('M j, Y') }}</p>
-                                            <form method="POST" action="{{ route('advisers.requests.remove', $request) }}" class="mt-3" onsubmit="return confirm('Remove this adviser request?');">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="text-xs font-semibold text-red-600 hover:text-red-800">
-                                                    Remove Request
-                                                </button>
-                                            </form>
+                                            @if ($request->status === 'pending')
+                                                <form method="POST" action="{{ route('advisers.requests.remove', $request) }}" class="mt-3" onsubmit="return confirm('Remove this adviser request?');">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="text-xs font-semibold text-red-600 hover:text-red-800">
+                                                        Remove Request
+                                                    </button>
+                                                </form>
+                                            @else
+                                                <p class="mt-3 text-xs font-medium text-gray-500">
+                                                    Accepted requests cannot be deleted here.
+                                                </p>
+                                            @endif
                                         </div>
                                     </div>
                                 @endforeach

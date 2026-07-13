@@ -85,7 +85,10 @@
                                                     Archive
                                                 </button>
                                             </form>
-                                            <form method="POST" action="{{ route('advisers.release', $relationship) }}" class="contents">
+                                            <form method="POST"
+                                                  action="{{ route('advisers.release', $relationship) }}"
+                                                  class="contents"
+                                                  onsubmit="return confirm('Are you sure you want to stop advising this group');">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="inline-flex h-10 w-full items-center justify-center whitespace-nowrap rounded-md bg-red-50 px-3 py-2 text-xs font-medium text-red-700 hover:bg-red-100 sm:text-sm">
