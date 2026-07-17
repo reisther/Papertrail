@@ -80,8 +80,8 @@
                         @endif
 
                         @if(Auth::user()->isStudentGroupRole() || Auth::user()->isTeacher())
-                            <a href="{{ route('defense-schedule.index') }}"
-                                class="{{ $desktopNavLink(request()->routeIs('defense-schedule.*', 'students.projects')) }}">Meeting Schedule</a>
+                            <a href="{{ route('meeting-schedule.index') }}"
+                                class="{{ $desktopNavLink(request()->routeIs('meeting-schedule.*', 'students.projects')) }}">Meeting Schedule</a>
                         @endif
 
                         @if(Auth::user()->isStudentGroupRole() || Auth::user()->isTeacher())
@@ -185,7 +185,7 @@
                                 </span>
                             @endif
                         </a>
-                        <a href="{{ route('defense-schedule.index') }}" class="{{ $mobileNavLink(request()->routeIs('defense-schedule.*', 'students.projects')) }}">Meeting Schedule</a>
+                        <a href="{{ route('meeting-schedule.index') }}" class="{{ $mobileNavLink(request()->routeIs('meeting-schedule.*', 'students.projects')) }}">Meeting Schedule</a>
                         <a href="{{ route('chat.index') }}" class="{{ $mobileNavLink(request()->routeIs('chat.*'), 'flex items-center justify-between') }}">
                             <span>Chat</span>
                             @if($chatUnreadCount > 0)
@@ -209,7 +209,7 @@
                         @if(Auth::user()->canLeadGroup())
                             <a href="{{ route('advisers.title-submission') }}" class="{{ $mobileNavLink(request()->routeIs('advisers.title-submission', 'advisers.send-request', 'advisers.requests.*', 'advisers.my-advisers')) }}">Find Advisers</a>
                         @endif
-                        <a href="{{ route('defense-schedule.index') }}" class="{{ $mobileNavLink(request()->routeIs('defense-schedule.*', 'students.projects')) }}">Meeting Schedule</a>
+                        <a href="{{ route('meeting-schedule.index') }}" class="{{ $mobileNavLink(request()->routeIs('meeting-schedule.*', 'students.projects')) }}">Meeting Schedule</a>
                         <a href="{{ route('chat.index') }}" class="{{ $mobileNavLink(request()->routeIs('chat.*'), 'flex items-center justify-between') }}">
                             <span>Chat</span>
                             @if($chatUnreadCount > 0)

@@ -12,20 +12,20 @@ return new class extends Migration
         $driver = Schema::getConnection()->getDriverName();
 
         if ($driver === 'pgsql') {
-            DB::statement('ALTER TABLE defense_schedules DROP CONSTRAINT IF EXISTS defense_schedules_type_check');
-            DB::statement("ALTER TABLE defense_schedules ALTER COLUMN type SET DEFAULT 'meeting'");
+            DB::statement('ALTER TABLE meeting_schedules DROP CONSTRAINT IF EXISTS meeting_schedules_type_check');
+            DB::statement("ALTER TABLE meeting_schedules ALTER COLUMN type SET DEFAULT 'meeting'");
         } elseif ($driver === 'mysql' || $driver === 'mariadb') {
-            DB::statement("ALTER TABLE defense_schedules MODIFY type VARCHAR(255) NOT NULL DEFAULT 'meeting'");
+            DB::statement("ALTER TABLE meeting_schedules MODIFY type VARCHAR(255) NOT NULL DEFAULT 'meeting'");
         }
 
-        DB::table('defense_schedules')
+        DB::table('meeting_schedules')
             ->whereIn('type', ['proposal', 'final', 'oral_exam'])
             ->update(['type' => 'meeting']);
     }
 
     public function down(): void
     {
-        DB::table('defense_schedules')
+        DB::table('meeting_schedules')
             ->whereIn('type', ['meeting', 'consultation'])
             ->update(['type' => 'final']);
     }

@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DefenseSchedule extends Model
 {
+    protected $table = 'meeting_schedules';
+
     protected $fillable = [
         'title',
         'description',
@@ -36,7 +38,7 @@ class DefenseSchedule extends Model
     ];
 
     /**
-     * Get the student for this defense
+     * Get the student for this meeting
      */
     public function student(): BelongsTo
     {
@@ -44,7 +46,7 @@ class DefenseSchedule extends Model
     }
 
     /**
-     * Get the adviser for this defense
+     * Get the adviser for this meeting
      */
     public function adviser(): BelongsTo
     {
@@ -52,7 +54,7 @@ class DefenseSchedule extends Model
     }
 
     /**
-     * Get the project for this defense
+     * Get the project for this meeting
      */
     public function project(): BelongsTo
     {
@@ -80,7 +82,7 @@ class DefenseSchedule extends Model
     }
 
     /**
-     * Check if user can view this defense schedule
+     * Check if user can view this meeting schedule
      */
     public function canView(User $user): bool
     {
@@ -92,7 +94,7 @@ class DefenseSchedule extends Model
     }
 
     /**
-     * Check if user can edit this defense schedule
+     * Check if user can edit this meeting schedule
      */
     public function canEdit(User $user): bool
     {

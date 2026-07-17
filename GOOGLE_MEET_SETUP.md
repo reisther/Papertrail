@@ -1,10 +1,10 @@
 # Google Meet Integration Setup Guide
 
-This guide will help you set up Google Meet integration for the PaperTrail MS defense scheduling system.
+This guide will help you set up Google Meet integration for the PaperTrail MS meeting scheduling system.
 
 ## Features
 
-- **Automatic Google Meet Link Generation**: Create unique Google Meet links for each defense schedule
+- **Automatic Google Meet Link Generation**: Create unique Google Meet links for each meeting schedule
 - **Google Calendar Integration**: Automatically create calendar events with Meet links
 - **Email Invitations**: Send calendar invites to all participants (student, adviser, panel members)
 - **Fallback Support**: If API integration fails, generates simple Google Meet links
@@ -77,9 +77,9 @@ This guide will help you set up Google Meet integration for the PaperTrail MS de
    Route::get('/auth/google/callback', function(Request $request) {
        $googleMeetService = new \App\Services\GoogleMeetService();
        if ($googleMeetService->handleCallback($request->get('code'))) {
-           return redirect('/defense-schedule')->with('success', 'Google Meet integration configured successfully!');
+           return redirect('/meeting-schedule')->with('success', 'Google Meet integration configured successfully!');
        }
-       return redirect('/defense-schedule')->with('error', 'Failed to configure Google Meet integration.');
+       return redirect('/meeting-schedule')->with('error', 'Failed to configure Google Meet integration.');
    });
    ```
 
@@ -88,9 +88,9 @@ This guide will help you set up Google Meet integration for the PaperTrail MS de
 
 ## Usage
 
-### Creating Defense Schedules with Google Meet
+### Creating Meeting Schedules with Google Meet
 
-1. Go to the defense schedule creation form
+1. Go to the meeting schedule creation form
 2. Select "Google Meet (Auto-generate)" as the meeting platform
 3. Check "Send calendar invites to participants" if desired
 4. Fill in other schedule details
@@ -138,7 +138,7 @@ tail -f storage/logs/laravel.log
 ### Testing
 
 Test the integration:
-1. Create a test defense schedule with Google Meet
+1. Create a test meeting schedule with Google Meet
 2. Check that the calendar event is created
 3. Verify the Meet link works
 4. Confirm invites are sent to participants

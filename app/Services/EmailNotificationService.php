@@ -75,7 +75,7 @@ class EmailNotificationService
     {
         $schedule->loadMissing('student', 'adviser', 'project.owner', 'project.members', 'creator');
 
-        $recipients = $this->defenseScheduleRecipients($schedule);
+        $recipients = $this->meetingScheduleRecipients($schedule);
         $creatorName = $schedule->creator?->name ?? 'A PaperTrail user';
 
         $details = collect([
@@ -345,7 +345,7 @@ class EmailNotificationService
             ->values();
     }
 
-    private function defenseScheduleRecipients(DefenseSchedule $schedule): Collection
+    private function meetingScheduleRecipients(DefenseSchedule $schedule): Collection
     {
         $panelMembers = $schedule->panel_members
             ? User::whereIn('id', $schedule->panel_members)->get()

@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 class="text-xl font-semibold leading-tight text-gray-800">Schedule Meeting</h2>
-            <a href="{{ route('defense-schedule.index') }}" class="inline-flex items-center justify-center rounded-md bg-gray-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-700">
+            <a href="{{ route('meeting-schedule.index') }}" class="inline-flex items-center justify-center rounded-md bg-gray-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-700">
                 Back to Calendar
             </a>
         </div>
@@ -12,7 +12,7 @@
         <div class="mx-auto max-w-4xl sm:px-6 lg:px-8">
             <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
-                    <form method="POST" action="{{ route('defense-schedule.store') }}" class="space-y-6">
+                    <form method="POST" action="{{ route('meeting-schedule.store') }}" class="space-y-6">
                         @csrf
 
                         <div>
@@ -106,7 +106,7 @@
                         </div>
 
                         <div class="flex justify-end space-x-3 border-t border-gray-200 pt-6">
-                            <a href="{{ route('defense-schedule.index') }}" class="rounded-md bg-gray-300 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-400">Cancel</a>
+                            <a href="{{ route('meeting-schedule.index') }}" class="rounded-md bg-gray-300 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-400">Cancel</a>
                             <button type="submit" class="rounded-md bg-blue-600 px-6 py-2 font-medium text-white transition-colors hover:bg-blue-700">Schedule Meeting</button>
                         </div>
                     </form>

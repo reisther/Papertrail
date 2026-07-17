@@ -181,13 +181,13 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
                         [
                             'user_id' => $user->id,
                             'type' => 'meeting_schedule',
-                            'source_type' => 'defense_schedule',
+                            'source_type' => 'meeting_schedule',
                             'source_id' => $schedule->id,
                         ],
                         [
                             'title' => 'Meeting scheduled',
                             'body' => $schedule->title . ' is scheduled for ' . $schedule->start_time->format('M j, Y g:i A') . '.',
-                            'action_url' => route('defense-schedule.show', $schedule),
+                            'action_url' => route('meeting-schedule.show', $schedule),
                             'created_at' => $schedule->created_at ?? now(),
                             'updated_at' => now(),
                         ]
@@ -861,9 +861,10 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
     Route::delete('/projects/{project}/documents/{document}', [ProjectController::class, 'deleteDocument'])->name('projects.delete-document');
     Route::delete('/projects/{project}/folders/{folder}', [ProjectController::class, 'deleteFolder'])->name('projects.delete-folder');
     
-    // Defense Schedule routes
-    Route::resource('defense-schedule', DefenseScheduleController::class);
-    Route::get('/defense-schedule-events', [DefenseScheduleController::class, 'getEvents'])->name('defense-schedule.events');
+    // Meeting Schedule routes
+    Route::resource('meeting-schedule', DefenseScheduleController::class)
+        ->parameters(['meeting-schedule' => 'meetingSchedule']);
+    Route::get('/meeting-schedule-events', [DefenseScheduleController::class, 'getEvents'])->name('meeting-schedule.events');
     Route::get('/students/{student}/projects', [DefenseScheduleController::class, 'getStudentProjects'])->name('students.projects');
     
     // Chat routes

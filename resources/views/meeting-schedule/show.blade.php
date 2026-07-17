@@ -5,8 +5,8 @@
                 Meeting Details
             </h2>
             <div class="flex space-x-3">
-                @if($defenseSchedule->canEdit(Auth::user()))
-                    <a href="{{ route('defense-schedule.edit', $defenseSchedule) }}" 
+                @if($meetingSchedule->canEdit(Auth::user()))
+                    <a href="{{ route('meeting-schedule.edit', $meetingSchedule) }}" 
                        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
@@ -14,9 +14,9 @@
                         Edit
                     </a>
                 @endif
-                <a href="{{ route('defense-schedule.index') }}" 
+                <a href="{{ route('meeting-schedule.index') }}" 
                    class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
-                    ← Back to Calendar
+                    Back to Calendar
                 </a>
             </div>
         </div>
@@ -29,19 +29,19 @@
                     <!-- Meeting Title and Status -->
                     <div class="flex justify-between items-start mb-6">
                         <div>
-                            <h1 class="text-2xl font-bold text-gray-900 mb-2">{{ $defenseSchedule->title }}</h1>
+                            <h1 class="text-2xl font-bold text-gray-900 mb-2">{{ $meetingSchedule->title }}</h1>
                             <div class="flex items-center space-x-4">
                                 <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full
-                                    @if($defenseSchedule->status === 'scheduled') bg-blue-100 text-blue-800
-                                    @elseif($defenseSchedule->status === 'completed') bg-green-100 text-green-800
-                                    @elseif($defenseSchedule->status === 'cancelled') bg-red-100 text-red-800
+                                    @if($meetingSchedule->status === 'scheduled') bg-blue-100 text-blue-800
+                                    @elseif($meetingSchedule->status === 'completed') bg-green-100 text-green-800
+                                    @elseif($meetingSchedule->status === 'cancelled') bg-red-100 text-red-800
                                     @else bg-yellow-100 text-yellow-800 @endif">
-                                    {{ ucfirst($defenseSchedule->status) }}
+                                    {{ ucfirst($meetingSchedule->status) }}
                                 </span>
                                 <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full
-                                    @if($defenseSchedule->type === 'meeting') bg-blue-100 text-blue-800
+                                    @if($meetingSchedule->type === 'meeting') bg-blue-100 text-blue-800
                                     @else bg-green-100 text-green-800 @endif">
-                                    {{ ucwords(str_replace('_', ' ', $defenseSchedule->type)) }}
+                                    {{ ucwords(str_replace('_', ' ', $meetingSchedule->type)) }}
                                 </span>
                             </div>
                         </div>
@@ -62,15 +62,15 @@
                                 <div class="space-y-2">
                                     <div class="flex justify-between">
                                         <span class="text-gray-600">Start:</span>
-                                        <span class="font-medium">{{ $defenseSchedule->start_time->format('M j, Y g:i A') }}</span>
+                                        <span class="font-medium">{{ $meetingSchedule->start_time->format('M j, Y g:i A') }}</span>
                                     </div>
                                     <div class="flex justify-between">
                                         <span class="text-gray-600">End:</span>
-                                        <span class="font-medium">{{ $defenseSchedule->end_time->format('M j, Y g:i A') }}</span>
+                                        <span class="font-medium">{{ $meetingSchedule->end_time->format('M j, Y g:i A') }}</span>
                                     </div>
                                     <div class="flex justify-between">
                                         <span class="text-gray-600">Duration:</span>
-                                        <span class="font-medium">{{ $defenseSchedule->duration }}</span>
+                                        <span class="font-medium">{{ $meetingSchedule->duration }}</span>
                                     </div>
                                 </div>
                             </div>
@@ -84,13 +84,13 @@
                                     Group
                                 </h3>
                                 <div class="space-y-3">
-                                    @if($defenseSchedule->project)
+                                    @if($meetingSchedule->project)
                                     <div class="flex items-center space-x-3">
                                         <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                                             <span class="text-xs font-medium text-blue-600">G</span>
                                         </div>
                                         <div>
-                                            <div class="font-medium">{{ $defenseSchedule->project->title }}</div>
+                                            <div class="font-medium">{{ $meetingSchedule->project->title }}</div>
                                             <div class="text-sm text-gray-600">Group Code</div>
                                         </div>
                                     </div>
@@ -100,7 +100,7 @@
                                             <span class="text-xs font-medium text-green-600">A</span>
                                         </div>
                                         <div>
-                                            <div class="font-medium">{{ $defenseSchedule->adviser->name }}</div>
+                                            <div class="font-medium">{{ $meetingSchedule->adviser->name }}</div>
                                             <div class="text-sm text-gray-600">Adviser</div>
                                         </div>
                                     </div>
@@ -126,11 +126,11 @@
                                         </div>
                                     </div>
 
-                                    @if($defenseSchedule->effective_meeting_link)
+                                    @if($meetingSchedule->effective_meeting_link)
                                         <div>
                                             <div class="text-sm text-gray-600 mb-2">Online Meeting:</div>
                                             <div class="flex flex-col space-y-2">
-                                                <a href="{{ $defenseSchedule->effective_meeting_link }}" target="_blank" rel="noopener noreferrer"
+                                                <a href="{{ $meetingSchedule->effective_meeting_link }}" target="_blank" rel="noopener noreferrer"
                                                    class="inline-flex items-center justify-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
                                                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
@@ -146,7 +146,7 @@
                             </div>
 
                             <!-- Project Information -->
-                            @if($defenseSchedule->project)
+                            @if($meetingSchedule->project)
                                 <div class="bg-gray-50 rounded-lg p-4">
                                     <h3 class="text-lg font-medium text-gray-900 mb-3 flex items-center">
                                         <svg class="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -155,11 +155,11 @@
                                         Group Code
                                     </h3>
                                     <div>
-                                        <div class="font-medium text-lg">{{ $defenseSchedule->project->title }}</div>
-                                        @if($defenseSchedule->project->description)
-                                            <div class="text-gray-600 mt-2">{{ Str::limit($defenseSchedule->project->description, 150) }}</div>
+                                        <div class="font-medium text-lg">{{ $meetingSchedule->project->title }}</div>
+                                        @if($meetingSchedule->project->description)
+                                            <div class="text-gray-600 mt-2">{{ Str::limit($meetingSchedule->project->description, 150) }}</div>
                                         @endif
-                                        <a href="{{ route('projects.show', $defenseSchedule->project) }}" 
+                                        <a href="{{ route('projects.show', $meetingSchedule->project) }}" 
                                            class="inline-flex items-center text-blue-600 hover:text-blue-800 mt-2">
                                             <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
@@ -181,16 +181,16 @@
                                 <div class="space-y-2 text-sm">
                                     <div class="flex justify-between">
                                         <span class="text-gray-600">Created by:</span>
-                                        <span class="font-medium">{{ $defenseSchedule->creator->name }}</span>
+                                        <span class="font-medium">{{ $meetingSchedule->creator->name }}</span>
                                     </div>
                                     <div class="flex justify-between">
                                         <span class="text-gray-600">Created on:</span>
-                                        <span class="font-medium">{{ $defenseSchedule->created_at->format('M j, Y g:i A') }}</span>
+                                        <span class="font-medium">{{ $meetingSchedule->created_at->format('M j, Y g:i A') }}</span>
                                     </div>
-                                    @if($defenseSchedule->updated_at != $defenseSchedule->created_at)
+                                    @if($meetingSchedule->updated_at != $meetingSchedule->created_at)
                                         <div class="flex justify-between">
                                             <span class="text-gray-600">Last updated:</span>
-                                            <span class="font-medium">{{ $defenseSchedule->updated_at->format('M j, Y g:i A') }}</span>
+                                            <span class="font-medium">{{ $meetingSchedule->updated_at->format('M j, Y g:i A') }}</span>
                                         </div>
                                     @endif
                                 </div>
@@ -199,21 +199,21 @@
                     </div>
 
                     <!-- Description -->
-                    @if($defenseSchedule->description)
+                    @if($meetingSchedule->description)
                         <div class="mt-8">
                             <h3 class="text-lg font-medium text-gray-900 mb-3">Description</h3>
                             <div class="bg-gray-50 rounded-lg p-4">
-                                <p class="text-gray-700 whitespace-pre-wrap">{{ $defenseSchedule->description }}</p>
+                                <p class="text-gray-700 whitespace-pre-wrap">{{ $meetingSchedule->description }}</p>
                             </div>
                         </div>
                     @endif
 
                     <!-- Actions -->
-                    @if($defenseSchedule->canEdit(Auth::user()))
+                    @if($meetingSchedule->canEdit(Auth::user()))
                         <div class="mt-8 pt-6 border-t border-gray-200">
                             <div class="flex justify-between items-center">
                                 <div class="flex space-x-3">
-                                    <a href="{{ route('defense-schedule.edit', $defenseSchedule) }}" 
+                                    <a href="{{ route('meeting-schedule.edit', $meetingSchedule) }}" 
                                        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
                                         Edit Meeting
                                     </a>
@@ -249,7 +249,7 @@
                             class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
                         Cancel
                     </button>
-                    <form method="POST" action="{{ route('defense-schedule.destroy', $defenseSchedule) }}" class="inline">
+                    <form method="POST" action="{{ route('meeting-schedule.destroy', $meetingSchedule) }}" class="inline">
                         @csrf
                         @method('DELETE')
                         <button type="submit" 

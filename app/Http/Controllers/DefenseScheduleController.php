@@ -43,7 +43,7 @@ class DefenseScheduleController extends Controller
                   ->orWhereHas('project', fn ($project) => $project->where('adviser_id', $user->id));
             });
         }
-        return view('defense-schedule.index');
+        return view('meeting-schedule.index');
     }
 
     /**
@@ -136,7 +136,7 @@ class DefenseScheduleController extends Controller
                 ->get();
         }
         
-        return view('defense-schedule.create', compact('projects'));
+        return view('meeting-schedule.create', compact('projects'));
     }
 
     /**
@@ -199,16 +199,16 @@ class DefenseScheduleController extends Controller
             'created_by' => Auth::id(),
         ];
 
-        $defenseSchedule = DefenseSchedule::create($data);
-        $this->notifyMeetingParticipants($defenseSchedule->fresh(['project.owner', 'project.members', 'project.adviser']));
+        $meetingSchedule = DefenseSchedule::create($data);
+        $this->notifyMeetingParticipants($meetingSchedule->fresh(['project.owner', 'project.members', 'project.adviser']));
 
         $emailSentCount = 0;
         try {
             $emailSentCount = app(EmailNotificationService::class)
-                ->sendMeetingScheduled($defenseSchedule->fresh(['student', 'adviser', 'project.owner', 'project.members', 'creator']));
+                ->sendMeetingScheduled($meetingSchedule->fresh(['student', 'adviser', 'project.owner', 'project.members', 'creator']));
         } catch (\Throwable $exception) {
             Log::warning('Failed to send meeting schedule email notification.', [
-                'defense_schedule_id' => $defenseSchedule->id,
+                'meeting_schedule_id' => $meetingSchedule->id,
                 'error' => $exception->getMessage(),
             ]);
         }
@@ -217,30 +217,30 @@ class DefenseScheduleController extends Controller
             ? 'Meeting scheduled successfully! Email notifications were sent.'
             : 'Meeting scheduled successfully, but no email notifications were sent. Please check participant emails and mail settings.';
 
-        return redirect()->route('defense-schedule.index')
+        return redirect()->route('meeting-schedule.index')
                         ->with($emailSentCount > 0 ? 'success' : 'warning', $message);
     }
 
     /**
-     * Show defense schedule details
+     * Show meeting schedule details
      */
-    public function show(DefenseSchedule $defenseSchedule)
+    public function show(DefenseSchedule $meetingSchedule)
     {
-        if (!$defenseSchedule->canView(Auth::user())) {
+        if (!$meetingSchedule->canView(Auth::user())) {
             abort(403, 'You do not have permission to view this meeting.');
         }
         
-        $defenseSchedule->load(['student', 'adviser', 'project', 'creator']);
+        $meetingSchedule->load(['student', 'adviser', 'project', 'creator']);
         
-        return view('defense-schedule.show', compact('defenseSchedule'));
+        return view('meeting-schedule.show', compact('meetingSchedule'));
     }
 
     /**
-     * Show form to edit defense schedule
+     * Show form to edit meeting schedule
      */
-    public function edit(DefenseSchedule $defenseSchedule)
+    public function edit(DefenseSchedule $meetingSchedule)
     {
-        if (!$defenseSchedule->canEdit(Auth::user())) {
+        if (!$meetingSchedule->canEdit(Auth::user())) {
             abort(403, 'You do not have permission to edit this meeting.');
         }
         
@@ -260,15 +260,15 @@ class DefenseScheduleController extends Controller
                 ->get();
         }
         
-        return view('defense-schedule.edit', compact('defenseSchedule', 'projects'));
+        return view('meeting-schedule.edit', compact('meetingSchedule', 'projects'));
     }
 
     /**
-     * Update defense schedule
+     * Update meeting schedule
      */
-    public function update(Request $request, DefenseSchedule $defenseSchedule)
+    public function update(Request $request, DefenseSchedule $meetingSchedule)
     {
-        if (!$defenseSchedule->canEdit(Auth::user())) {
+        if (!$meetingSchedule->canEdit(Auth::user())) {
             abort(403, 'You do not have permission to edit this meeting.');
         }
         
@@ -301,7 +301,7 @@ class DefenseScheduleController extends Controller
             abort(403, 'Access denied.');
         }
         
-        $defenseSchedule->update([
+        $meetingSchedule->update([
             'title' => $request->title,
             'description' => $request->description,
             'student_id' => $project->owner_id,
@@ -321,22 +321,22 @@ class DefenseScheduleController extends Controller
             'google_calendar_link' => null,
         ]);
         
-        return redirect()->route('defense-schedule.index')
+        return redirect()->route('meeting-schedule.index')
                         ->with('success', 'Meeting updated successfully!');
     }
 
     /**
-     * Delete defense schedule
+     * Delete meeting schedule
      */
-    public function destroy(DefenseSchedule $defenseSchedule)
+    public function destroy(DefenseSchedule $meetingSchedule)
     {
-        if (!$defenseSchedule->canEdit(Auth::user())) {
+        if (!$meetingSchedule->canEdit(Auth::user())) {
             abort(403, 'You do not have permission to delete this meeting.');
         }
         
-        $defenseSchedule->delete();
+        $meetingSchedule->delete();
         
-        return redirect()->route('defense-schedule.index')
+        return redirect()->route('meeting-schedule.index')
                         ->with('success', 'Meeting deleted successfully!');
     }
 
@@ -388,13 +388,13 @@ class DefenseScheduleController extends Controller
                 [
                     'user_id' => $user->id,
                     'type' => 'meeting_schedule',
-                    'source_type' => 'defense_schedule',
+                    'source_type' => 'meeting_schedule',
                     'source_id' => $schedule->id,
                 ],
                 [
                     'title' => 'Meeting scheduled',
                     'body' => $schedule->title . ' is scheduled for ' . $schedule->start_time->format('M j, Y g:i A') . '.',
-                    'action_url' => route('defense-schedule.show', $schedule),
+                    'action_url' => route('meeting-schedule.show', $schedule),
                     'created_at' => $schedule->created_at ?? now(),
                     'updated_at' => now(),
                 ]

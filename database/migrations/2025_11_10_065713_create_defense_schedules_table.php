@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('defense_schedules', function (Blueprint $table) {
+        Schema::create('meeting_schedules', function (Blueprint $table) {
             $table->id();
             $table->string('title');
             $table->text('description')->nullable();
@@ -24,7 +24,7 @@ return new class extends Migration
             $table->enum('status', ['scheduled', 'completed', 'cancelled', 'rescheduled'])->default('scheduled');
             $table->json('panel_members')->nullable(); // Array of user IDs for panel members
             $table->text('notes')->nullable();
-            $table->string('meeting_link')->nullable(); // For online defenses
+            $table->string('meeting_link')->nullable(); // For online meetings
             $table->string('type')->default('meeting');
             $table->foreignId('created_by')->constrained('users');
             $table->timestamps();
@@ -36,6 +36,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('defense_schedules');
+        Schema::dropIfExists('meeting_schedules');
     }
 };
