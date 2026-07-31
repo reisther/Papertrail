@@ -1,0 +1,24 @@
+[Unit]
+Description=PaperTrail FastAPI title analysis service
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/papertrail/ai
+EnvironmentFile=/etc/papertrail-ai.env
+ExecStart=/var/www/papertrail/ai/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8001 --workers 1
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+MemoryMax=512M
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

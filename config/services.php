@@ -27,6 +27,12 @@ return [
         'endpoint' => env('BREVO_API_ENDPOINT', 'https://api.brevo.com/v3/smtp/email'),
     ],
 
+    'papertrail_ai' => [
+        'enabled' => env('PAPERTRAIL_AI_ENABLED', true),
+        'url' => rtrim(env('PAPERTRAIL_AI_URL', 'http://127.0.0.1:8001'), '/'),
+        'timeout' => (int) env('PAPERTRAIL_AI_TIMEOUT', 35),
+    ],
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),

@@ -1,32 +1,46 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-from gemini_service import analyze_titles
+import logging
 
-app = FastAPI()
+from fastapi import FastAPI, HTTPException, status
 
-class TitleRequest(BaseModel):
-    title1: str
-    title2: str
-    title3: str
-    title4: str
-    title5: str
+from gemini_service import (
+    GeminiConfigurationError,
+    analyze_titles,
+    configured_model,
+    gemini_is_configured,
+)
+from models import HealthResponse, TitleAnalysis, TitleRequest
 
 
-@app.post("/analyze")
-def analyze(data: TitleRequest):
+logger = logging.getLogger("papertrail.ai")
 
-    print("Request received")
+app = FastAPI(
+    title="PaperTrail AI",
+    version="1.0.0",
+    description="Local-only thesis title analysis service.",
+)
 
-    result = analyze_titles(
-        data.title1,
-        data.title2,
-        data.title3,
-        data.title4,
-        data.title5
+
+@app.get("/health", response_model=HealthResponse)
+def health() -> HealthResponse:
+    return HealthResponse(
+        gemini_configured=gemini_is_configured(),
+        model=configured_model(),
     )
 
-    print("Finished analyzing")
 
-    return {
-        "analysis": result
-    }
+@app.post("/analyze", response_model=TitleAnalysis)
+def analyze(data: TitleRequest) -> TitleAnalysis:
+    try:
+        return analyze_titles(data.as_list())
+    except GeminiConfigurationError as exception:
+        logger.warning("Gemini is not configured: %s", exception)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The title analysis service is not configured.",
+        ) from exception
+    except Exception as exception:
+        logger.exception("Gemini title analysis failed.")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The title analysis provider is temporarily unavailable.",
+        ) from exception

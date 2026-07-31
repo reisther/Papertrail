@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\TitleSubmission;
 use App\Models\User;
+use App\Services\TitleAnalysisService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -11,7 +12,7 @@ class SuggestedAIController extends Controller
 {
     private const TITLE_SCORE_WEIGHT = 60;
 
-    public function index(Request $request)
+    public function index(Request $request, TitleAnalysisService $titleAnalysisService)
     {
         if (!auth()->user()->canLeadGroup()) {
             abort(403, 'Only group leaders can analyze titles and request advisers.');
@@ -42,8 +43,10 @@ class SuggestedAIController extends Controller
         );
 
         $titles = array_values($submission->only(['title1', 'title2', 'title3', 'title4', 'title5']));
-        $normalizedTitles = $this->normalizeText(implode(' ', $titles));
-        $titleExpertiseScores = $this->scoreTitleExpertise($titles);
+        $analysis = $titleAnalysisService->analyze($titles);
+        $scoringInputs = $analysis ? [...$titles, $analysis] : $titles;
+        $normalizedTitles = $this->normalizeText(implode(' ', $scoringInputs));
+        $titleExpertiseScores = $this->scoreTitleExpertise($scoringInputs);
         $totalTitleScore = array_sum($titleExpertiseScores);
 
         $advisers = User::where('role', 'Teacher')

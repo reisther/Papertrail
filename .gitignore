@@ -1,5 +1,6 @@
 *.log
 __pycache__/
+.venv/
 *.py[cod]
 .DS_Store
 .env
