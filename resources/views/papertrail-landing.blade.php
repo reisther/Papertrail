@@ -42,16 +42,6 @@
                         </button>
                     </div>
                     
-                    <!-- Test Credentials -->
-                    <div class="mt-6 p-4 bg-gray-100 rounded-lg text-sm">
-                        <h4 class="font-semibold text-gray-800 mb-2">Test Credentials:</h4>
-                        <div class="space-y-1 text-gray-600">
-                            <p><strong>Admin:</strong> admin@papertrail.com / admin123</p>
-                            <p><strong>Student:</strong> student@papertrail.com / student123</p>
-                            <p><strong>Teacher:</strong> teacher@papertrail.com / teacher123</p>
-                            <p><strong>Leader:</strong> leader@papertrail.com / leader123</p>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- Right Visual Elements -->
@@ -138,14 +128,6 @@
                 <form action="{{ route('login', [], false) }}" method="POST" class="space-y-4">
                     @csrf
 
-                    <div class="rounded-md bg-blue-50 border border-blue-100 p-3 text-sm text-blue-900">
-                        <h4 class="font-semibold mb-1">Test Credentials</h4>
-                        <p><strong>Leader:</strong> leader@papertrail.com / leader123</p>
-                        <p><strong>Admin:</strong> admin@papertrail.com / admin123</p>
-                        <p><strong>Student:</strong> student@papertrail.com / student123</p>
-                        <p><strong>Teacher:</strong> teacher@papertrail.com / teacher123</p>
-                    </div>
-                    
                     <!-- Display validation errors -->
                     @if ($errors->any())
                         <div class="bg-red-50 border border-red-200 rounded-md p-4">

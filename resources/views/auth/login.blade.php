@@ -2,14 +2,6 @@
     <!-- Session Status -->
     <x-auth-session-status class="mb-4" :status="session('status')" />
 
-    <div class="mb-4 rounded-md bg-blue-50 border border-blue-100 p-3 text-sm text-blue-900">
-        <h4 class="font-semibold mb-1">Test Credentials</h4>
-        <p><strong>Leader:</strong> leader@papertrail.com / leader123</p>
-        <p><strong>Admin:</strong> admin@papertrail.com / admin123</p>
-        <p><strong>Student:</strong> student@papertrail.com / student123</p>
-        <p><strong>Teacher:</strong> teacher@papertrail.com / teacher123</p>
-    </div>
-
     <form method="POST" action="{{ route('login', [], false) }}">
         @csrf
 
