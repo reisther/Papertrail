@@ -27,6 +27,15 @@ return [
         'endpoint' => env('BREVO_API_ENDPOINT', 'https://api.brevo.com/v3/smtp/email'),
     ],
 
+    'recaptcha' => [
+        'site_key' => env('RECAPTCHA_SITE_KEY'),
+        'secret_key' => env('RECAPTCHA_SECRET_KEY'),
+        'expected_hostname' => env('RECAPTCHA_EXPECTED_HOSTNAME'),
+        'verify_url' => env('RECAPTCHA_VERIFY_URL', 'https://www.google.com/recaptcha/api/siteverify'),
+        'timeout' => (int) env('RECAPTCHA_TIMEOUT', 5),
+        'testing_bypass' => env('RECAPTCHA_TESTING_BYPASS', false),
+    ],
+
     'papertrail_ai' => [
         'enabled' => env('PAPERTRAIL_AI_ENABLED', true),
         'url' => rtrim(env('PAPERTRAIL_AI_URL', 'http://127.0.0.1:8001'), '/'),

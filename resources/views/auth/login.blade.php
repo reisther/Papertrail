@@ -44,9 +44,7 @@
 
         @if(session('login_captcha_required'))
             <div class="mt-4">
-                <x-input-label for="captcha" :value="__('CAPTCHA: What is '.session('captcha.login.question').'?')" />
-                <x-text-input id="captcha" class="block mt-1 w-full" type="text" name="captcha" required inputmode="numeric" autocomplete="off" />
-                <x-input-error :messages="$errors->get('captcha')" class="mt-2" />
+                <x-recaptcha />
             </div>
         @endif
 

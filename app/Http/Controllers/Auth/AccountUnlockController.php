@@ -24,7 +24,7 @@ class AccountUnlockController extends Controller
         return redirect()->route('account.unlock');
     }
 
-    public function create(Request $request, CaptchaService $captcha): View|RedirectResponse
+    public function create(Request $request): View|RedirectResponse
     {
         if (! $request->session()->has('unlock_user_id')) {
             return redirect()->route('login')->withErrors([
@@ -32,9 +32,7 @@ class AccountUnlockController extends Controller
             ]);
         }
 
-        return view('auth.unlock-account', [
-            'captchaQuestion' => $captcha->question($request, 'unlock'),
-        ]);
+        return view('auth.unlock-account');
     }
 
     public function store(
@@ -42,12 +40,12 @@ class AccountUnlockController extends Controller
         CaptchaService $captcha,
         EmailNotificationService $notifications
     ): RedirectResponse {
-        $request->validate(['captcha' => ['required', 'string']]);
+        $request->validate(['g-recaptcha-response' => ['required', 'string']]);
 
-        if (! $captcha->verify($request, 'unlock', $request->input('captcha'))) {
-            $captcha->issue($request, 'unlock');
-
-            return back()->withErrors(['captcha' => 'The CAPTCHA answer is incorrect.']);
+        if (! $captcha->verify($request, $request->input('g-recaptcha-response'))) {
+            return back()->withErrors([
+                'g-recaptcha-response' => 'Complete the “I’m not a robot” verification and try again.',
+            ]);
         }
 
         $user = User::find($request->session()->get('unlock_user_id'));
@@ -70,7 +68,7 @@ class AccountUnlockController extends Controller
 
         if (! $notifications->sendPasswordResetCode($user, $code)) {
             return back()->withErrors([
-                'captcha' => 'We could not send the OTP email right now. Please try again later.',
+                'g-recaptcha-response' => 'We could not send the OTP email right now. Please try again later.',
             ]);
         }
 

@@ -3,39 +3,58 @@
 namespace App\Services;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class CaptchaService
 {
-    public function issue(Request $request, string $context): string
+    public function verify(Request $request, mixed $token): bool
     {
-        $left = random_int(1, 9);
-        $right = random_int(1, 9);
-        $request->session()->put("captcha.{$context}", [
-            'answer' => (string) ($left + $right),
-            'question' => "{$left} + {$right}",
-            'expires_at' => now()->addMinutes(10)->timestamp,
-        ]);
+        $token = trim((string) $token);
+        $secret = (string) config('services.recaptcha.secret_key');
 
-        return "{$left} + {$right}";
-    }
-
-    public function question(Request $request, string $context): string
-    {
-        $challenge = $request->session()->get("captcha.{$context}");
-
-        if (! is_array($challenge) || ($challenge['expires_at'] ?? 0) < now()->timestamp) {
-            return $this->issue($request, $context);
+        if ($token === '') {
+            return false;
         }
 
-        return $challenge['question'];
-    }
+        if (app()->environment('testing') && config('services.recaptcha.testing_bypass')) {
+            return true;
+        }
 
-    public function verify(Request $request, string $context, mixed $answer): bool
-    {
-        $challenge = $request->session()->pull("captcha.{$context}");
+        if ($secret === '') {
+            Log::error('Google reCAPTCHA verification is not configured.');
 
-        return is_array($challenge)
-            && ($challenge['expires_at'] ?? 0) >= now()->timestamp
-            && hash_equals((string) ($challenge['answer'] ?? ''), trim((string) $answer));
+            return false;
+        }
+
+        try {
+            $response = Http::asForm()
+                ->timeout((int) config('services.recaptcha.timeout', 5))
+                ->post((string) config('services.recaptcha.verify_url'), [
+                    'secret' => $secret,
+                    'response' => $token,
+                    'remoteip' => $request->ip(),
+                ]);
+
+            if (! $response->successful() || $response->json('success') !== true) {
+                Log::warning('Google reCAPTCHA verification failed.', [
+                    'status' => $response->status(),
+                    'error_codes' => $response->json('error-codes', []),
+                ]);
+
+                return false;
+            }
+
+            $expectedHostname = trim((string) config('services.recaptcha.expected_hostname'));
+
+            return $expectedHostname === ''
+                || hash_equals($expectedHostname, (string) $response->json('hostname'));
+        } catch (\Throwable $exception) {
+            Log::warning('Google reCAPTCHA verification request failed.', [
+                'error' => $exception->getMessage(),
+            ]);
+
+            return false;
+        }
     }
 }

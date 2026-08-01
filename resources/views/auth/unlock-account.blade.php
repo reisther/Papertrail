@@ -6,10 +6,8 @@
     <form method="POST" action="{{ route('account.unlock.store', [], false) }}">
         @csrf
 
-        <div>
-            <x-input-label for="captcha" :value="__('CAPTCHA: What is '.$captchaQuestion.'?')" />
-            <x-text-input id="captcha" class="block mt-1 w-full" type="text" name="captcha" required inputmode="numeric" autocomplete="off" autofocus />
-            <x-input-error :messages="$errors->get('captcha')" class="mt-2" />
+        <div class="flex justify-center">
+            <x-recaptcha />
         </div>
 
         <div class="flex items-center justify-end mt-4">

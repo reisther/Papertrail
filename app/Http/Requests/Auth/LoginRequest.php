@@ -26,7 +26,7 @@ class LoginRequest extends FormRequest
         return [
             'email' => ['required', 'string', 'email'],
             'password' => ['required', 'string'],
-            'captcha' => ['nullable', 'string'],
+            'g-recaptcha-response' => ['nullable', 'string'],
         ];
     }
 
@@ -40,12 +40,11 @@ class LoginRequest extends FormRequest
 
         if ($attempts >= 3) {
             $captcha = app(CaptchaService::class);
-            if (! $captcha->verify($this, 'login', $this->input('captcha'))) {
-                $captcha->issue($this, 'login');
+            if (! $captcha->verify($this, $this->input('g-recaptcha-response'))) {
                 $this->session()->put('login_captcha_required', true);
 
                 throw ValidationException::withMessages([
-                    'captcha' => 'CAPTCHA verification is required before another login attempt.',
+                    'g-recaptcha-response' => 'Complete the “I’m not a robot” verification before trying again.',
                 ]);
             }
         }
@@ -87,7 +86,6 @@ class LoginRequest extends FormRequest
             : max(0, $sessionDelay - now()->timestamp);
 
         if ($seconds > 0) {
-            app(CaptchaService::class)->question($this, 'login');
             $this->session()->put('login_captcha_required', true);
             throw ValidationException::withMessages([
                 'email' => "Please wait {$seconds} seconds before trying to log in again.",
@@ -95,7 +93,6 @@ class LoginRequest extends FormRequest
         }
 
         if ($attempts >= 3) {
-            app(CaptchaService::class)->question($this, 'login');
             $this->session()->put('login_captcha_required', true);
         }
     }
@@ -126,7 +123,6 @@ class LoginRequest extends FormRequest
         }
 
         if ($attempts >= 3) {
-            app(CaptchaService::class)->issue($this, 'login');
             $this->session()->put('login_captcha_required', true);
         }
 

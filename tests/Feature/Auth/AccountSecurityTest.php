@@ -29,6 +29,7 @@ class AccountSecurityTest extends TestCase
     public function test_third_failure_adds_delay_and_captcha_then_fifth_locks_without_ending_sessions(): void
     {
         Mail::fake();
+        config(['services.recaptcha.site_key' => 'test-site-key']);
         $user = User::factory()->create();
         DB::table('sessions')->insert([
             'id' => 'existing-session',
@@ -40,32 +41,36 @@ class AccountSecurityTest extends TestCase
         ]);
 
         for ($attempt = 1; $attempt <= 3; $attempt++) {
-            $this->post('/login', ['email' => $user->email, 'password' => 'wrong-password']);
+            $response = $this->post('/login', ['email' => $user->email, 'password' => 'wrong-password']);
+
+            if ($attempt < 3) {
+                $response->assertSessionMissing('login_captcha_required');
+                $this->get('/')->assertDontSee('class="g-recaptcha"', false);
+            }
         }
 
         $user->refresh();
         $this->assertSame(3, $user->failed_login_attempts);
         $this->assertTrue($user->login_delay_until->isFuture());
         $this->assertTrue((bool) session('login_captcha_required'));
+        $this->get('/')->assertSee('class="g-recaptcha"', false);
         Mail::assertSent(PaperTrailNotification::class, fn ($mail) => $mail->hasTo($user->email)
             && $mail->subjectLine === 'PaperTrail: Unsuccessful login attempts detected'
         );
 
-        $captcha = session('captcha.login.answer');
         $this->post('/login', [
             'email' => $user->email,
             'password' => 'wrong-password',
-            'captcha' => $captcha,
+            'g-recaptcha-response' => 'test-token',
         ])->assertSessionHasErrors('email');
         $this->assertSame(3, $user->fresh()->failed_login_attempts);
 
         $this->travel(31)->seconds();
         foreach ([4, 5] as $attempt) {
-            $captcha = session('captcha.login.answer');
             $this->post('/login', [
                 'email' => $user->email,
                 'password' => 'wrong-password',
-                'captcha' => $captcha,
+                'g-recaptcha-response' => 'test-token',
             ]);
         }
 
@@ -87,9 +92,8 @@ class AccountSecurityTest extends TestCase
 
         $this->get($secureLink)->assertRedirect(route('account.unlock'));
         $this->get('/unlock-account')->assertOk();
-        $captcha = session('captcha.unlock.answer');
 
-        $this->post('/unlock-account', ['captcha' => $captcha])
+        $this->post('/unlock-account', ['g-recaptcha-response' => 'test-token'])
             ->assertRedirect(route('password.reset'))
             ->assertSessionHas('status', 'We sent a six-digit one-time password to your registered email address.');
 

@@ -176,8 +176,7 @@
                     </div>
                     @if(session('login_captcha_required'))
                         <div>
-                            <label for="login-captcha" class="block text-sm font-medium text-gray-700">CAPTCHA: What is {{ session('captcha.login.question') }}?</label>
-                            <input type="text" id="login-captcha" name="captcha" value="{{ old('captcha') }}" required inputmode="numeric" autocomplete="off" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <x-recaptcha />
                         </div>
                     @endif
                     @if(session('account_locked'))
