@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminAccountRecoveryController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AdviserController;
 use App\Http\Controllers\ChatController;
@@ -7,17 +8,17 @@ use App\Http\Controllers\DefenseScheduleController;
 use App\Http\Controllers\GroupController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\SuggestedAIController;
+use App\Http\Controllers\TitleSubmissionController;
 use App\Models\AppNotification;
 use App\Models\DefenseSchedule;
 use App\Services\EmailNotificationService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Http\Request;
-use App\Http\Controllers\TitleSubmissionController;
-use App\Http\Controllers\SuggestedAIController;
 
 $manuscriptStages = fn () => collect([
     0 => 'Concept Paper',
@@ -62,16 +63,18 @@ Route::get('/teacher/dashboard', function () {
 Route::get('/auth-test', function () {
     if (Auth::check()) {
         $user = Auth::user();
+
         return response()->json([
             'authenticated' => true,
             'user' => [
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role,
-                'status' => $user->status
-            ]
+                'status' => $user->status,
+            ],
         ]);
     }
+
     return response()->json(['authenticated' => false]);
 });
 
@@ -80,6 +83,7 @@ Route::get('/dashboard-test', function () {
     if (Auth::check()) {
         return view('dashboard');
     }
+
     return 'Not authenticated';
 });
 
@@ -88,8 +92,10 @@ Route::get('/login-test', function () {
     $user = \App\Models\User::where('email', 'student@papertrail.com')->first();
     if ($user) {
         Auth::login($user);
+
         return redirect(route('dashboard'));
     }
+
     return 'User not found';
 });
 
@@ -154,7 +160,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
                         ],
                         [
                             'title' => 'New adviser request',
-                            'body' => ($student?->name ?? 'A student') . ' from ' . ($project?->title ?? 'Student group') . ' requested you as adviser.',
+                            'body' => ($student?->name ?? 'A student').' from '.($project?->title ?? 'Student group').' requested you as adviser.',
                             'action_url' => route('advisers.pending-requests'),
                             'created_at' => $requestNotification->created_at ?? now(),
                             'updated_at' => now(),
@@ -186,7 +192,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
                         ],
                         [
                             'title' => 'Meeting scheduled',
-                            'body' => $schedule->title . ' is scheduled for ' . $schedule->start_time->format('M j, Y g:i A') . '.',
+                            'body' => $schedule->title.' is scheduled for '.$schedule->start_time->format('M j, Y g:i A').'.',
                             'action_url' => route('meeting-schedule.show', $schedule),
                             'created_at' => $schedule->created_at ?? now(),
                             'updated_at' => now(),
@@ -219,14 +225,14 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
     Route::patch('/notifications/{notification}/read', function (AppNotification $notification) {
         abort_unless($notification->user_id === Auth::id(), 403);
         $notification->markRead();
-        Cache::forget('navigation-counts:' . Auth::id());
+        Cache::forget('navigation-counts:'.Auth::id());
 
         return back();
     })->name('notifications.read');
     Route::get('/notifications/{notification}/open', function (AppNotification $notification) {
         abort_unless($notification->user_id === Auth::id(), 403);
         $notification->markRead();
-        Cache::forget('navigation-counts:' . Auth::id());
+        Cache::forget('navigation-counts:'.Auth::id());
 
         $data = $notification->data ?? [];
         if ($notification->type === 'chat_mention' && ! empty($data['chat_room_id']) && ! empty($data['chat_message_id'])) {
@@ -241,7 +247,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
     Route::patch('/notifications/{notification}/unread', function (AppNotification $notification) {
         abort_unless($notification->user_id === Auth::id(), 403);
         $notification->markUnread();
-        Cache::forget('navigation-counts:' . Auth::id());
+        Cache::forget('navigation-counts:'.Auth::id());
 
         return back();
     })->name('notifications.unread');
@@ -253,7 +259,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
             ->where('type', $type)
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
-        Cache::forget('navigation-counts:' . Auth::id());
+        Cache::forget('navigation-counts:'.Auth::id());
 
         return back();
     })->name('notifications.sections.read');
@@ -418,7 +424,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
                         ],
                         [
                             'title' => 'New announcement',
-                            'body' => ($user->name ?? 'PaperTrail') . ' posted an announcement.',
+                            'body' => ($user->name ?? 'PaperTrail').' posted an announcement.',
                             'action_url' => route('dashboard'),
                             'created_at' => $announcement->created_at ?? now(),
                             'updated_at' => now(),
@@ -498,7 +504,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
 
         return \Illuminate\Support\Facades\Storage::disk('public')->download($announcement->attachment_path, $announcement->attachment_name);
     })->name('announcements.attachment');
-    
+
     // Adviser routes
     Route::get('/advisers/title-submission', [AdviserController::class, 'TitleSubmission'])->name('advisers.title-submission');
     Route::post('/advisers/send-request', [AdviserController::class, 'sendRequest'])->name('advisers.send-request');
@@ -509,11 +515,11 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
     Route::delete('/advisers/{adviserStudent}', [AdviserController::class, 'releaseAdviser'])->name('advisers.release');
     Route::get('/suggested-ai', fn () => redirect()->route('advisers.title-submission'));
     Route::post('/suggested-ai', [SuggestedAIController::class, 'index'])->name('suggested-ai');
-    Route::post('/title-submission',[TitleSubmissionController::class, 'store'])->name('title-submission.store');
+    Route::post('/title-submission', [TitleSubmissionController::class, 'store'])->name('title-submission.store');
     Route::get('/my-advisers', [AdviserController::class, 'myAdvisers'])->name('advisers.my-advisers');
     Route::get('/my-students', [AdviserController::class, 'myStudents'])->name('advisers.my-students');
     Route::get('/advisers/progress-tracker', function () use ($manuscriptStages) {
-        if (!Auth::user()->isTeacher()) {
+        if (! Auth::user()->isTeacher()) {
             abort(403, 'Access denied. Teachers only.');
         }
 
@@ -559,7 +565,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
         return view('advisers.progress-tracker', compact('advisees', 'courseGroups'));
     })->name('advisers.progress-tracker');
     Route::get('/advisers/todo/{chapterName?}', function (Request $request, ?string $chapterName = null) use ($manuscriptStages) {
-        if (!Auth::user()->isTeacher()) {
+        if (! Auth::user()->isTeacher()) {
             abort(403, 'Access denied. Teachers only.');
         }
 
@@ -655,7 +661,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
         return view('teacher.todo-list', compact('todos', 'chapterName', 'projects', 'selectedProject', 'canManageTasks', 'canToggleTasks', 'canFilterTasks', 'courses', 'selectedChapter', 'completionUsers', 'manuscriptStages'));
     })->name('todo.index');
     Route::post('/teacher/todo-list', function (Request $request) use ($manuscriptStages) {
-        if (!Auth::user()->isTeacher()) {
+        if (! Auth::user()->isTeacher()) {
             abort(403, 'Access denied. Teachers only.');
         }
 
@@ -707,7 +713,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
         return back()->with('success', 'To-do list assigned successfully.');
     })->name('todo.store');
     Route::patch('/teacher/tasks/{task}', function (Request $request, \App\Models\ProjectTask $task) {
-        if (!Auth::user()->isTeacher() || $task->adviser_id !== Auth::id()) {
+        if (! Auth::user()->isTeacher() || $task->adviser_id !== Auth::id()) {
             abort(403, 'Access denied.');
         }
         $task->loadMissing('project.owner');
@@ -742,7 +748,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
         return back()->with('success', 'Task updated successfully.');
     })->name('todo.update');
     Route::delete('/teacher/tasks/{task}', function (\App\Models\ProjectTask $task) {
-        if (!Auth::user()->isTeacher() || $task->adviser_id !== Auth::id()) {
+        if (! Auth::user()->isTeacher() || $task->adviser_id !== Auth::id()) {
             abort(403, 'Access denied.');
         }
         $task->loadMissing('project.owner');
@@ -774,7 +780,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
     Route::patch('/teacher/tasks/{task}/toggle', function (Request $request, \App\Models\ProjectTask $task) {
         $task->load('project.owner', 'project.members');
 
-        if (!Auth::user()->canLeadGroup() || $task->project?->owner_id !== Auth::id()) {
+        if (! Auth::user()->canLeadGroup() || $task->project?->owner_id !== Auth::id()) {
             abort(403, 'Access denied.');
         }
         if ($task->project->status === 'archived' || ! $task->project->adviser_id) {
@@ -815,10 +821,10 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
     Route::patch('/group-description', [GroupController::class, 'update'])->name('group-description.update');
     Route::post('/group-description/share-link', [GroupController::class, 'shareLink'])->name('group-description.share-link');
     Route::delete('/group-description/members/{member}', [GroupController::class, 'removeMember'])->name('group-description.members.remove');
-    
+
     // Admin routes
     Route::get('/admin/announcements', function () {
-        if (!Auth::user() || !Auth::user()->isAdmin()) {
+        if (! Auth::user() || ! Auth::user()->isAdmin()) {
             abort(403, 'Access denied. Admins only.');
         }
 
@@ -846,6 +852,8 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
     Route::post('/admin/users/{user}/update-role', [AdminController::class, 'updateUserRole'])->name('admin.update-user-role');
     Route::post('/admin/users/{user}/update-status', [AdminController::class, 'updateUserStatus'])->name('admin.update-user-status');
     Route::delete('/admin/users/{user}', [AdminController::class, 'deleteUser'])->name('admin.delete-user');
+    Route::get('/admin/users/{user}/account-recovery', [AdminAccountRecoveryController::class, 'create'])->name('admin.account-recovery.create');
+    Route::post('/admin/users/{user}/account-recovery', [AdminAccountRecoveryController::class, 'store'])->name('admin.account-recovery.store');
 
     // Project routes
     Route::get('/projects/archived', [ProjectController::class, 'archived'])->name('projects.archived');
@@ -860,13 +868,13 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
     Route::get('/projects/{project}/documents/{document}/download', [ProjectController::class, 'downloadDocument'])->name('projects.download-document');
     Route::delete('/projects/{project}/documents/{document}', [ProjectController::class, 'deleteDocument'])->name('projects.delete-document');
     Route::delete('/projects/{project}/folders/{folder}', [ProjectController::class, 'deleteFolder'])->name('projects.delete-folder');
-    
+
     // Meeting Schedule routes
     Route::resource('meeting-schedule', DefenseScheduleController::class)
         ->parameters(['meeting-schedule' => 'meetingSchedule']);
     Route::get('/meeting-schedule-events', [DefenseScheduleController::class, 'getEvents'])->name('meeting-schedule.events');
     Route::get('/students/{student}/projects', [DefenseScheduleController::class, 'getStudentProjects'])->name('students.projects');
-    
+
     // Chat routes
     Route::prefix('chat')->name('chat.')->middleware('auth')->group(function () {
         Route::get('/', [ChatController::class, 'index'])->name('index');
@@ -878,7 +886,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
         Route::get('/rooms/{chatRoom}/messages', [ChatController::class, 'getMessages'])->name('rooms.messages');
         Route::post('/rooms/{chatRoom}/messages', [ChatController::class, 'sendMessage'])->name('rooms.send-message');
         Route::post('/projects/{project}/chat', [ChatController::class, 'createProjectChat'])->name('project.create');
-        
+
         // Enhanced chat features
         Route::post('/rooms/{chatRoom}/participants', [ChatController::class, 'addParticipants'])->name('rooms.add-participants');
         Route::delete('/rooms/{chatRoom}/participants', [ChatController::class, 'removeParticipant'])->name('rooms.remove-participant');
@@ -889,18 +897,18 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
         Route::post('/rooms/{chatRoom}/messages/{message}/pin', [ChatController::class, 'togglePin'])->name('rooms.messages.toggle-pin');
         Route::post('/rooms/{chatRoom}/pin', [ChatController::class, 'toggleRoomPin'])->name('rooms.toggle-pin');
         Route::post('/rooms/{chatRoom}/messages/seen', [ChatController::class, 'markAsSeen'])->name('rooms.mark-seen');
-        
+
         // New features
         Route::post('/rooms/{chatRoom}/leave', [ChatController::class, 'leaveChatRoom'])->name('rooms.leave');
         Route::delete('/rooms/{chatRoom}', [ChatController::class, 'deleteChatRoom'])->name('rooms.delete');
         Route::post('/rooms/{chatRoom}/typing', [ChatController::class, 'updateTypingStatus'])->name('rooms.typing');
         Route::get('/rooms/{chatRoom}/typing', [ChatController::class, 'getTypingUsers'])->name('rooms.get-typing');
-        
+
         // Emoji reactions
         Route::post('/rooms/{chatRoom}/messages/{message}/reactions', [ChatController::class, 'toggleReaction'])->name('rooms.messages.toggle-reaction');
         Route::get('/rooms/{chatRoom}/messages/{message}/reactions', [ChatController::class, 'getMessageReactions'])->name('rooms.messages.get-reactions');
     });
-    
+
     // Test route for chat system
     Route::get('/chat-test', function () {
         return response()->json([
@@ -910,48 +918,49 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
             'chat_route' => route('chat.index'),
             'auth_user' => auth()->check() ? auth()->user()->id : 'Not authenticated',
             'users_count' => \App\Models\User::count(),
-            'chat_rooms_count' => \App\Models\ChatRoom::count()
+            'chat_rooms_count' => \App\Models\ChatRoom::count(),
         ]);
     })->name('chat.test');
-    
+
     // Test route for creating a simple chat room
     Route::post('/chat-test-create', function () {
         try {
-            $service = new \App\Services\GoogleChatService();
+            $service = new \App\Services\GoogleChatService;
             $users = \App\Models\User::limit(2)->get();
-            
+
             if ($users->count() < 1) {
                 return response()->json(['error' => 'No users found for testing']);
             }
-            
+
             $chatRoom = $service->createChatRoom(
                 'Test Chat Room',
                 'This is a test chat room',
                 $users->toArray()
             );
-            
+
             return response()->json([
                 'success' => $chatRoom ? true : false,
                 'chat_room_id' => $chatRoom ? $chatRoom->id : null,
-                'participants_count' => $chatRoom ? $chatRoom->participants()->count() : 0
+                'participants_count' => $chatRoom ? $chatRoom->participants()->count() : 0,
             ]);
         } catch (Exception $e) {
             return response()->json([
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     })->middleware('auth')->name('chat.test.create');
-    
+
     // Debug route for specific chat room
     Route::get('/chat-debug/{id}', function ($id) {
         try {
             $chatRoom = \App\Models\ChatRoom::find($id);
-            if (!$chatRoom) {
+            if (! $chatRoom) {
                 return response()->json(['error' => 'Chat room not found', 'id' => $id]);
             }
-            
+
             $user = auth()->user();
+
             return response()->json([
                 'chat_room' => [
                     'id' => $chatRoom->id,
@@ -961,44 +970,44 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
                 ],
                 'user' => [
                     'id' => $user->id,
-                    'name' => $user->firstname . ' ' . $user->lastname,
+                    'name' => $user->firstname.' '.$user->lastname,
                     'is_participant' => $chatRoom->hasParticipant($user),
                 ],
-                'participants' => $chatRoom->participants()->get(['id', 'firstname', 'lastname'])
+                'participants' => $chatRoom->participants()->get(['id', 'firstname', 'lastname']),
             ]);
         } catch (Exception $e) {
             return response()->json([
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     })->middleware('auth')->name('chat.debug');
-    
+
     // Test messages route
     Route::get('/test-messages/{id}', function ($id) {
         try {
             $chatRoom = \App\Models\ChatRoom::findOrFail($id);
             $user = auth()->user();
-            
+
             // Test the pivot update
             $chatRoom->participants()
-                     ->wherePivot('user_id', $user->id)
-                     ->updateExistingPivot($user->id, ['last_read_at' => now()]);
-            
+                ->wherePivot('user_id', $user->id)
+                ->updateExistingPivot($user->id, ['last_read_at' => now()]);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Pivot update successful',
                 'chat_room' => $chatRoom->name,
-                'user' => $user->firstname . ' ' . $user->lastname
+                'user' => $user->firstname.' '.$user->lastname,
             ]);
         } catch (Exception $e) {
             return response()->json([
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     })->middleware('auth')->name('test.messages');
-    
+
     // Debug route for available users
     Route::get('/debug-users/{roomId}', function ($roomId) {
         try {
@@ -1006,21 +1015,21 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
             $existingParticipantIds = $chatRoom->participants()->pluck('users.id')->toArray();
             $allUsers = \App\Models\User::where('status', 'Verified')->get(['id', 'firstname', 'lastname', 'email', 'role']);
             $availableUsers = \App\Models\User::whereNotIn('id', $existingParticipantIds)
-                                             ->where('status', 'Verified')
-                                             ->get(['id', 'firstname', 'lastname', 'email', 'role']);
-            
+                ->where('status', 'Verified')
+                ->get(['id', 'firstname', 'lastname', 'email', 'role']);
+
             return response()->json([
                 'chat_room_id' => $roomId,
                 'existing_participant_ids' => $existingParticipantIds,
                 'all_verified_users_count' => $allUsers->count(),
                 'all_verified_users' => $allUsers->toArray(),
                 'available_users_count' => $availableUsers->count(),
-                'available_users' => $availableUsers->toArray()
+                'available_users' => $availableUsers->toArray(),
             ]);
         } catch (Exception $e) {
             return response()->json([
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     })->middleware('auth')->name('debug.users');

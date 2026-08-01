@@ -45,7 +45,7 @@ class EmailNotificationService
             $subject,
             $this->messageHtml(
                 $subject,
-                ($announcement->author?->name ?? 'PaperTrail') . ' posted an announcement in PaperTrail.',
+                ($announcement->author?->name ?? 'PaperTrail').' posted an announcement in PaperTrail.',
                 $announcement->message,
                 $reason
             ),
@@ -83,7 +83,7 @@ class EmailNotificationService
             $schedule->project?->title ? "Project: {$schedule->project->title}" : null,
             "Starts: {$schedule->start_time?->format('M d, Y h:i A')}",
             "Ends: {$schedule->end_time?->format('M d, Y h:i A')}",
-            "Platform: Manual link",
+            'Platform: Manual link',
             $schedule->meeting_link ? "Meeting link: {$schedule->meeting_link}" : null,
         ])->filter()->implode("\n");
 
@@ -150,6 +150,107 @@ class EmailNotificationService
                 'You are receiving this because someone requested a password reset for your PaperTrail account.'
             )
         ) > 0;
+    }
+
+    public function sendFailedLoginWarning(User $user, array $details, string $secureLink): void
+    {
+        $this->sendToUsers(
+            collect([$user]),
+            'PaperTrail: Unsuccessful login attempts detected',
+            $this->securityMessage(
+                'We detected multiple unsuccessful login attempts on your account.',
+                $details,
+                $secureLink,
+                'If you do not recognize this activity, secure your account using the link below.'
+            )
+        );
+    }
+
+    public function sendAccountLocked(User $user, array $details, string $secureLink): void
+    {
+        $this->sendToUsers(
+            collect([$user]),
+            'PaperTrail: Account temporarily locked',
+            $this->securityMessage(
+                'Your account was temporarily locked after multiple unsuccessful login attempts.',
+                $details,
+                $secureLink,
+                'You can try again after 15 minutes or verify your identity now.'
+            )
+        );
+    }
+
+    public function sendNewLogin(User $user, array $details, string $secureLink): void
+    {
+        $this->sendToUsers(
+            collect([$user]),
+            'PaperTrail: New Login to Your Account',
+            $this->securityMessage(
+                'Your account was accessed using the following login details:',
+                $details,
+                $secureLink,
+                'If this was you, no action is required. If you do not recognize this login, secure your account using the link below.'
+            )
+        );
+    }
+
+    public function sendPasswordResetConfirmation(User $user): void
+    {
+        $this->sendToUsers(
+            collect([$user]),
+            'PaperTrail: Password reset complete',
+            $this->messageHtml(
+                'Password reset complete',
+                'Your PaperTrail password was successfully reset.',
+                'All existing sessions were signed out. Please log in again using your new password.',
+                'If you did not make this change, contact an authorized administrator immediately.'
+            )
+        );
+    }
+
+    public function sendAdministrativeRecoveryNotices(
+        string $previousEmail,
+        string $newEmail,
+        string $resetLink,
+        User $administrator
+    ): void {
+        $this->sendToUsers(
+            collect([(object) ['email' => $previousEmail]]),
+            'PaperTrail: Administrative account recovery',
+            $this->messageHtml(
+                'Administrative account recovery',
+                "An authorized administrator ({$administrator->name}) completed an identity-verified recovery for your account.",
+                "The registered email address was changed to {$newEmail}.",
+                'This notice was sent to the previous email address. Contact an authorized administrator immediately if you did not request this change.'
+            )
+        );
+
+        $this->sendToUsers(
+            collect([(object) ['email' => $newEmail]]),
+            'PaperTrail: Complete your administrative account recovery',
+            $this->messageHtml(
+                'Complete your administrative account recovery',
+                "An authorized administrator ({$administrator->name}) verified your recovery request.",
+                "Single-use password-reset link (expires in 60 minutes):\n{$resetLink}",
+                'This reset link was sent only to the verified new email address.'
+            )
+        );
+    }
+
+    private function securityMessage(string $intro, array $details, string $secureLink, string $reason): array
+    {
+        $body = collect([
+            'Date and Time: '.($details['date_time'] ?? 'Unavailable'),
+            'Device: '.($details['device'] ?? 'Unavailable'),
+            'Browser: '.($details['browser'] ?? 'Unavailable'),
+            'Approximate Location: '.($details['location'] ?? 'Unavailable'),
+            '',
+            'Was this you?',
+            '',
+            'Secure My Account: '.$secureLink,
+        ])->implode("\n");
+
+        return $this->messageHtml('Account security notice', $intro, $body, $reason);
     }
 
     public function sendChatMentionReceived(User $recipient, User $sender, ChatRoom $chatRoom): void

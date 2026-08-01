@@ -188,6 +188,8 @@
                                             @endif
                                             <button onclick="openStatusModal({{ $user->id }}, '{{ $user->name }}', '{{ $user->status }}')" 
                                                     class="text-green-600 hover:text-green-900">Status</button>
+                                            <a href="{{ route('admin.account-recovery.create', $user) }}"
+                                               class="text-amber-600 hover:text-amber-900">Recovery</a>
                                             @if($user->id !== Auth::id())
                                                 <button onclick="confirmDelete({{ $user->id }}, '{{ $user->name }}')" 
                                                         class="text-red-600 hover:text-red-900">Delete</button>

@@ -42,6 +42,20 @@
             <x-input-error :messages="$errors->get('password')" class="mt-2" />
         </div>
 
+        @if(session('login_captcha_required'))
+            <div class="mt-4">
+                <x-input-label for="captcha" :value="__('CAPTCHA: What is '.session('captcha.login.question').'?')" />
+                <x-text-input id="captcha" class="block mt-1 w-full" type="text" name="captcha" required inputmode="numeric" autocomplete="off" />
+                <x-input-error :messages="$errors->get('captcha')" class="mt-2" />
+            </div>
+        @endif
+
+        @if(session('account_locked'))
+            <div class="mt-4">
+                <a class="underline text-sm font-medium text-indigo-600" href="{{ route('account.unlock') }}">{{ __('Verify My Identity') }}</a>
+            </div>
+        @endif
+
         <!-- Remember Me -->
         <div class="block mt-4">
             <label for="remember_me" class="inline-flex items-center">

@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\AdminAccountRecoveryController;
+use App\Http\Controllers\Auth\AccountUnlockController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
@@ -33,7 +35,21 @@ Route::middleware('guest')->group(function () {
 
     Route::post('reset-password', [NewPasswordController::class, 'store'])
         ->name('password.store');
+
+    Route::get('unlock-account', [AccountUnlockController::class, 'create'])
+        ->name('account.unlock');
+    Route::post('unlock-account', [AccountUnlockController::class, 'store'])
+        ->name('account.unlock.store');
 });
+
+Route::get('secure-account/{user}', [AccountUnlockController::class, 'secure'])
+    ->middleware('signed')
+    ->name('security.secure');
+
+Route::get('administrative-recovery/{recovery}/{token}', [AdminAccountRecoveryController::class, 'showReset'])
+    ->name('admin-recovery.reset');
+Route::post('administrative-recovery/{recovery}/{token}', [AdminAccountRecoveryController::class, 'reset'])
+    ->name('admin-recovery.reset.store');
 
 Route::middleware('auth')->group(function () {
     Route::get('verify-email', EmailVerificationPromptController::class)

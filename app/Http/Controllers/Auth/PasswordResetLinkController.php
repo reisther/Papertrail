@@ -44,6 +44,8 @@ class PasswordResetLinkController extends Controller
             ['email' => $email],
             [
                 'token' => Hash::make($code),
+                'attempts' => 0,
+                'purpose' => 'password_reset',
                 'created_at' => now(),
             ]
         );
@@ -58,7 +60,7 @@ class PasswordResetLinkController extends Controller
 
         return redirect()
             ->route('password.reset')
-            ->withInput(['email' => $email])
+            ->with('reset_email', $email)
             ->with('status', 'Enter the OTP sent to your email.');
     }
 }

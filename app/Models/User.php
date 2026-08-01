@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use App\Models\AdviserExpertise;
 
 class User extends Authenticatable
 {
@@ -43,6 +42,9 @@ class User extends Authenticatable
         'rejected_by',
         'rejection_reason',
         'last_login_at',
+        'failed_login_attempts',
+        'login_delay_until',
+        'locked_until',
     ];
 
     /**
@@ -68,6 +70,8 @@ class User extends Authenticatable
             'verified_at' => 'datetime',
             'rejected_at' => 'datetime',
             'last_login_at' => 'datetime',
+            'login_delay_until' => 'datetime',
+            'locked_until' => 'datetime',
         ];
     }
 
@@ -76,7 +80,7 @@ class User extends Authenticatable
      */
     public function getNameAttribute(): string
     {
-        return trim($this->firstname . ' ' . ($this->middlename ? $this->middlename . ' ' : '') . $this->lastname);
+        return trim($this->firstname.' '.($this->middlename ? $this->middlename.' ' : '').$this->lastname);
     }
 
     /**
@@ -148,11 +152,11 @@ class User extends Authenticatable
     }
 
     /**
-    * Get the expertise record of the adviser (User).
-    */
+     * Get the expertise record of the adviser (User).
+     */
     public function expertise()
     {
-    return $this->hasOne(AdviserExpertise::class, 'adviser_id');
+        return $this->hasOne(AdviserExpertise::class, 'adviser_id');
     }
 
     /**
@@ -225,8 +229,8 @@ class User extends Authenticatable
     public function chatRooms()
     {
         return $this->belongsToMany(ChatRoom::class, 'chat_participants')
-                    ->withPivot(['role', 'is_muted', 'last_read_at', 'joined_at'])
-                    ->withTimestamps();
+            ->withPivot(['role', 'is_muted', 'last_read_at', 'joined_at'])
+            ->withTimestamps();
     }
 
     /**
@@ -250,7 +254,7 @@ class User extends Authenticatable
      */
     public function hasDocument(): bool
     {
-        return !empty($this->id_document_path);
+        return ! empty($this->id_document_path);
     }
 
     /**
@@ -258,9 +262,10 @@ class User extends Authenticatable
      */
     public function getDocumentExtension(): ?string
     {
-        if (!$this->id_document_path) {
+        if (! $this->id_document_path) {
             return null;
         }
+
         return pathinfo($this->id_document_path, PATHINFO_EXTENSION);
     }
 
@@ -270,6 +275,7 @@ class User extends Authenticatable
     public function isDocumentImage(): bool
     {
         $extension = $this->getDocumentExtension();
+
         return in_array(strtolower($extension), ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp']);
     }
 
@@ -311,8 +317,8 @@ class User extends Authenticatable
     public function joinedProjects()
     {
         return $this->belongsToMany(Project::class, 'project_members')
-                    ->withPivot(['role', 'invited_by', 'joined_at'])
-                    ->withTimestamps();
+            ->withPivot(['role', 'invited_by', 'joined_at'])
+            ->withTimestamps();
     }
 
     /**

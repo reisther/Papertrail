@@ -3,91 +3,176 @@
 namespace App\Http\Requests\Auth;
 
 use App\Models\User;
-use Illuminate\Auth\Events\Lockout;
+use App\Services\CaptchaService;
+use App\Services\EmailNotificationService;
+use App\Services\LoginSecurityService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class LoginRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
-     */
     public function rules(): array
     {
         return [
             'email' => ['required', 'string', 'email'],
             'password' => ['required', 'string'],
+            'captcha' => ['nullable', 'string'],
         ];
     }
 
-    /**
-     * Attempt to authenticate the request's credentials.
-     *
-     * @throws \Illuminate\Validation\ValidationException
-     */
     public function authenticate(): void
     {
-        $this->ensureIsNotRateLimited();
+        $email = Str::lower(trim((string) $this->input('email')));
+        $user = User::whereRaw('LOWER(email) = ?', [$email])->first();
+        $attempts = $user?->failed_login_attempts ?? RateLimiter::attempts($this->throttleKey());
 
-        // Check if user exists and is verified
-        $user = User::where('email', $this->email)->first();
-        
-        if ($user && $user->status === 'Pending') {
+        $this->ensureLoginIsAllowed($user, $attempts);
+
+        if ($attempts >= 3) {
+            $captcha = app(CaptchaService::class);
+            if (! $captcha->verify($this, 'login', $this->input('captcha'))) {
+                $captcha->issue($this, 'login');
+                $this->session()->put('login_captcha_required', true);
+
+                throw ValidationException::withMessages([
+                    'captcha' => 'CAPTCHA verification is required before another login attempt.',
+                ]);
+            }
+        }
+
+        if (! Auth::attempt(['email' => $user?->email ?? $email, 'password' => $this->input('password')], $this->boolean('remember'))) {
+            $this->recordFailure($user);
+        }
+
+        if (Auth::user()->status === 'Pending') {
+            Auth::logout();
             throw ValidationException::withMessages([
                 'email' => 'Your account is pending admin verification. Please wait for approval.',
             ]);
         }
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
-            RateLimiter::hit($this->throttleKey());
+        RateLimiter::clear($this->throttleKey());
+        $this->session()->forget(['login_captcha_required', 'login_delay_until', 'account_locked', 'unlock_user_id', 'unlock_email']);
+        Auth::user()->forceFill([
+            'failed_login_attempts' => 0,
+            'login_delay_until' => null,
+            'locked_until' => null,
+        ])->save();
+    }
 
+    private function ensureLoginIsAllowed(?User $user, int $attempts): void
+    {
+        $lockedUntil = $user?->locked_until;
+        if ($lockedUntil?->isFuture()) {
+            $this->prepareUnlock($user);
             throw ValidationException::withMessages([
-                'email' => trans('auth.failed'),
+                'email' => 'Your account has been temporarily locked because of multiple unsuccessful login attempts. You may try again after 15 minutes or verify your identity to unlock your account now.',
             ]);
         }
 
-        RateLimiter::clear($this->throttleKey());
-    }
+        $delayUntil = $user?->login_delay_until;
+        $sessionDelay = (int) $this->session()->get('login_delay_until', 0);
+        $seconds = $delayUntil?->isFuture()
+            ? now()->diffInSeconds($delayUntil)
+            : max(0, $sessionDelay - now()->timestamp);
 
-    /**
-     * Ensure the login request is not rate limited.
-     *
-     * @throws \Illuminate\Validation\ValidationException
-     */
-    public function ensureIsNotRateLimited(): void
-    {
-        if (! RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
-            return;
+        if ($seconds > 0) {
+            app(CaptchaService::class)->question($this, 'login');
+            $this->session()->put('login_captcha_required', true);
+            throw ValidationException::withMessages([
+                'email' => "Please wait {$seconds} seconds before trying to log in again.",
+            ]);
         }
 
-        event(new Lockout($this));
+        if ($attempts >= 3) {
+            app(CaptchaService::class)->question($this, 'login');
+            $this->session()->put('login_captcha_required', true);
+        }
+    }
 
-        $seconds = RateLimiter::availableIn($this->throttleKey());
+    private function recordFailure(?User $user): never
+    {
+        RateLimiter::hit($this->throttleKey(), 15 * 60);
+        $attempts = RateLimiter::attempts($this->throttleKey());
+
+        if ($user) {
+            $user = DB::transaction(function () use ($user, &$attempts): User {
+                $lockedUser = User::query()->lockForUpdate()->findOrFail($user->id);
+                $attempts = min(5, $lockedUser->failed_login_attempts + 1);
+                $lockedUser->failed_login_attempts = $attempts;
+
+                if ($attempts === 3) {
+                    $lockedUser->login_delay_until = now()->addSeconds(30);
+                }
+
+                if ($attempts >= 5) {
+                    $lockedUser->locked_until = now()->addMinutes(15);
+                }
+
+                $lockedUser->save();
+
+                return $lockedUser;
+            });
+        }
+
+        if ($attempts >= 3) {
+            app(CaptchaService::class)->issue($this, 'login');
+            $this->session()->put('login_captcha_required', true);
+        }
+
+        if ($attempts === 3) {
+            $this->session()->put('login_delay_until', now()->addSeconds(30)->timestamp);
+
+            if ($user) {
+                $this->sendSecurityEmail($user, false);
+            }
+        }
+
+        if ($attempts >= 5 && $user) {
+            $this->prepareUnlock($user);
+            $this->sendSecurityEmail($user, true);
+            throw ValidationException::withMessages([
+                'email' => 'Your account has been temporarily locked because of multiple unsuccessful login attempts. You may try again after 15 minutes or verify your identity to unlock your account now.',
+            ]);
+        }
 
         throw ValidationException::withMessages([
-            'email' => trans('auth.throttle', [
-                'seconds' => $seconds,
-                'minutes' => ceil($seconds / 60),
-            ]),
+            'email' => 'Invalid email address or password.',
         ]);
     }
 
-    /**
-     * Get the rate limiting throttle key for the request.
-     */
+    private function prepareUnlock(User $user): void
+    {
+        $this->session()->put([
+            'account_locked' => true,
+            'unlock_user_id' => $user->id,
+            'unlock_email' => $user->email,
+        ]);
+    }
+
+    private function sendSecurityEmail(User $user, bool $locked): void
+    {
+        $details = app(LoginSecurityService::class)->details($this);
+        $secureLink = URL::temporarySignedRoute('security.secure', now()->addDay(), ['user' => $user->id]);
+        $notifications = app(EmailNotificationService::class);
+
+        if ($locked) {
+            $notifications->sendAccountLocked($user, $details, $secureLink);
+        } else {
+            $notifications->sendFailedLoginWarning($user, $details, $secureLink);
+        }
+    }
+
     public function throttleKey(): string
     {
         return Str::transliterate(Str::lower($this->string('email')).'|'.$this->ip());
