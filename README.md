@@ -12,7 +12,7 @@ A web-based thesis management system designed to support students, advisers, and
 ![PHP](https://img.shields.io/badge/PHP-8.2-777BB4?style=for-the-badge\&logo=php)
 ![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3-38B2AC?style=for-the-badge\&logo=tailwindcss)
 ![Vite](https://img.shields.io/badge/Vite-Build-646CFF?style=for-the-badge\&logo=vite)
-![Railway](https://img.shields.io/badge/Deployed%20on-Railway-0B0D0E?style=for-the-badge\&logo=railway)
+![OHV Cloud](https://getlogovector.com/wp-content/uploads/2021/05/ovhcloud-logo-vector.png)
 
 </div>
 
