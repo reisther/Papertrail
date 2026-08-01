@@ -96,7 +96,7 @@ class LoginRequest extends FormRequest
             ]);
         }
 
-        if ($attempts >= 3) {
+        if ($attempts >= 4) {
             $this->session()->put('login_captcha_required', true);
         } else {
             $this->session()->forget('login_captcha_required');
@@ -129,8 +129,10 @@ class LoginRequest extends FormRequest
             });
         }
 
-        if ($attempts >= 3) {
+        if ($attempts >= 4) {
             $this->session()->put('login_captcha_required', true);
+        } else {
+            $this->session()->forget('login_captcha_required');
         }
 
         if ($attempts < 5) {
