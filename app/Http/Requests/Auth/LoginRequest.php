@@ -36,6 +36,10 @@ class LoginRequest extends FormRequest
         $user = User::whereRaw('LOWER(email) = ?', [$email])->first();
         $attempts = $user?->failed_login_attempts ?? RateLimiter::attempts($this->throttleKey());
 
+        if ($attempts < 3) {
+            $this->session()->forget(['login_captcha_required', 'login_delay_until']);
+        }
+
         $this->ensureLoginIsAllowed($user, $attempts);
 
         if ($attempts >= 3) {
@@ -94,6 +98,8 @@ class LoginRequest extends FormRequest
 
         if ($attempts >= 3) {
             $this->session()->put('login_captcha_required', true);
+        } else {
+            $this->session()->forget('login_captcha_required');
         }
 
     }
@@ -155,13 +161,10 @@ class LoginRequest extends FormRequest
 
     private function attemptNotice(int $attempts): string
     {
-        return match ($attempts) {
-            1 => 'Incorrect email or password. 2 attempts remaining before CAPTCHA verification is required.',
-            2 => 'Incorrect email or password. 1 attempt remaining before CAPTCHA verification is required.',
-            3 => 'Third unsuccessful attempt. Wait 30 seconds, then complete CAPTCHA verification to try again.',
-            4 => 'Incorrect email or password. 1 attempt remaining before your account is temporarily locked.',
-            default => 'Incorrect email or password.',
-        };
+        $remaining = max(0, 5 - $attempts);
+        $label = $remaining === 1 ? 'attempt' : 'attempts';
+
+        return "Incorrect email or password. {$remaining} {$label} remaining.";
     }
 
     private function prepareUnlock(User $user): void

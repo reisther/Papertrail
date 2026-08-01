@@ -24,7 +24,7 @@ class AccountSecurityTest extends TestCase
                     ->assertSessionHasErrors(['email' => 'Invalid email address or password.'])
                     ->assertSessionHas(
                         'login_attempt_notice',
-                        'Incorrect email or password. '.(3 - $attempt).' attempt'.($attempt === 1 ? 's' : '').' remaining before CAPTCHA verification is required.'
+                        'Incorrect email or password. '.(5 - $attempt).' attempts remaining.'
                     );
             }
         }
@@ -43,6 +43,7 @@ class AccountSecurityTest extends TestCase
             'payload' => 'payload',
             'last_activity' => now()->timestamp,
         ]);
+        session()->put('login_captcha_required', true);
 
         for ($attempt = 1; $attempt <= 3; $attempt++) {
             $response = $this->post('/login', ['email' => $user->email, 'password' => 'wrong-password']);
@@ -58,11 +59,12 @@ class AccountSecurityTest extends TestCase
         $this->assertTrue($user->login_delay_until->isFuture());
         $this->assertTrue((bool) session('login_captcha_required'));
         $this->assertSame(
-            'Third unsuccessful attempt. Wait 30 seconds, then complete CAPTCHA verification to try again.',
+            'Incorrect email or password. 2 attempts remaining.',
             session('login_attempt_notice')
         );
-        $this->get('/')->assertSee('class="g-recaptcha"', false);
-        $this->get('/')->assertSee('Third unsuccessful attempt. Wait 30 seconds, then complete CAPTCHA verification to try again.');
+        $this->get('/')
+            ->assertSee('class="g-recaptcha"', false)
+            ->assertSee('Incorrect email or password. 2 attempts remaining.');
         Mail::assertSent(PaperTrailNotification::class, fn ($mail) => $mail->hasTo($user->email)
             && $mail->subjectLine === 'PaperTrail: Unsuccessful login attempts detected'
         );
@@ -81,7 +83,7 @@ class AccountSecurityTest extends TestCase
             'g-recaptcha-response' => 'test-token',
         ])->assertSessionHas(
             'login_attempt_notice',
-            'Incorrect email or password. 1 attempt remaining before your account is temporarily locked.'
+            'Incorrect email or password. 1 attempt remaining.'
         );
         $this->post('/login', [
             'email' => $user->email,

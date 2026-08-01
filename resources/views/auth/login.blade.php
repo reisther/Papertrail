@@ -2,12 +2,6 @@
     <!-- Session Status -->
     <x-auth-session-status class="mb-4" :status="session('status')" />
 
-    @if(session('login_attempt_notice'))
-        <div class="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-900" role="status">
-            {{ session('login_attempt_notice') }}
-        </div>
-    @endif
-
     <form method="POST" action="{{ route('login', [], false) }}">
         @csrf
 
@@ -16,6 +10,9 @@
             <x-input-label for="email" :value="__('Email')" />
             <x-text-input id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email')" required autofocus autocomplete="username" />
             <x-input-error :messages="$errors->get('email')" class="mt-2" />
+            @if(session('login_attempt_notice'))
+                <p class="mt-1 text-sm font-medium text-red-600" role="status">{{ session('login_attempt_notice') }}</p>
+            @endif
         </div>
 
         <!-- Password -->

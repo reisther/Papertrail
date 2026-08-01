@@ -141,15 +141,12 @@
                                         @foreach ($errors->all() as $error)
                                             <li>{{ $error }}</li>
                                         @endforeach
+                                        @if(session('login_attempt_notice'))
+                                            <li class="mt-1 font-medium" role="status">{{ session('login_attempt_notice') }}</li>
+                                        @endif
                                     </ul>
                                 </div>
                             </div>
-                        </div>
-                    @endif
-
-                    @if(session('login_attempt_notice'))
-                        <div class="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-900" role="status">
-                            {{ session('login_attempt_notice') }}
                         </div>
                     @endif
                     
