@@ -71,7 +71,7 @@ Admins can manage users, adviser assignments, and system-level records.
 | **Vite**                  | Frontend asset bundling            |
 | **MySQL**                 | Database management                |
 | **Python**                | AI processing and analysis         |
-| **Railway**               | Deployment platform                |
+| **OVHcloud**               | Deployment platform                |
 
 ---
 
