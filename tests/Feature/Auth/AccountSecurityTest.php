@@ -21,7 +21,11 @@ class AccountSecurityTest extends TestCase
         foreach ([$user->email, 'missing@example.test'] as $email) {
             for ($attempt = 1; $attempt <= 2; $attempt++) {
                 $this->post('/login', ['email' => $email, 'password' => 'wrong-password'])
-                    ->assertSessionHasErrors(['email' => 'Invalid email address or password.']);
+                    ->assertSessionHasErrors(['email' => 'Invalid email address or password.'])
+                    ->assertSessionHas(
+                        'login_attempt_notice',
+                        'Incorrect email or password. '.(3 - $attempt).' attempt'.($attempt === 1 ? 's' : '').' remaining before CAPTCHA verification is required.'
+                    );
             }
         }
     }
@@ -53,7 +57,12 @@ class AccountSecurityTest extends TestCase
         $this->assertSame(3, $user->failed_login_attempts);
         $this->assertTrue($user->login_delay_until->isFuture());
         $this->assertTrue((bool) session('login_captcha_required'));
+        $this->assertSame(
+            'Third unsuccessful attempt. Wait 30 seconds, then complete CAPTCHA verification to try again.',
+            session('login_attempt_notice')
+        );
         $this->get('/')->assertSee('class="g-recaptcha"', false);
+        $this->get('/')->assertSee('Third unsuccessful attempt. Wait 30 seconds, then complete CAPTCHA verification to try again.');
         Mail::assertSent(PaperTrailNotification::class, fn ($mail) => $mail->hasTo($user->email)
             && $mail->subjectLine === 'PaperTrail: Unsuccessful login attempts detected'
         );
@@ -66,13 +75,19 @@ class AccountSecurityTest extends TestCase
         $this->assertSame(3, $user->fresh()->failed_login_attempts);
 
         $this->travel(31)->seconds();
-        foreach ([4, 5] as $attempt) {
-            $this->post('/login', [
-                'email' => $user->email,
-                'password' => 'wrong-password',
-                'g-recaptcha-response' => 'test-token',
-            ]);
-        }
+        $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'wrong-password',
+            'g-recaptcha-response' => 'test-token',
+        ])->assertSessionHas(
+            'login_attempt_notice',
+            'Incorrect email or password. 1 attempt remaining before your account is temporarily locked.'
+        );
+        $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'wrong-password',
+            'g-recaptcha-response' => 'test-token',
+        ]);
 
         $user->refresh();
         $this->assertSame(5, $user->failed_login_attempts);

@@ -146,6 +146,12 @@
                             </div>
                         </div>
                     @endif
+
+                    @if(session('login_attempt_notice'))
+                        <div class="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-900" role="status">
+                            {{ session('login_attempt_notice') }}
+                        </div>
+                    @endif
                     
                     <div>
                         <label for="login-email" class="block text-sm font-medium text-gray-700">Email</label>

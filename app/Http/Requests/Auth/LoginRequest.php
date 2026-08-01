@@ -61,7 +61,7 @@ class LoginRequest extends FormRequest
         }
 
         RateLimiter::clear($this->throttleKey());
-        $this->session()->forget(['login_captcha_required', 'login_delay_until', 'account_locked', 'unlock_user_id', 'unlock_email']);
+        $this->session()->forget(['login_captcha_required', 'login_delay_until', 'login_attempt_notice', 'account_locked', 'unlock_user_id', 'unlock_email']);
         Auth::user()->forceFill([
             'failed_login_attempts' => 0,
             'login_delay_until' => null,
@@ -95,6 +95,7 @@ class LoginRequest extends FormRequest
         if ($attempts >= 3) {
             $this->session()->put('login_captcha_required', true);
         }
+
     }
 
     private function recordFailure(?User $user): never
@@ -126,6 +127,10 @@ class LoginRequest extends FormRequest
             $this->session()->put('login_captcha_required', true);
         }
 
+        if ($attempts < 5) {
+            $this->session()->put('login_attempt_notice', $this->attemptNotice($attempts));
+        }
+
         if ($attempts === 3) {
             $this->session()->put('login_delay_until', now()->addSeconds(30)->timestamp);
 
@@ -135,6 +140,7 @@ class LoginRequest extends FormRequest
         }
 
         if ($attempts >= 5 && $user) {
+            $this->session()->forget('login_attempt_notice');
             $this->prepareUnlock($user);
             $this->sendSecurityEmail($user, true);
             throw ValidationException::withMessages([
@@ -145,6 +151,17 @@ class LoginRequest extends FormRequest
         throw ValidationException::withMessages([
             'email' => 'Invalid email address or password.',
         ]);
+    }
+
+    private function attemptNotice(int $attempts): string
+    {
+        return match ($attempts) {
+            1 => 'Incorrect email or password. 2 attempts remaining before CAPTCHA verification is required.',
+            2 => 'Incorrect email or password. 1 attempt remaining before CAPTCHA verification is required.',
+            3 => 'Third unsuccessful attempt. Wait 30 seconds, then complete CAPTCHA verification to try again.',
+            4 => 'Incorrect email or password. 1 attempt remaining before your account is temporarily locked.',
+            default => 'Incorrect email or password.',
+        };
     }
 
     private function prepareUnlock(User $user): void
