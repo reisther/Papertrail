@@ -141,9 +141,7 @@
                                                             @elseif($activeSection['key'] === 'announcements')
                                                                 <img src="{{ asset('images/icons/announcement.svg') }}" alt="" class="h-5 w-5 opacity-70">
                                                             @elseif($activeSection['key'] === 'student-requests' || $activeSection['key'] === 'sign-ups')
-                                                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v6m3-3h-6M7 7a4 4 0 110 8 4 4 0 010-8zm0 10c-2.21 0-4 1.12-4 2.5V21h8v-1.5C11 18.12 9.21 17 7 17z"></path>
-                                                                </svg>
+                                                                <img src="{{ asset('images/icons/people-add.svg') }}" alt="" class="h-5 w-5 opacity-70">
                                                             @else
                                                                 <img src="{{ asset('images/icons/meeting-calendar.svg') }}" alt="" class="h-5 w-5 opacity-70">
                                                             @endif
