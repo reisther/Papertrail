@@ -137,21 +137,15 @@
                                                             @else bg-blue-100 text-blue-700
                                                             @endif">
                                                             @if($activeSection['key'] === 'chat')
-                                                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h6m-9 8l3.2-3.2A8.5 8.5 0 1112 20H4z"></path>
-                                                                </svg>
+                                                                <img src="{{ asset('images/icons/chat-message.svg') }}" alt="" class="h-5 w-5 opacity-70">
                                                             @elseif($activeSection['key'] === 'announcements')
-                                                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592L6.75 17.5H5a2 2 0 01-2-2v-3a2 2 0 012-2h1.75l.833-2.332A1.76 1.76 0 0111 8.76m0-2.878a14.67 14.67 0 006.5-2.382A1 1 0 0119 4.382v16.236a1 1 0 01-1.5.866A14.67 14.67 0 0011 19.24M19 9a3 3 0 010 6"></path>
-                                                                </svg>
+                                                                <img src="{{ asset('images/icons/announcement.svg') }}" alt="" class="h-5 w-5 opacity-70">
                                                             @elseif($activeSection['key'] === 'student-requests' || $activeSection['key'] === 'sign-ups')
                                                                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v6m3-3h-6M7 7a4 4 0 110 8 4 4 0 010-8zm0 10c-2.21 0-4 1.12-4 2.5V21h8v-1.5C11 18.12 9.21 17 7 17z"></path>
                                                                 </svg>
                                                             @else
-                                                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3M5 11h14M6 5h12a1 1 0 011 1v14a1 1 0 01-1 1H6a1 1 0 01-1-1V6a1 1 0 011-1z"></path>
-                                                                </svg>
+                                                                <img src="{{ asset('images/icons/meeting-calendar.svg') }}" alt="" class="h-5 w-5 opacity-70">
                                                             @endif
                                                         </div>
 
