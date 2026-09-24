@@ -33,6 +33,10 @@ Route::get('/', function () {
     return view('papertrail-landing');
 })->name('home');
 
+Route::get('/features', function () {
+    return view('features');
+})->name('features');
+
 Route::get('/welcome', function () {
     return view('welcome');
 });

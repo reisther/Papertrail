@@ -12,106 +12,52 @@
     <!-- Scripts -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="font-sans antialiased bg-gray-50 min-h-screen">
+<body class="font-sans antialiased bg-slate-50 text-slate-900 min-h-screen">
 
-    @include('layouts.navigation')
-    <!-- Main Content -->
-    <main class="flex-1">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-                <!-- Left Content -->
-                <div class="space-y-8">
-                    <div class="space-y-6">
-                        <h1 class="text-4xl lg:text-5xl font-bold text-gray-900 leading-tight">
-                            Streamline Your<br>
-                            Thesis & Capstone<br>
-                            Journey
-                        </h1>
-                        <p class="text-lg text-gray-600 max-w-md">
-                            submit, track and collaborate with your group and advisor — all in one place
-                        </p>
+    @include('layouts.public-navigation')
+    <main>
+        <section class="relative overflow-hidden bg-gradient-to-b from-blue-50 via-white to-slate-50">
+            <div class="absolute -left-32 top-12 h-72 w-72 rounded-full bg-blue-200/40 blur-3xl"></div>
+            <div class="absolute -right-24 top-36 h-80 w-80 rounded-full bg-indigo-200/40 blur-3xl"></div>
+            <div class="relative mx-auto grid max-w-7xl items-center gap-14 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:px-8 lg:py-24">
+                <div>
+                    <div class="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 shadow-sm"><span class="h-2 w-2 rounded-full bg-emerald-500"></span> Your thesis journey, in one clear workspace</div>
+                    <h1 class="mt-6 max-w-xl text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">Keep your capstone moving <span class="text-blue-600">forward.</span></h1>
+                    <p class="mt-6 max-w-lg text-lg leading-8 text-slate-600">PaperTrail brings your group, adviser, files, tasks, meetings, and feedback into one focused place—so you always know what happens next.</p>
+                    <div class="mt-8 flex flex-col gap-3 sm:flex-row">
+                        <button onclick="openModal('signupModal')" class="rounded-xl bg-blue-600 px-6 py-3.5 text-sm font-semibold text-white shadow-xl shadow-blue-600/25 transition hover:-translate-y-0.5 hover:bg-blue-700">Create your workspace <span aria-hidden="true">→</span></button>
+                        <a href="{{ route('features') }}" class="rounded-xl border border-slate-200 bg-white px-6 py-3.5 text-center text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:text-blue-700">Explore features</a>
                     </div>
-                    
-                    <!-- Action Buttons -->
-                    <div class="flex flex-col sm:flex-row gap-4">
-                        <button onclick="openModal('loginModal')" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-8 py-3 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                            Login
-                        </button>
-                        <button onclick="openModal('signupModal')" class="border border-gray-300 hover:border-gray-400 text-gray-700 font-medium px-8 py-3 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">
-                            Signup
-                        </button>
-                    </div>
-                    
+                    <div class="mt-8 flex items-center gap-5 text-sm text-slate-500"><span class="flex items-center gap-1.5"><span class="text-emerald-500">✓</span> Built for student teams</span><span class="flex items-center gap-1.5"><span class="text-emerald-500">✓</span> Adviser-ready</span></div>
                 </div>
-
-                <!-- Right Visual Elements -->
-                <div class="relative">
-                    <!-- Progress Card -->
-                    <div class="bg-white rounded-2xl shadow-lg p-6 mb-6">
-                        <div class="space-y-4">
-                            <div class="flex items-center justify-between">
-                                <span class="text-sm font-medium text-gray-500">Project Progress</span>
-                                <span class="text-sm font-semibold text-gray-900">75%</span>
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-2">
-                                <div class="bg-gray-400 h-2 rounded-full" style="width: 45%"></div>
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-2">
-                                <div class="bg-blue-600 h-2 rounded-full" style="width: 75%"></div>
-                            </div>
+                <div class="relative mx-auto w-full max-w-xl">
+                    <div class="absolute -inset-5 rounded-[2rem] bg-gradient-to-br from-blue-300/45 to-indigo-200/30 blur-2xl"></div>
+                    <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-blue-900/15">
+                        <div class="flex items-center gap-2 border-b border-slate-100 bg-slate-50 px-5 py-4"><span class="h-2.5 w-2.5 rounded-full bg-rose-400"></span><span class="h-2.5 w-2.5 rounded-full bg-amber-400"></span><span class="h-2.5 w-2.5 rounded-full bg-emerald-400"></span><span class="ml-3 text-xs font-medium text-slate-400">PaperTrail workspace</span></div>
+                        <div class="grid grid-cols-[105px_1fr]">
+                            <aside class="space-y-3 border-r border-slate-100 bg-slate-50/70 p-4 text-[10px] font-medium text-slate-400"><div class="flex items-center gap-2 text-blue-600"><span class="h-5 w-5 rounded-md bg-blue-600"></span>Overview</div><div>Projects</div><div>Tasks</div><div>Messages</div><div>Meetings</div></aside>
+                            <div class="p-5"><div class="flex items-start justify-between"><div><p class="text-xs text-slate-400">Good morning, team</p><h2 class="mt-1 text-lg font-bold text-slate-800">Capstone Dashboard</h2></div><div class="rounded-lg bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-700">75% complete</div></div><div class="mt-5 rounded-xl bg-slate-900 p-4 text-white"><div class="flex justify-between text-xs"><span>Chapter 3: Methodology</span><span class="text-blue-300">3 tasks left</span></div><div class="mt-3 h-2 rounded-full bg-slate-700"><div class="h-2 w-3/4 rounded-full bg-blue-400"></div></div></div><div class="mt-4 grid grid-cols-2 gap-3"><div class="rounded-xl border border-slate-100 p-3"><p class="text-[10px] text-slate-400">Next meeting</p><p class="mt-1 text-xs font-bold text-slate-700">Fri, 2:00 PM</p><p class="mt-1 text-[10px] text-blue-600">with Adviser Cruz</p></div><div class="rounded-xl border border-slate-100 p-3"><p class="text-[10px] text-slate-400">Recent update</p><p class="mt-1 text-xs font-bold text-slate-700">Literature review</p><p class="mt-1 text-[10px] text-emerald-600">Ready to review</p></div></div></div>
                         </div>
                     </div>
-
-                    <!-- Task Cards -->
-                    <div class="grid grid-cols-2 gap-4 mb-6">
-                        <!-- Completed Task Card -->
-                        <div class="bg-white rounded-xl shadow-md p-4">
-                            <div class="flex items-center mb-3">
-                                <div class="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
-                                    <svg class="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                                    </svg>
-                                </div>
-                            </div>
-                            <div class="space-y-2">
-                                <div class="h-2 bg-gray-200 rounded"></div>
-                                <div class="h-2 bg-gray-200 rounded w-3/4"></div>
-                            </div>
-                        </div>
-
-                        <!-- In Progress Task Card -->
-                        <div class="bg-white rounded-xl shadow-md p-4">
-                            <div class="space-y-3">
-                                <div class="space-y-2">
-                                    <div class="h-2 bg-gray-200 rounded"></div>
-                                    <div class="h-2 bg-gray-200 rounded w-2/3"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- User Avatar Card -->
-                    <div class="bg-white rounded-xl shadow-md p-4 inline-block">
-                        <div class="flex items-center space-x-3">
-                            <div class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
-                                <div class="w-8 h-8 bg-white rounded-full flex items-center justify-center">
-                                    <div class="w-6 h-6 bg-blue-600 rounded-full"></div>
-                                </div>
-                            </div>
-                            <div class="space-y-1">
-                                <div class="h-2 bg-gray-200 rounded w-16"></div>
-                                <div class="h-2 bg-gray-200 rounded w-12"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Decorative Elements -->
-                    <div class="absolute -top-4 -right-4 w-20 h-20 bg-blue-100 rounded-full opacity-50"></div>
-                    <div class="absolute -bottom-8 -left-8 w-16 h-16 bg-gray-100 rounded-full opacity-50"></div>
+                    <div class="absolute -bottom-6 -left-5 rounded-xl border border-slate-100 bg-white p-3 shadow-xl"><div class="flex items-center gap-2"><span class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">✓</span><div><p class="text-xs font-semibold text-slate-700">Task submitted</p><p class="text-[10px] text-slate-400">Just now</p></div></div></div>
                 </div>
             </div>
-        </div>
+        </section>
+
+        <section id="how-it-works" class="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+            <div class="mx-auto max-w-2xl text-center"><p class="text-sm font-bold uppercase tracking-widest text-blue-600">One calm workflow</p><h2 class="mt-3 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">From first idea to final defense.</h2><p class="mt-4 text-slate-600">PaperTrail makes progress visible at every stage, without adding more noise to your group chat.</p></div>
+            <div class="mt-12 grid gap-5 md:grid-cols-3">
+                <article class="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm"><span class="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-100 text-lg font-bold text-blue-700">1</span><h3 class="mt-5 text-lg font-bold text-slate-800">Set up your group</h3><p class="mt-2 text-sm leading-6 text-slate-600">Create a project space, invite members, and organize your thesis materials from day one.</p></article>
+                <article class="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm"><span class="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-100 text-lg font-bold text-indigo-700">2</span><h3 class="mt-5 text-lg font-bold text-slate-800">Work with clarity</h3><p class="mt-2 text-sm leading-6 text-slate-600">Turn chapters into tasks, share documents, and keep every responsibility visible.</p></article>
+                <article class="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm"><span class="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 text-lg font-bold text-emerald-700">3</span><h3 class="mt-5 text-lg font-bold text-slate-800">Stay aligned</h3><p class="mt-2 text-sm leading-6 text-slate-600">Schedule consultations and get adviser feedback without losing the context of your work.</p></article>
+            </div>
+        </section>
+
+        <section id="for-everyone" class="border-y border-slate-200 bg-slate-900 py-20 text-white"><div class="mx-auto grid max-w-7xl gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:px-8"><div><p class="text-sm font-bold uppercase tracking-widest text-blue-300">Built for the whole team</p><h2 class="mt-3 text-3xl font-bold sm:text-4xl">A better research experience for everyone involved.</h2><p class="mt-5 max-w-xl leading-7 text-slate-300">Students keep momentum. Leaders see the full picture. Advisers can guide projects with the context they need.</p><a href="{{ route('features') }}" class="mt-7 inline-flex rounded-xl bg-white px-5 py-3 text-sm font-bold text-slate-900 transition hover:bg-blue-50">See everything PaperTrail can do →</a></div><div class="grid gap-4 sm:grid-cols-2"><div class="rounded-2xl bg-white/10 p-5 ring-1 ring-white/10"><p class="text-sm font-bold">For students</p><p class="mt-2 text-sm leading-6 text-slate-300">Know exactly what to work on and what is due next.</p></div><div class="rounded-2xl bg-white/10 p-5 ring-1 ring-white/10"><p class="text-sm font-bold">For leaders</p><p class="mt-2 text-sm leading-6 text-slate-300">Coordinate your group without chasing status updates.</p></div><div class="rounded-2xl bg-white/10 p-5 ring-1 ring-white/10"><p class="text-sm font-bold">For advisers</p><p class="mt-2 text-sm leading-6 text-slate-300">Review progress and support students at the right time.</p></div><div class="rounded-2xl bg-blue-500 p-5"><p class="text-sm font-bold">One shared trail</p><p class="mt-2 text-sm leading-6 text-blue-50">Every update stays connected to the project.</p></div></div></div></section>
+
+        <section class="mx-auto max-w-4xl px-4 py-20 text-center sm:px-6"><x-application-logo class="mx-auto h-14 w-14 rounded-2xl shadow-lg shadow-blue-600/20" /><h2 class="mt-6 text-3xl font-bold tracking-tight text-slate-900">Make your next milestone feel manageable.</h2><p class="mx-auto mt-4 max-w-xl text-slate-600">Create a focused workspace for your thesis or capstone group today.</p><button onclick="openModal('signupModal')" class="mt-7 rounded-xl bg-blue-600 px-6 py-3.5 text-sm font-semibold text-white shadow-xl shadow-blue-600/25 transition hover:bg-blue-700">Get started with PaperTrail</button></section>
     </main>
+    <footer class="border-t border-slate-200 bg-white"><div class="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-7 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8"><a href="{{ route('home') }}" class="flex items-center gap-2 font-bold text-slate-800"><x-application-logo class="h-7 w-7 rounded-lg" /> PaperTrail</a><div class="flex gap-5"><a href="{{ route('features') }}" class="hover:text-blue-600">Features</a><a href="{{ route('terms') }}" class="hover:text-blue-600">Terms</a></div></div></footer>
 
     <!-- Login Modal -->
     <div id="loginModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">

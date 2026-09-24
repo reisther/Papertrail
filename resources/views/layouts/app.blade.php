@@ -13,8 +13,8 @@
     <!-- Scripts -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="font-sans antialiased">
-        <div class="min-h-screen bg-gray-100">
+    <body class="font-sans antialiased bg-slate-50 text-slate-900">
+        <div class="min-h-screen bg-slate-50">
             @include('layouts.navigation')
             @auth
                 @php
