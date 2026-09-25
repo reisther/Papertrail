@@ -36,6 +36,8 @@
         @apply mt-3 inline-flex items-center gap-1 text-sm font-semibold text-blue-600 transition hover:text-blue-800;
     }
 
+    .metric-card { min-width: 0; }
+
     .quiet-panel {
         @apply rounded-2xl border border-slate-200 bg-slate-50/70 p-5;
     }

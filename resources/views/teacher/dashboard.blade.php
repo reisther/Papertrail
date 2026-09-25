@@ -23,7 +23,7 @@
 
                     @include('partials.announcements-panel')
                     
-                    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         <div class="metric-card">
                             <h4 class="metric-label">My students</h4>
                             <p class="metric-value">{{ Auth::user()->students()->count() }}</p>
@@ -43,7 +43,7 @@
                         </div>
                     </div>
 
-                    <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="mt-6 grid grid-cols-1 gap-4 sm:mt-8 sm:grid-cols-2 sm:gap-6">
                         <a href="{{ route('todo.index') }}" class="group block rounded-2xl border border-slate-200 bg-slate-50 p-6 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-white hover:shadow-md">
                             <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100">
                                 <svg class="w-6 h-6 text-blue-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -86,12 +86,12 @@
                             <h4 class="font-semibold text-yellow-800 mb-2">Recent Student Requests</h4>
                             <div class="space-y-2">
                                 @foreach(Auth::user()->studentRequests()->pending()->with('student')->latest()->take(3)->get() as $request)
-                                    <div class="flex items-center justify-between bg-white p-3 rounded border">
-                                        <div>
-                                            <p class="font-medium text-gray-900">{{ $request->student->name }}</p>
+                                    <div class="flex flex-col gap-2 rounded border bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <div class="min-w-0">
+                                            <p class="truncate font-medium text-gray-900">{{ $request->student->name }}</p>
                                             <p class="text-sm text-gray-600">{{ $request->student->course }} - {{ $request->student->section }}</p>
                                         </div>
-                                        <span class="text-xs text-gray-500">{{ $request->created_at->diffForHumans() }}</span>
+                                        <span class="shrink-0 text-xs text-gray-500">{{ $request->created_at->diffForHumans() }}</span>
                                     </div>
                                 @endforeach
                             </div>
@@ -115,12 +115,12 @@
                             <h4 class="font-semibold text-green-800 mb-2">Recent Student Projects</h4>
                             <div class="space-y-2">
                                 @foreach($studentProjects as $project)
-                                    <div class="flex items-center justify-between bg-white p-3 rounded border">
-                                        <div>
-                                            <p class="font-medium text-gray-900">{{ $project->title }}</p>
+                                    <div class="flex flex-col gap-2 rounded border bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <div class="min-w-0">
+                                            <p class="truncate font-medium text-gray-900">{{ $project->title }}</p>
                                             <p class="text-sm text-gray-600">by {{ $project->owner->name }} • {{ $project->documents_count }} files</p>
                                         </div>
-                                        <div class="text-right">
+                                        <div class="shrink-0 sm:text-right">
                                             <a href="{{ route('projects.show', $project) }}" class="text-green-600 hover:text-green-800 text-sm font-medium">View →</a>
                                             <p class="text-xs text-gray-500">{{ $project->updated_at->diffForHumans() }}</p>
                                         </div>

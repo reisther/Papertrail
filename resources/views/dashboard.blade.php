@@ -62,18 +62,18 @@
                             </div>
                         @elseif($user->canLeadGroup())
                             <div class="mt-4">
-                                <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                                    <div>
+                                <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                                    <div class="min-w-0">
                                         <p class="text-2xl font-bold tracking-tight text-slate-900">{{ $group->title }}</p>
                                         <p class="mt-2 text-sm text-slate-600 whitespace-pre-line">{{ $group->description ?: 'No group description yet.' }}</p>
                                     </div>
-                                    <div class="flex gap-2">
+                                    <div class="flex flex-col gap-2 sm:flex-row">
                                         <a href="{{ route('group-description.show') }}"
-                                           class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:text-blue-700">
+                                           class="inline-flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:text-blue-700 sm:w-auto">
                                             Show
                                         </a>
                                         <a href="{{ route('group-description.show', ['edit' => 1]) }}"
-                                           class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
+                                           class="inline-flex w-full items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 sm:w-auto">
                                             Edit
                                         </a>
                                     </div>
@@ -81,13 +81,13 @@
                             </div>
                         @elseif($group)
                             <div class="mt-4">
-                                <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                                    <div>
+                                <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                                    <div class="min-w-0">
                                         <p class="text-2xl font-bold tracking-tight text-slate-900">{{ $group->title }}</p>
                                         <p class="mt-2 text-sm text-slate-600">{{ $group->description ?: 'No group description yet.' }}</p>
                                     </div>
                                     <a href="{{ route('group-description.show') }}"
-                                       class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:text-blue-700">
+                                       class="inline-flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:text-blue-700 sm:w-auto">
                                         Show
                                     </a>
                                 </div>
@@ -98,14 +98,14 @@
 
                         @if($user->canLeadGroup() && $group)
                             <div class="mt-6 pt-4 border-t border-indigo-200">
-                                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                                <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                                     <div>
                                         <p class="text-sm font-semibold text-slate-800">Share group link</p>
                                         <p class="mt-1 text-sm text-slate-600">Generate a link so members can join your group.</p>
                                     </div>
                                     <form method="POST" action="{{ route('group-description.share-link') }}">
                                         @csrf
-                                        <button type="submit" class="rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-900">
+                                        <button type="submit" class="w-full rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-900 sm:w-auto">
                                             Generate Link
                                         </button>
                                     </form>
@@ -114,11 +114,11 @@
                                 @if(session('invite_link'))
                                     <div class="mt-4">
                                         <label for="dashboardInviteLink" class="block text-sm font-medium text-indigo-900 mb-2">Invitation Link</label>
-                                        <div class="flex gap-2">
+                                        <div class="flex flex-col gap-2 sm:flex-row">
                                             <input id="dashboardInviteLink" type="text" readonly value="{{ session('invite_link') }}"
-                                                   class="flex-1 rounded-md border-indigo-200 bg-white text-sm">
+                                                   class="min-w-0 flex-1 rounded-md border-indigo-200 bg-white text-sm">
                                             <button type="button" onclick="copyDashboardInviteLink()"
-                                                    class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+                                                    class="w-full rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 sm:w-auto">
                                                 Copy
                                             </button>
                                         </div>
@@ -129,7 +129,7 @@
 
                     </div>
                     
-                    <div class="grid grid-cols-1 {{ $user->isStudentGroupRole() ? 'md:grid-cols-3' : 'md:grid-cols-2' }} gap-4">
+                    <div class="grid grid-cols-1 gap-4 {{ $user->isStudentGroupRole() ? 'sm:grid-cols-2 lg:grid-cols-3' : 'sm:grid-cols-2' }}">
                         <div class="metric-card">
                             <h4 class="metric-label">My projects</h4>
                             <p class="metric-value">{{ $user->activeAccessibleProjects()->count() }}</p>

@@ -16,7 +16,7 @@
 
                     @include('partials.announcements-panel')
                     
-                    <div class="mb-8 grid grid-cols-1 gap-4 md:grid-cols-4">
+                    <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:mb-8 lg:grid-cols-4">
                         <div class="metric-card">
                             <h4 class="metric-label">Pending registrations</h4>
                             <p class="text-2xl font-bold text-blue-600">{{ \App\Models\User::where('status', 'Pending')->count() }}</p>
@@ -44,7 +44,7 @@
 
                     <hr class="mb-8 border-slate-200" />
 
-                    <div class="max-w-md">
+                    <div class="w-full max-w-md">
                         <a href="{{ route('admin.announcements') }}" class="group flex flex-col items-start rounded-2xl border border-slate-200 bg-slate-50 p-6 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-white hover:shadow-md">
                             <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100">
                                 <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
