@@ -37,13 +37,6 @@
                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
                         Edit Project
                     </a>
-                    <form method="POST" action="{{ route('projects.invitations.generate', $project) }}">
-                        @csrf
-                        <button type="submit"
-                                class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
-                            Invite Members
-                        </button>
-                    </form>
                 @endif
             </div>
         </div>
@@ -51,14 +44,6 @@
 
     <div class="py-8">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            @if(session('invite_link'))
-                <div class="bg-indigo-50 border border-indigo-200 rounded-lg mb-6 p-4">
-                    <label class="block text-sm font-medium text-indigo-900 mb-2">Member Invitation Link</label>
-                    <input type="text" readonly value="{{ session('invite_link') }}"
-                           class="w-full px-3 py-2 border border-indigo-200 rounded-md bg-white text-sm text-indigo-900">
-                </div>
-            @endif
-
             @if($isArchivedForCurrentUser)
                 <div class="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
                     <div class="flex items-start gap-3">

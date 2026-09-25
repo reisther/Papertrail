@@ -22,12 +22,6 @@
                         Archived Chats
                     </a>
                 @endif
-                @if(!$isArchivedProjectsPage && (Auth::user()->canLeadGroup() || Auth::user()->isAdmin()))
-                    <a href="{{ route('projects.create') }}" 
-                       class="action-button">
-                        + New Project
-                    </a>
-                @endif
             </div>
         </div>
     </x-slot>
