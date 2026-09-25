@@ -6,12 +6,12 @@
 
     <x-slot name="header">
         <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+            <h2 class="text-lg font-bold tracking-tight text-slate-900">
                 Meeting Calendar
             </h2>
             @if(Auth::user()->isTeacher() || Auth::user()->canLeadGroup())
                 <a href="{{ route('meeting-schedule.create') }}" 
-                   class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center">
+                   class="action-button">
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                     </svg>
@@ -21,12 +21,12 @@
         </div>
     </x-slot>
 
-    <div class="py-12">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+    <div class="app-page">
+        <div>
             @if($leaderWithoutGroup)
                 @include('partials.leader-create-group-card')
             @elseif($memberWithoutGroup)
-                <div class="bg-white shadow-sm rounded-lg border p-12 text-center">
+                <div class="app-empty-state">
                     <div class="w-20 h-20 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
                         <svg class="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
@@ -37,8 +37,8 @@
                 </div>
             @else
             <!-- Calendar Legend -->
-            <div class="bg-white shadow-sm rounded-lg border mb-6 p-4">
-                <h3 class="text-lg font-medium text-gray-900 mb-4">Calendar Legend</h3>
+            <div class="content-card mb-6">
+                <h3 class="text-lg font-bold text-slate-900 mb-4">Calendar legend</h3>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div class="flex items-center">
                         <div class="w-4 h-4 rounded bg-blue-500 mr-2"></div>
@@ -56,7 +56,7 @@
             </div>
 
             <!-- Calendar Container -->
-            <div class="bg-white shadow-sm rounded-lg border p-6">
+            <div class="content-card">
                 <div id="calendar-loading" class="text-center p-8 text-gray-600">
                     <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
                     Loading calendar...

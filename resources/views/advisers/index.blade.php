@@ -1,20 +1,18 @@
 <x-app-layout>
-    <div class="py-12">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6 text-gray-900">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-2xl font-bold text-gray-900">Select an Adviser</h2>
-                    </div>
-
-
+    <div class="app-page">
+        <div class="content-card">
+                <div class="mb-7 border-b border-slate-100 pb-6">
+                    <p class="text-sm font-semibold text-blue-600">Adviser matching</p>
+                    <h1 class="app-heading mt-1">Find the right adviser</h1>
+                    <p class="app-subheading">Browse available advisers, review your requests, and coordinate your project guidance.</p>
+                </div>
                     <!-- Current Requests -->
                     @if ($currentRequests->count() > 0)
                         <div class="mb-8">
                             <h3 class="text-lg font-semibold mb-4">Your Adviser Requests</h3>
-                            <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="content-card-muted">
                                 @foreach ($currentRequests as $request)
-                                    <div class="flex items-center justify-between p-3 bg-white rounded border mb-2 last:mb-0">
+                                    <div class="mb-2 flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 last:mb-0">
                                         <div>
                                             <p class="font-medium">{{ $request->adviser->name }}</p>
                                             <p class="text-sm text-gray-600">{{ $request->adviser->course }}</p>
@@ -63,7 +61,7 @@
                         <h3 class="text-lg font-semibold mb-4">Available Advisers</h3>
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             @forelse ($advisers as $adviser)
-                                <div class="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                                <div class="rounded-2xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
                                     <div class="flex items-center space-x-4 mb-4">
                                         <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                                             <svg class="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
@@ -103,8 +101,6 @@
                             @endforelse
                         </div>
                     </div>
-                </div>
-            </div>
         </div>
     </div>
 

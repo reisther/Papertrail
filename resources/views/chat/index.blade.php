@@ -7,20 +7,21 @@
     @endphp
 
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+        <h2 class="text-lg font-bold tracking-tight text-slate-900">
             {{ $isArchivedChatsPage ? __('Archived Chats') : __('Chat System') }}
         </h2>
     </x-slot>
-<div class="min-h-screen bg-gray-50">
-    <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
+<div class="min-h-screen bg-slate-50">
+    <div class="app-page">
         <div class="mb-4 flex flex-col gap-3 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
             <div>
-                <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">{{ $isArchivedChatsPage ? 'Archived Chats' : 'Chat & Collaboration' }}</h1>
-                <p class="mt-2 text-gray-600">{{ $isArchivedChatsPage ? 'Review saved adviser chat history after a group is archived.' : 'Communicate with your project team and advisers in real-time' }}</p>
+                <p class="text-sm font-semibold text-blue-600">{{ $isArchivedChatsPage ? 'Project history' : 'Team workspace' }}</p>
+                <h1 class="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{{ $isArchivedChatsPage ? 'Archived chats' : 'Chat & collaboration' }}</h1>
+                <p class="mt-2 text-slate-600">{{ $isArchivedChatsPage ? 'Review saved adviser chat history after a group is archived.' : 'Communicate with your project team and advisers in real-time.' }}</p>
             </div>
             @if($showArchivedChatsLink)
                 <a href="{{ $isArchivedChatsPage ? route('chat.index') : route('chat.archived') }}"
-                   class="inline-flex h-10 items-center justify-center rounded-md {{ $isArchivedChatsPage ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-800 hover:bg-gray-900 text-white' }} px-4 py-2 text-sm font-medium transition-colors">
+                   class="inline-flex h-10 items-center justify-center rounded-xl {{ $isArchivedChatsPage ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-slate-800 hover:bg-slate-900 text-white' }} px-4 py-2 text-sm font-semibold shadow-sm transition-colors">
                     {{ $isArchivedChatsPage ? 'Active Chats' : 'Archived Chats' }}
                 </a>
             @endif
@@ -36,8 +37,8 @@
         @endphp
         <div id="chatLayout" class="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-6 lg:h-[calc(100vh-12rem)]">
             <!-- Chat Rooms Sidebar -->
-            <div id="chatSidebar" class="lg:col-span-1 bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden max-h-[calc(100vh-9rem)] lg:max-h-none">
-                <div class="sticky top-0 z-10 p-4 border-b border-gray-200 bg-gray-50">
+            <div id="chatSidebar" class="lg:col-span-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm max-h-[calc(100vh-9rem)] lg:max-h-none">
+                <div class="sticky top-0 z-10 border-b border-slate-100 bg-slate-50 p-4">
                     <div class="flex items-center justify-between">
                         <h2 class="text-lg font-semibold text-gray-900">{{ $isArchivedChatsPage ? 'Archived Chats' : 'Chat Rooms' }}</h2>
                         @if($canCreateChatRooms)

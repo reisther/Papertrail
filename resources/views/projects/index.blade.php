@@ -6,25 +6,25 @@
 
     <x-slot name="header">
         <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+            <h2 class="text-lg font-bold tracking-tight text-slate-900">
                 {{ $isArchivedProjectsPage ? __('Archived Projects') : __('My Projects') }}
             </h2>
             <div class="flex flex-wrap items-center gap-2">
                 @if($showArchivedProjectsLink)
                     <a href="{{ $isArchivedProjectsPage ? route('projects.index') : route('projects.archived') }}"
-                       class="inline-flex items-center justify-center rounded-md {{ $isArchivedProjectsPage ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-800 hover:bg-gray-900 text-white' }} px-4 py-2 text-sm font-medium transition-colors">
+                       class="inline-flex items-center justify-center rounded-xl {{ $isArchivedProjectsPage ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-slate-800 hover:bg-slate-900 text-white' }} px-4 py-2.5 text-sm font-semibold shadow-sm transition-colors">
                         {{ $isArchivedProjectsPage ? 'Active Projects' : 'Archived Projects' }}
                     </a>
                 @endif
                 @if($isArchivedProjectsPage && Auth::user()->isTeacher())
                     <a href="{{ route('chat.archived') }}"
-                       class="inline-flex items-center justify-center rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200">
+                       class="action-button-secondary">
                         Archived Chats
                     </a>
                 @endif
                 @if(!$isArchivedProjectsPage && (Auth::user()->canLeadGroup() || Auth::user()->isAdmin()))
                     <a href="{{ route('projects.create') }}" 
-                       class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                       class="action-button">
                         + New Project
                     </a>
                 @endif
@@ -32,8 +32,8 @@
         </div>
     </x-slot>
 
-    <div class="py-12">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+    <div class="app-page">
+        <div>
             @if(!$isArchivedProjectsPage && Auth::user()->canLeadGroup() && Auth::user()->ownedProjects()->doesntExist())
                 @include('partials.leader-create-group-card')
             @elseif ($projects->count() > 0)
@@ -60,7 +60,7 @@
                                 default => 'bg-yellow-400',
                             };
                         @endphp
-                        <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg hover:shadow-lg transition-all duration-200 border border-gray-200">
+                        <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg">
                             <div class="p-6">
                                 <div class="flex items-start justify-between mb-4">
                                     <div class="flex items-start space-x-3 flex-1">
@@ -87,19 +87,19 @@
                                             </div>
                                         </div>
                                         <div class="flex-1 min-w-0">
-                                            <h3 class="text-lg font-semibold text-gray-900 mb-2">
+                                            <h3 class="mb-2 text-lg font-bold tracking-tight text-slate-900">
                                                 <a href="{{ route('projects.show', $project) }}" 
                                                    class="hover:text-blue-600 transition-colors">
                                                     {{ $project->title }}
                                                 </a>
                                             </h3>
-                                            <p class="text-gray-600 text-sm line-clamp-2">
+                                            <p class="text-sm leading-6 text-slate-600 line-clamp-2">
                                                 {{ $project->description ?? 'No description provided.' }}
                                             </p>
                                         </div>
                                     </div>
                                     <div class="ml-4">
-                                        <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full {{ $statusBadgeClass }}">
+                                        <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold {{ $statusBadgeClass }}">
                                             <span class="w-1.5 h-1.5 rounded-full mr-1.5 {{ $statusDotClass }}"></span>
                                             {{ $project->is_archived_for_current_user ? 'Archived' : ucfirst($project->status) }}
                                         </span>
@@ -144,7 +144,7 @@
                                     </div>
                                 @endif
 
-                                <div class="flex items-center justify-between pt-4 border-t border-gray-200">
+                                <div class="flex items-center justify-between border-t border-slate-100 pt-4">
                                     <div class="text-xs text-gray-500">
                                         Updated {{ $project->updated_at->diffForHumans() }}
                                     </div>

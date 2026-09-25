@@ -76,6 +76,15 @@
                 {{ __('Log in') }}
             </x-primary-button>
         </div>
+
+        @if(session('login_attempt_notice'))
+            <div class="mt-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-800" role="alert">
+                <svg class="mt-0.5 h-4 w-4 shrink-0 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-2.5L13.73 4c-.77-.83-1.96-.83-2.73 0L4.07 16.5C3.3 17.33 4.23 19 5.07 19z"></path>
+                </svg>
+                <span><strong>Unable to sign in.</strong> Check your email and password, then try again.</span>
+            </div>
+        @endif
     </form>
 
     <script>
