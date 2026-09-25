@@ -30,7 +30,7 @@ class AccountSecurityTest extends TestCase
         }
     }
 
-    public function test_third_failure_adds_delay_then_only_fourth_and_fifth_attempts_use_captcha(): void
+    public function test_third_failure_adds_delay_and_shows_captcha_for_the_next_attempt(): void
     {
         Mail::fake();
         config(['services.recaptcha.site_key' => 'test-site-key']);
@@ -47,8 +47,15 @@ class AccountSecurityTest extends TestCase
 
         for ($attempt = 1; $attempt <= 3; $attempt++) {
             $response = $this->post('/login', ['email' => $user->email, 'password' => 'wrong-password']);
-            $response->assertSessionMissing('login_captcha_required');
-            $page = $this->get('/')->assertDontSee('class="g-recaptcha"', false);
+            $page = $this->get('/');
+
+            if ($attempt < 3) {
+                $response->assertSessionMissing('login_captcha_required');
+                $page->assertDontSee('class="g-recaptcha"', false);
+            } else {
+                $response->assertSessionHas('login_captcha_required', true);
+                $page->assertSee('class="g-recaptcha"', false);
+            }
 
             if ($attempt === 3) {
                 $page->assertSee('Incorrect email or password. 2 attempts remaining.');
@@ -58,7 +65,7 @@ class AccountSecurityTest extends TestCase
         $user->refresh();
         $this->assertSame(3, $user->failed_login_attempts);
         $this->assertTrue($user->login_delay_until->isFuture());
-        $this->assertFalse((bool) session('login_captcha_required'));
+        $this->assertTrue((bool) session('login_captcha_required'));
         $this->assertSame(
             'Incorrect email or password. 2 attempts remaining.',
             session('login_attempt_notice')
@@ -67,13 +74,14 @@ class AccountSecurityTest extends TestCase
             && $mail->subjectLine === 'PaperTrail: Unsuccessful login attempts detected'
         );
 
+        $this->get('/')->assertSee('class="g-recaptcha"', false);
+
         $this->post('/login', [
             'email' => $user->email,
             'password' => 'wrong-password',
         ])->assertSessionHasErrors('email');
         $this->assertSame(3, $user->fresh()->failed_login_attempts);
         $this->assertTrue((bool) session('login_captcha_required'));
-        $this->get('/')->assertSee('class="g-recaptcha"', false);
 
         $this->travel(31)->seconds();
         $this->post('/login', [
