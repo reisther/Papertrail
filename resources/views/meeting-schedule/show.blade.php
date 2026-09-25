@@ -1,13 +1,13 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex justify-between items-center">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                 Meeting Details
             </h2>
-            <div class="flex space-x-3">
+            <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:gap-3">
                 @if($meetingSchedule->canEdit(Auth::user()))
                     <a href="{{ route('meeting-schedule.edit', $meetingSchedule) }}" 
-                       class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center">
+                       class="inline-flex items-center justify-center rounded-xl bg-green-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-green-700">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                         </svg>
@@ -15,22 +15,21 @@
                     </a>
                 @endif
                 <a href="{{ route('meeting-schedule.index') }}" 
-                   class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                   class="action-button-secondary bg-slate-700 text-white hover:bg-slate-800 hover:text-white">
                     Back to Calendar
                 </a>
             </div>
         </div>
     </x-slot>
 
-    <div class="py-12">
-        <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6">
+    <div class="meeting-page">
+        <div class="meeting-detail-card">
+                <div class="p-5 sm:p-7">
                     <!-- Meeting Title and Status -->
-                    <div class="flex justify-between items-start mb-6">
-                        <div>
+                    <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div class="min-w-0">
                             <h1 class="text-2xl font-bold text-gray-900 mb-2">{{ $meetingSchedule->title }}</h1>
-                            <div class="flex items-center space-x-4">
+                            <div class="flex flex-wrap items-center gap-2 sm:gap-3">
                                 <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full
                                     @if($meetingSchedule->status === 'scheduled') bg-blue-100 text-blue-800
                                     @elseif($meetingSchedule->status === 'completed') bg-green-100 text-green-800
@@ -60,15 +59,15 @@
                                     Schedule
                                 </h3>
                                 <div class="space-y-2">
-                                    <div class="flex justify-between">
+                                    <div class="meeting-detail-row">
                                         <span class="text-gray-600">Start:</span>
                                         <span class="font-medium">{{ $meetingSchedule->start_time->format('M j, Y g:i A') }}</span>
                                     </div>
-                                    <div class="flex justify-between">
+                                    <div class="meeting-detail-row">
                                         <span class="text-gray-600">End:</span>
                                         <span class="font-medium">{{ $meetingSchedule->end_time->format('M j, Y g:i A') }}</span>
                                     </div>
-                                    <div class="flex justify-between">
+                                    <div class="meeting-detail-row">
                                         <span class="text-gray-600">Duration:</span>
                                         <span class="font-medium">{{ $meetingSchedule->duration }}</span>
                                     </div>
@@ -179,16 +178,16 @@
                                     Additional Information
                                 </h3>
                                 <div class="space-y-2 text-sm">
-                                    <div class="flex justify-between">
+                                    <div class="meeting-detail-row">
                                         <span class="text-gray-600">Created by:</span>
                                         <span class="font-medium">{{ $meetingSchedule->creator->name }}</span>
                                     </div>
-                                    <div class="flex justify-between">
+                                    <div class="meeting-detail-row">
                                         <span class="text-gray-600">Created on:</span>
                                         <span class="font-medium">{{ $meetingSchedule->created_at->format('M j, Y g:i A') }}</span>
                                     </div>
                                     @if($meetingSchedule->updated_at != $meetingSchedule->created_at)
-                                        <div class="flex justify-between">
+                                        <div class="meeting-detail-row">
                                             <span class="text-gray-600">Last updated:</span>
                                             <span class="font-medium">{{ $meetingSchedule->updated_at->format('M j, Y g:i A') }}</span>
                                         </div>
@@ -211,15 +210,14 @@
                     <!-- Actions -->
                     @if($meetingSchedule->canEdit(Auth::user()))
                         <div class="mt-8 pt-6 border-t border-gray-200">
-                            <div class="flex justify-between items-center">
-                                <div class="flex space-x-3">
+                            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div class="flex">
                                     <a href="{{ route('meeting-schedule.edit', $meetingSchedule) }}" 
                                        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
                                         Edit Meeting
                                     </a>
                                 </div>
-                                <button onclick="confirmDelete()" 
-                                        class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                                    <button onclick="confirmDelete()" class="w-full rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 sm:w-auto">
                                     Delete Meeting
                                 </button>
                             </div>
@@ -231,8 +229,8 @@
     </div>
 
     <!-- Delete Confirmation Modal -->
-    <div id="deleteModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+    <div id="deleteModal" class="meeting-modal hidden">
+        <div class="meeting-modal-card">
             <div class="mt-3">
                 <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
                     <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -244,7 +242,7 @@
                     Are you sure you want to delete this meeting? This action cannot be undone.
                 </p>
                 
-                <div class="flex justify-center space-x-3">
+                <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-center">
                     <button onclick="closeDeleteModal()" 
                             class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
                         Cancel

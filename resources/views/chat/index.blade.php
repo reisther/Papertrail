@@ -11,7 +11,7 @@
             {{ $isArchivedChatsPage ? __('Archived Chats') : __('Chat System') }}
         </h2>
     </x-slot>
-<div class="min-h-screen bg-slate-50">
+<div class="min-h-screen bg-slate-50 chat-page">
     <div class="app-page">
         <div class="mb-4 flex flex-col gap-3 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -37,7 +37,7 @@
         @endphp
         <div id="chatLayout" class="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-6 lg:h-[calc(100vh-12rem)]">
             <!-- Chat Rooms Sidebar -->
-            <div id="chatSidebar" class="lg:col-span-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm max-h-[calc(100vh-9rem)] lg:max-h-none">
+            <div id="chatSidebar" class="flex max-h-[calc(100dvh-10rem)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-1 lg:max-h-none">
                 <div class="sticky top-0 z-10 border-b border-slate-100 bg-slate-50 p-4">
                     <div class="flex items-center justify-between">
                         <h2 class="text-lg font-semibold text-gray-900">{{ $isArchivedChatsPage ? 'Archived Chats' : 'Chat Rooms' }}</h2>
@@ -51,7 +51,7 @@
                     </div>
                 </div>
                 
-                <div class="overflow-y-auto h-full" id="chatRoomsList">
+                <div class="min-h-0 flex-1 overflow-y-auto" id="chatRoomsList">
                     @if($chatRooms->isNotEmpty() && $showFolderSidebar)
                         <div class="divide-y divide-gray-100">
                             @foreach($chatRoomGroups as $projectName => $rooms)
@@ -106,7 +106,7 @@
             </div>
 
             <!-- Chat Interface -->
-            <div id="chatPanel" class="relative hidden lg:col-span-3 bg-white rounded-lg shadow-sm border border-gray-200 overflow-visible lg:overflow-hidden flex-col min-h-[calc(100vh-9rem)] lg:min-h-0 lg:flex">
+            <div id="chatPanel" class="relative hidden min-h-[calc(100dvh-9rem)] flex-col overflow-visible rounded-2xl border border-gray-200 bg-white shadow-sm lg:col-span-3 lg:min-h-0 lg:overflow-hidden lg:flex">
                 <div id="chatHeader" class="sticky top-0 z-40 p-3 sm:p-4 border-b border-gray-200 bg-gray-50 shadow-sm lg:shadow-none hidden">
                     <div class="flex items-center justify-between gap-3">
                         <button type="button" onclick="showChatRoomsView()" class="lg:hidden inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50" title="Back to chat rooms">
@@ -116,8 +116,8 @@
                             <span>Rooms</span>
                         </button>
                         <div class="min-w-0 flex-1">
-                            <h3 id="chatRoomName" class="text-lg font-semibold text-gray-900"></h3>
-                            <p id="chatRoomDescription" class="text-sm text-gray-600"></p>
+                            <h3 id="chatRoomName" class="truncate text-base font-semibold text-gray-900 sm:text-lg"></h3>
+                            <p id="chatRoomDescription" class="truncate text-sm text-gray-600"></p>
                             <p id="archivedChatNotice" class="mt-1 hidden text-sm font-medium text-gray-600">Archived chats: this conversation is saved as read-only history.</p>
                         </div>
                         <div class="flex shrink-0 items-center space-x-1 sm:space-x-2">
@@ -267,10 +267,11 @@
 
         #chatPanel.chat-mobile-active {
             position: fixed;
-            inset: 4rem 0 0 0;
+            inset: 4rem 0 0;
             z-index: 45;
             display: flex;
             min-height: 0;
+            height: calc(100dvh - 4rem);
             overflow: hidden;
             border-right: 0;
             border-bottom: 0;
@@ -294,12 +295,16 @@
             min-height: 0;
             overscroll-behavior: contain;
         }
+
+        #chatPanel.chat-mobile-active #messageInput {
+            padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+        }
     }
 </style>
 
 <!-- Create Room Modal -->
 <div id="createRoomModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+    <div class="chat-modal-card">
         <div class="mt-3">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-semibold text-gray-900">Create Chat Room</h3>
@@ -344,7 +349,7 @@
                         <p class="text-sm text-gray-500">This room will be created in your active group.</p>
                     @endif
                 </div>
-                <div class="mt-6 flex justify-end space-x-3">
+                <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                     <button type="button" onclick="closeCreateRoomModal()" 
                             class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md">
                         Cancel
@@ -361,7 +366,7 @@
 
 <!-- Add Participants Modal -->
 <div id="addParticipantsModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-[60]">
-    <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+    <div class="chat-modal-card">
         <div class="mt-3">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-medium text-gray-900">Add Participants</h3>
@@ -380,7 +385,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="flex justify-end space-x-3 mt-6">
+                <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                     <button type="button" onclick="closeAddParticipantsModal()" 
                             class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md">
                         Cancel
@@ -397,7 +402,7 @@
 
 <!-- Participants List Modal -->
 <div id="participantsModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-    <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+    <div class="chat-modal-card">
         <div class="mt-3">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-medium text-gray-900">Participants</h3>
@@ -421,7 +426,7 @@
 
 <!-- Notification Modal -->
 <div id="notificationModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+    <div class="chat-modal-card">
         <div class="mt-3">
             <div class="flex items-center justify-between mb-4">
                 <h3 id="notificationTitle" class="text-lg font-medium text-gray-900">Notification</h3>
@@ -434,7 +439,7 @@
             <div id="notificationMessage" class="mb-4 text-gray-600">
                 <!-- Message content -->
             </div>
-            <div class="flex justify-end space-x-3">
+            <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                 <button onclick="closeNotificationModal()" 
                         class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md">
                     OK
@@ -446,7 +451,7 @@
 
 <!-- Confirmation Modal -->
 <div id="confirmationModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+    <div class="chat-modal-card">
         <div class="mt-3">
             <div class="flex items-center justify-between mb-4">
                 <h3 id="confirmationTitle" class="text-lg font-medium text-gray-900">Confirm Action</h3>
@@ -459,7 +464,7 @@
             <div id="confirmationMessage" class="mb-4 text-gray-600">
                 <!-- Message content -->
             </div>
-            <div class="flex justify-end space-x-3">
+            <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                 <button onclick="closeConfirmationModal()" 
                         class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md">
                     Cancel
@@ -475,7 +480,7 @@
 
 <!-- Emoji Picker Modal -->
 <div id="emojiPickerModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-    <div class="relative top-20 mx-auto p-5 border w-80 shadow-lg rounded-md bg-white">
+    <div class="chat-modal-card chat-emoji-modal">
         <div class="mt-3">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-medium text-gray-900">Add Reaction</h3>
@@ -510,7 +515,7 @@
 
 <!-- Delete Message Options Modal -->
 <div id="deleteMessageModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+    <div class="chat-modal-card">
         <div class="mt-3">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-medium text-gray-900">Delete Message</h3>

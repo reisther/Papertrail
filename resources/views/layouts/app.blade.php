@@ -18,7 +18,7 @@
             @include('layouts.navigation')
             @auth
                 @php
-                    $hideMobileBack = request()->routeIs('dashboard', 'admin.dashboard', 'teacher.dashboard');
+                    $hideMobileBack = request()->routeIs('dashboard', 'admin.dashboard', 'teacher.dashboard', 'chat.*');
                     $mobileBackFallback = match (true) {
                         Auth::user()->isAdmin() => route('admin.dashboard'),
                         Auth::user()->isTeacher() => route('teacher.dashboard'),
@@ -52,17 +52,17 @@
             
             <!-- Flash Messages -->
             @if(session('success'))
-                <div class="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+                <div class="fixed right-4 top-4 z-50 max-w-[calc(100vw-2rem)] rounded-lg bg-green-500 px-4 py-3 text-white shadow-lg sm:px-6">
                     {{ session('success') }}
                 </div>
             @endif
             @if(session('error'))
-                <div class="fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+                <div class="fixed right-4 top-4 z-50 max-w-[calc(100vw-2rem)] rounded-lg bg-red-500 px-4 py-3 text-white shadow-lg sm:px-6">
                     {{ session('error') }}
                 </div>
             @endif
             @if(session('warning'))
-                <div class="fixed top-4 right-4 bg-yellow-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+                <div class="fixed right-4 top-4 z-50 max-w-[calc(100vw-2rem)] rounded-lg bg-yellow-500 px-4 py-3 text-white shadow-lg sm:px-6">
                     {!! session('warning') !!}
                 </div>
             @endif

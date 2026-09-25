@@ -1,15 +1,15 @@
 <section>
-    <header>
-        <h2 class="text-lg font-medium text-gray-900">
-            {{ __('Update Password') }}
-        </h2>
-
-        <p class="mt-1 text-sm text-gray-600">
-            {{ __('Ensure your account is using a long, random password to stay secure.') }}
-        </p>
+    <header class="profile-panel-heading">
+        <span class="profile-panel-icon bg-violet-50 text-violet-600" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="5" y="10" width="14" height="10" rx="2" stroke-width="1.8"/><path stroke-linecap="round" stroke-width="1.8" d="M8 10V7a4 4 0 0 1 8 0v3m-4 4v2"/></svg>
+        </span>
+        <div>
+            <h2>{{ __('Account security') }}</h2>
+            <p>{{ __('Use a long, unique password to keep your PaperTrail account secure.') }}</p>
+        </div>
     </header>
 
-    <form method="post" action="{{ route('password.update') }}" class="mt-6 space-y-6">
+    <form method="post" action="{{ route('password.update') }}" class="profile-form profile-security-form">
         @csrf
         @method('put')
 
@@ -31,8 +31,9 @@
             <x-input-error :messages="$errors->updatePassword->get('password_confirmation')" class="mt-2" />
         </div>
 
-        <div class="flex items-center gap-4">
-            <x-primary-button>{{ __('Save') }}</x-primary-button>
+        <div class="profile-form-actions">
+            <p>Choose a password you do not reuse elsewhere.</p>
+            <x-primary-button>{{ __('Update password') }}</x-primary-button>
 
             @if (session('status') === 'password-updated')
                 <p

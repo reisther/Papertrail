@@ -8,10 +8,9 @@
         </div>
     </x-slot>
 
-    <div class="py-12">
-        <div class="mx-auto max-w-4xl sm:px-6 lg:px-8">
-            <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
-                <div class="p-6 text-gray-900">
+    <div class="meeting-page">
+        <div class="meeting-form-card">
+                <div class="p-5 text-gray-900 sm:p-7">
                     <form method="POST" action="{{ route('meeting-schedule.store') }}" class="space-y-6">
                         @csrf
 
@@ -105,14 +104,13 @@
                             @enderror
                         </div>
 
-                        <div class="flex justify-end space-x-3 border-t border-gray-200 pt-6">
-                            <a href="{{ route('meeting-schedule.index') }}" class="rounded-md bg-gray-300 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-400">Cancel</a>
-                            <button type="submit" class="rounded-md bg-blue-600 px-6 py-2 font-medium text-white transition-colors hover:bg-blue-700">Schedule Meeting</button>
+                        <div class="meeting-form-actions">
+                            <a href="{{ route('meeting-schedule.index') }}" class="action-button-secondary w-full sm:w-auto">Cancel</a>
+                            <button type="submit" class="action-button w-full sm:w-auto">Schedule Meeting</button>
                         </div>
                     </form>
-                </div>
-            </div>
         </div>
+    </div>
     </div>
 
     <script>

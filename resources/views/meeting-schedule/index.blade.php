@@ -5,13 +5,13 @@
     @endphp
 
     <x-slot name="header">
-        <div class="flex justify-between items-center">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 class="text-lg font-bold tracking-tight text-slate-900">
                 Meeting Calendar
             </h2>
             @if(Auth::user()->isTeacher() || Auth::user()->canLeadGroup())
                 <a href="{{ route('meeting-schedule.create') }}" 
-                   class="action-button">
+                   class="action-button w-full sm:w-auto">
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                     </svg>
@@ -37,9 +37,9 @@
                 </div>
             @else
             <!-- Calendar Legend -->
-            <div class="content-card mb-6">
-                <h3 class="text-lg font-bold text-slate-900 mb-4">Calendar legend</h3>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="content-card mb-5 sm:mb-6">
+                <h3 class="text-base font-bold text-slate-900 sm:text-lg mb-4">Calendar legend</h3>
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
                     <div class="flex items-center">
                         <div class="w-4 h-4 rounded bg-blue-500 mr-2"></div>
                         <span class="text-sm text-gray-700">Meeting</span>
@@ -56,12 +56,12 @@
             </div>
 
             <!-- Calendar Container -->
-            <div class="content-card">
+            <div class="content-card calendar-shell">
                 <div id="calendar-loading" class="text-center p-8 text-gray-600">
                     <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
                     Loading calendar...
                 </div>
-                <div id="calendar"></div>
+                <div class="calendar-scroll"><div id="calendar"></div></div>
             </div>
             @endif
         </div>
@@ -69,8 +69,8 @@
 
     @if(!$memberWithoutGroup && !$leaderWithoutGroup)
     <!-- Event Details Modal -->
-    <div id="eventModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-        <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+    <div id="eventModal" class="meeting-modal hidden">
+        <div class="meeting-modal-card">
             <div class="mt-3">
                 <div class="flex justify-between items-start mb-4">
                     <h3 id="eventTitle" class="text-lg font-medium text-gray-900 flex-1 pr-4"></h3>
@@ -114,10 +114,10 @@
             
             const calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'dayGridMonth',
-                headerToolbar: {
-                    left: 'prev,next today',
-                    center: 'title',
-                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                headerToolbar: window.innerWidth < 640 ? {
+                    left: 'prev,next', center: 'title', right: 'today'
+                } : {
+                    left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay'
                 },
                 events: {
                     url: '{{ route("meeting-schedule.events") }}',
@@ -145,7 +145,7 @@
                 },
                 height: 'auto',
                 eventDisplay: 'block',
-                dayMaxEvents: 3,
+                dayMaxEvents: window.innerWidth < 640 ? 2 : 3,
                 moreLinkClick: 'popover',
                 eventTimeFormat: {
                     hour: 'numeric',

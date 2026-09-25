@@ -1,45 +1,52 @@
 <section>
-    <header>
-        <h2 class="text-lg font-medium text-gray-900">
-            {{ __('Profile Information') }}
-        </h2>
-
-        <p class="mt-1 text-sm text-gray-600">
-            {{ __("Update your account's profile information and email address.") }}
-        </p>
+    <header class="profile-panel-heading">
+        <span class="profile-panel-icon bg-blue-50 text-blue-600" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15.5 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5a3.5 3.5 0 0 0-3.5 3.5V20M9.5 11.5A3.5 3.5 0 1 0 9.5 4a3.5 3.5 0 0 0 0 7.5ZM17 8h4m-2-2v4" /></svg>
+        </span>
+        <div>
+            <h2>{{ __('Profile information') }}</h2>
+            <p>{{ __("Update the details people see when they work with you.") }}</p>
+        </div>
     </header>
 
     <form id="send-verification" method="post" action="{{ route('verification.send') }}">
         @csrf
     </form>
 
-    <form method="post" action="{{ route('profile.update') }}" enctype="multipart/form-data" class="mt-6 space-y-6">
+    <form method="post" action="{{ route('profile.update') }}" enctype="multipart/form-data" class="profile-form">
         @csrf
         @method('patch')
 
-        <div>
-            <x-input-label for="profile_picture" :value="__('Profile Picture')" />
-            <div class="mt-2 flex items-center gap-4">
+        <div class="profile-form-section">
+            <div class="profile-field-heading">
+                <x-input-label for="profile_picture" :value="__('Profile photo')" />
+                <p>Help teammates recognize you at a glance.</p>
+            </div>
+            <div class="profile-photo-field">
                 @if($user->profile_picture_path)
                     <img src="{{ route('profile.picture', $user) }}"
                          alt="{{ $user->name }}"
-                         class="h-20 w-20 rounded-full object-cover border border-gray-200">
+                         class="profile-photo-preview">
                 @else
-                    <div class="h-20 w-20 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-2xl font-semibold">
-                        {{ strtoupper(substr($user->firstname, 0, 1)) }}
+                    <div class="profile-photo-preview profile-photo-placeholder">
+                        {{ strtoupper(substr($user->firstname, 0, 1) . substr($user->lastname, 0, 1)) }}
                     </div>
                 @endif
-                <div class="flex-1">
+                <div class="min-w-0 flex-1">
                     <input id="profile_picture" name="profile_picture" type="file" accept="image/jpeg,image/png,image/webp"
-                           class="block w-full text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-100" />
-                    <p class="mt-1 text-sm text-gray-500">JPG, PNG, or WebP up to 2MB.</p>
+                           class="profile-file-input" />
+                    <p class="profile-field-help">JPG, PNG, or WebP · maximum 2 MB</p>
                     <x-input-error class="mt-2" :messages="$errors->get('profile_picture')" />
                 </div>
             </div>
         </div>
 
-        <!-- Name Fields -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="profile-form-section">
+            <div class="profile-field-heading">
+                <h3>Personal details</h3>
+                <p>Use the name and academic details associated with your account.</p>
+            </div>
+        <div class="profile-fields profile-fields-two">
             <div>
                 <x-input-label for="firstname" :value="__('First Name')" />
                 <x-text-input id="firstname" name="firstname" type="text" class="mt-1 block w-full" :value="old('firstname', $user->firstname)" required autofocus autocomplete="given-name" />
@@ -52,20 +59,27 @@
             </div>
         </div>
 
+        <div class="profile-fields profile-fields-two mt-5">
         <div>
             <x-input-label for="middlename" :value="__('Middle Name')" />
             <x-text-input id="middlename" name="middlename" type="text" class="mt-1 block w-full" :value="old('middlename', $user->middlename)" autocomplete="additional-name" />
             <x-input-error class="mt-2" :messages="$errors->get('middlename')" />
         </div>
+        <div>
+            <x-input-label for="section" :value="__('Section')" />
+            <x-text-input id="section" name="section" type="text" class="mt-1 block w-full" :value="old('section', $user->section)" required />
+            <x-input-error class="mt-2" :messages="$errors->get('section')" />
+        </div>
+        </div>
 
- <!-- Academic Information -->
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="profile-fields profile-fields-two mt-5">
     <div>
         <x-input-label for="campus" :value="__('Campus')" />
         <x-text-input id="campus" name="campus" type="text"
             class="mt-1 block w-full"
             :value="old('campus', $user->campus)"
             required />
+        <x-input-error class="mt-2" :messages="$errors->get('campus')" />
     </div>
 
     <div>
@@ -74,14 +88,19 @@
             class="mt-1 block w-full"
             :value="old('course', $user->course)"
             required />
+        <x-input-error class="mt-2" :messages="$errors->get('course')" />
     </div>
 </div>
+        </div>
 
 {{-- Add the expertise section HERE --}}
 @if($user->role === 'Teacher')
 
-<div class="mt-6">
-    <x-input-label :value="__('Areas of Expertise')" />
+<div class="profile-form-section">
+    <div class="profile-field-heading">
+        <x-input-label :value="__('Areas of expertise')" />
+        <p>Select the subjects you are happy to advise on.</p>
+    </div>
 
     @php
         $expertise = $user->expertise;
@@ -99,127 +118,121 @@
         ]));
     @endphp
 
-    <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div class="profile-expertise-grid">
 
-        <label class="flex items-center">
+        <label class="profile-choice">
             <input type="checkbox"
                    name="expertise[]"
                    value="Machine Learning"
                    class="rounded border-gray-300"
                    @checked(in_array('Machine Learning', $selectedExpertise))>
 
-            <span class="ml-2">Machine Learning</span>
+            <span>Machine Learning</span>
         </label>
 
-        <label class="flex items-center">
+        <label class="profile-choice">
             <input type="checkbox"
                    name="expertise[]"
                    value="AI Integration"
                    class="rounded border-gray-300"
                    @checked(in_array('AI Integration', $selectedExpertise))>
 
-            <span class="ml-2">AI Integration</span>
+            <span>AI Integration</span>
         </label>
 
-        <label class="flex items-center">
+        <label class="profile-choice">
             <input type="checkbox"
                    name="expertise[]"
                    value="Cybersecurity"
                    class="rounded border-gray-300"
                    @checked(in_array('Cybersecurity', $selectedExpertise))>
 
-            <span class="ml-2">Cybersecurity</span>
+            <span>Cybersecurity</span>
         </label>
 
-        <label class="flex items-center">
+        <label class="profile-choice">
             <input type="checkbox"
                    name="expertise[]"
                    value="IoT"
                    class="rounded border-gray-300"
                    @checked(in_array('IoT', $selectedExpertise))>
 
-            <span class="ml-2">IoT</span>
+            <span>IoT</span>
         </label>
 
-        <label class="flex items-center">
+        <label class="profile-choice">
             <input type="checkbox"
                    name="expertise[]"
                    value="Cloud Computing"
                    class="rounded border-gray-300"
                    @checked(in_array('Cloud Computing', $selectedExpertise))>
 
-            <span class="ml-2">Cloud Computing</span>
+            <span>Cloud Computing</span>
         </label>
 
-        <label class="flex items-center">
+        <label class="profile-choice">
             <input type="checkbox" name="expertise[]" value="Data Analytics" class="rounded border-gray-300" @checked(in_array('Data Analytics', $selectedExpertise))>
-            <span class="ml-2">Data Analytics</span>
+            <span>Data Analytics</span>
         </label>
 
-        <label class="flex items-center">
+        <label class="profile-choice">
             <input type="checkbox" name="expertise[]" value="Web Development" class="rounded border-gray-300" @checked(in_array('Web Development', $selectedExpertise))>
-            <span class="ml-2">Web Development</span>
+            <span>Web Development</span>
         </label>
 
-        <label class="flex items-center">
+        <label class="profile-choice">
             <input type="checkbox" name="expertise[]" value="Mobile Development" class="rounded border-gray-300" @checked(in_array('Mobile Development', $selectedExpertise))>
-            <span class="ml-2">Mobile Development</span>
+            <span>Mobile Development</span>
         </label>
 
-        <label class="flex items-center">
+        <label class="profile-choice">
             <input type="checkbox" name="expertise[]" value="Database Systems" class="rounded border-gray-300" @checked(in_array('Database Systems', $selectedExpertise))>
-            <span class="ml-2">Database Systems</span>
+            <span>Database Systems</span>
         </label>
 
-        <label class="flex items-center">
+        <label class="profile-choice">
             <input type="checkbox" name="expertise[]" value="Networking" class="rounded border-gray-300" @checked(in_array('Networking', $selectedExpertise))>
-            <span class="ml-2">Networking</span>
+            <span>Networking</span>
         </label>
 
     </div>
 
-    <div class="mt-4">
+    <div class="mt-5">
         <x-input-label for="custom_expertise" :value="__('Other Expertise')" />
         <textarea id="custom_expertise" name="custom_expertise" rows="3"
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  class="mt-1 block w-full"
                   placeholder="e.g., Blockchain, UI/UX Design, Natural Language Processing">{{ old('custom_expertise', implode(', ', optional($expertise)->custom_expertise ?? [])) }}</textarea>
-        <p class="mt-1 text-sm text-gray-500">Separate multiple expertise areas with commas or new lines.</p>
+        <p class="profile-field-help">Separate multiple areas with commas or new lines.</p>
         <x-input-error class="mt-2" :messages="$errors->get('custom_expertise')" />
     </div>
 </div>
 
-<div class="mt-6">
-    <x-input-label for="adviser_schedule" :value="__('Schedule')" />
+<div class="profile-form-section">
+    <div class="profile-field-heading">
+        <x-input-label for="adviser_schedule" :value="__('Availability schedule')" />
+        <p>Share your current schedule so students can plan ahead.</p>
+    </div>
     @if($user->adviser_schedule_path)
-        <div class="mt-2 rounded-lg border border-green-100 bg-green-50 p-3">
+        <div class="profile-schedule-current">
             <p class="text-sm font-medium text-green-900">{{ $user->adviser_schedule_name ?? 'Uploaded schedule' }}</p>
-            <a href="{{ route('profile.adviser-schedule', $user) }}" target="_blank" rel="noopener"
-               class="mt-1 inline-flex text-sm font-medium text-green-700 hover:text-green-900">
+            <a href="{{ route('profile.adviser-schedule', $user) }}" target="_blank" rel="noopener" class="mt-1 inline-flex text-sm font-semibold text-emerald-700 hover:text-emerald-900">
                 View current schedule
             </a>
-            <button type="button" onclick="openScheduleDeleteModal()" class="mt-3 inline-flex rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">
+            <button type="button" onclick="openScheduleDeleteModal()" class="mt-3 inline-flex rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100">
                 Delete Schedule
             </button>
         </div>
     @endif
     <input id="adviser_schedule" name="adviser_schedule" type="file" accept="image/jpeg,image/png,image/webp,application/pdf,.doc,.docx"
-           class="mt-2 block w-full text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-green-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-green-700 hover:file:bg-green-100" />
-    <p class="mt-1 text-sm text-gray-500">Upload a schedule image, PDF, or Word file up to 10MB.</p>
+           class="profile-file-input profile-file-input-success" />
+    <p class="profile-field-help">Image, PDF, or Word document · maximum 10 MB</p>
     <x-input-error class="mt-2" :messages="$errors->get('adviser_schedule')" />
 </div>
 
 @endif
 
-<div>
-    <x-input-label for="section" :value="__('Section')" />
-    <x-text-input id="section" name="section" type="text"
-        class="mt-1 block w-full"
-        :value="old('section', $user->section)"
-        required />
-</div>
-
 @if($user->isStudentGroupRole())
-<div>
+<div class="profile-form-section">
     <x-input-label for="student_number" :value="__('Student Number')" />
     <x-text-input id="student_number" name="student_number" type="text"
         class="mt-1 block w-full"
@@ -229,7 +242,7 @@
 </div>
 @endif
 
-<div>
+<div class="profile-form-section">
     <x-input-label for="email" :value="__('Email')" />
     <x-text-input id="email" name="email" type="email"
         class="mt-1 block w-full"
@@ -238,8 +251,9 @@
     <x-input-error class="mt-2" :messages="$errors->get('email')" />
 </div>
 
-        <div class="flex items-center gap-4">
-            <x-primary-button>{{ __('Save') }}</x-primary-button>
+        <div class="profile-form-actions">
+            <p>Changes are saved to your PaperTrail account.</p>
+            <x-primary-button>{{ __('Save changes') }}</x-primary-button>
         </div>
     </form>
 
@@ -249,11 +263,11 @@
             @method('DELETE')
         </form>
 
-        <div id="scheduleDeleteModal" class="fixed inset-0 z-50 hidden bg-gray-900/50 px-4 py-6">
-            <div class="mx-auto mt-24 max-w-md rounded-lg bg-white p-6 shadow-xl">
+        <div id="scheduleDeleteModal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-950/50 px-4 py-6">
+            <div class="mx-auto mt-12 max-w-md rounded-2xl bg-white p-5 shadow-xl sm:mt-24 sm:p-6">
                 <h3 class="text-lg font-semibold text-gray-900">Delete schedule?</h3>
                 <p class="mt-2 text-sm text-gray-600">Are you sure you want to delete your uploaded schedule? This action cannot be undone.</p>
-                <div class="mt-6 flex justify-end gap-3">
+                <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                     <button type="button" onclick="closeScheduleDeleteModal()" class="rounded-md border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
                         Cancel
                     </button>
