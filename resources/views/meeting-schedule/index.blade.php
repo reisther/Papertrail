@@ -316,6 +316,7 @@
             const modal = document.getElementById('eventModal');
             if (modal) {
                 modal.classList.remove('hidden');
+                modal.style.display = 'block';
                 console.log('Modal should now be visible');
             } else {
                 console.error('Modal element not found');
@@ -323,7 +324,9 @@
         }
 
         function closeEventModal() {
-            document.getElementById('eventModal').classList.add('hidden');
+            const modal = document.getElementById('eventModal');
+            modal.classList.add('hidden');
+            modal.style.display = '';
         }
 
         function showDateActions(date, calendar) {
@@ -419,11 +422,15 @@
         }
 
         function openDateModal() {
-            document.getElementById('dateModal').classList.remove('hidden');
+            const modal = document.getElementById('dateModal');
+            modal.classList.remove('hidden');
+            modal.style.display = 'block';
         }
 
         function closeDateModal() {
-            document.getElementById('dateModal').classList.add('hidden');
+            const modal = document.getElementById('dateModal');
+            modal.classList.add('hidden');
+            modal.style.display = '';
         }
 
         // Close modal when clicking outside
