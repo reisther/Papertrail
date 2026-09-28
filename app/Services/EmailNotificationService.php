@@ -138,6 +138,20 @@ class EmailNotificationService
         );
     }
 
+    public function sendRegistrationReceived(User $user): bool
+    {
+        return $this->sendToUsers(
+            collect([$user]),
+            'PaperTrail: Sign-up received',
+            $this->messageHtml(
+                'We received your sign-up',
+                "Hi {$user->firstname}, your PaperTrail sign-up request has been received.",
+                'Your account is awaiting admin approval while we review your submitted ID document. We will email you again once your account is approved.',
+                'Need help? Contact support@papertrailpsu.com.'
+            )
+        ) > 0;
+    }
+
     public function sendPasswordResetCode(User $user, string $code): bool
     {
         return $this->sendToUsers(

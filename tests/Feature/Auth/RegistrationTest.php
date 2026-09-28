@@ -42,6 +42,33 @@ class RegistrationTest extends TestCase
             'role' => 'Leader',
             'status' => 'Pending',
         ]);
-        $response->assertRedirect(route('registration.success', absolute: false));
+        $response->assertRedirect(route('home', absolute: false));
+        $response->assertSessionHas('registration_pending.email', 'test@example.com');
+    }
+
+    public function test_registration_shows_a_clear_message_when_the_email_is_already_registered(): void
+    {
+        Storage::fake('public');
+        \App\Models\User::factory()->create(['email' => 'registered@example.com']);
+
+        $response = $this->from('/')
+            ->post('/register', [
+                'firstname' => 'Test',
+                'lastname' => 'User',
+                'campus' => 'Main Campus',
+                'course' => 'Computer Science',
+                'section' => 'A',
+                'id_document_file' => UploadedFile::fake()->create('id.pdf', 100, 'application/pdf'),
+                'role' => 'Leader',
+                'email' => 'registered@example.com',
+                'password' => 'password',
+                'password_confirmation' => 'password',
+                'terms' => 'on',
+            ]);
+
+        $response->assertRedirect('/');
+        $response->assertSessionHasErrors([
+            'email' => 'This email address already has a PaperTrail account. Please sign in instead or use a different email address.',
+        ], null, 'registration');
     }
 }

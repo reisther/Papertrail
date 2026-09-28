@@ -9,10 +9,10 @@
         <div class="dashboard-surface">
             <div class="dashboard-hero">
                 <p class="text-sm font-semibold text-blue-600">Administration</p>
-                <h3 class="mt-1 text-2xl font-bold tracking-tight text-slate-900">Welcome back, {{ Auth::user()->firstname }}.</h3>
+                <h3 class="mt-1 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Welcome back, {{ Auth::user()->firstname }}.</h3>
                 <p class="mt-1 text-sm text-slate-600">Review account activity and keep the PaperTrail community running smoothly.</p>
             </div>
-            <div class="p-5 text-slate-900 sm:p-8">
+            <div class="p-4 text-slate-900 sm:p-8">
 
                     @include('partials.announcements-panel')
                     

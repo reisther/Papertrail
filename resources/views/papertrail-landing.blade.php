@@ -59,6 +59,33 @@
     </main>
     <footer class="border-t border-slate-200 bg-white"><div class="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-7 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8"><a href="{{ route('home') }}" class="flex items-center gap-2 font-bold text-slate-800"><x-application-logo class="h-7 w-7 rounded-lg" /> PaperTrail</a><div class="flex gap-5"><a href="{{ route('features') }}" class="hover:text-blue-600">Features</a><a href="{{ route('terms') }}" class="hover:text-blue-600">Terms</a></div></div></footer>
 
+    @php
+        $loginErrors = $errors->getBag('default');
+        $registrationErrors = $errors->getBag('registration');
+    @endphp
+
+    @if(session('registration_pending'))
+        <div id="registrationPendingModal" class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 px-4 py-8" role="dialog" aria-modal="true" aria-labelledby="registrationPendingTitle">
+            <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl sm:p-8">
+                <div class="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                    <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                </div>
+                <h2 id="registrationPendingTitle" class="mt-5 text-2xl font-bold text-slate-900">Sign-up received</h2>
+                <p class="mt-3 text-slate-600">Your PaperTrail account request for <span class="font-semibold text-slate-800">{{ data_get(session('registration_pending'), 'email') }}</span> is now waiting for admin approval.</p>
+                <div class="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                    <p class="font-semibold">What happens next</p>
+                    <p class="mt-1">An admin will review your ID document. You will receive an email when your account is approved.</p>
+                    @if(session('registration_confirmation_sent'))
+                        <p class="mt-2">We also sent a confirmation email to your registered address.</p>
+                    @else
+                        <p class="mt-2">If you do not receive an update, contact <a class="font-semibold underline" href="mailto:support@papertrailpsu.com">support@papertrailpsu.com</a>.</p>
+                    @endif
+                </div>
+                <button type="button" onclick="closeModal('registrationPendingModal')" class="mt-6 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700">Got it</button>
+            </div>
+        </div>
+    @endif
+
     <!-- Login Modal -->
     <div id="loginModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
         <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
@@ -75,7 +102,7 @@
                     @csrf
 
                     <!-- Display validation errors -->
-                    @if ($errors->any())
+                    @if ($loginErrors->any())
                         <div class="bg-red-50 border border-red-200 rounded-md p-4">
                             <div class="flex">
                                 <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
@@ -84,7 +111,7 @@
                                 <div class="ml-3">
                                     <h3 class="text-sm font-medium text-red-800">Login failed:</h3>
                                     <ul class="mt-2 text-sm text-red-700 list-disc list-inside">
-                                        @foreach ($errors->all() as $error)
+                                        @foreach ($loginErrors->all() as $error)
                                             <li>{{ $error }}</li>
                                         @endforeach
                                         @if(session('login_attempt_notice'))
@@ -182,16 +209,16 @@
                     @csrf
                     
                     <!-- Display validation errors -->
-                    @if ($errors->any())
+                    @if ($registrationErrors->any())
                         <div class="bg-red-50 border border-red-200 rounded-md p-4">
                             <div class="flex">
                                 <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
                                 </svg>
                                 <div class="ml-3">
-                                    <h3 class="text-sm font-medium text-red-800">Please fix the following errors:</h3>
+                                    <h3 class="text-sm font-medium text-red-800">We could not create your account:</h3>
                                     <ul class="mt-2 text-sm text-red-700 list-disc list-inside">
-                                        @foreach ($errors->all() as $error)
+                                        @foreach ($registrationErrors->all() as $error)
                                             <li>{{ $error }}</li>
                                         @endforeach
                                     </ul>
@@ -432,9 +459,15 @@
         }
 
         // Auto-open login modal if redirected from login route
-        @if(session('openLoginModal'))
+        @if(session('openLoginModal') || $loginErrors->any())
             document.addEventListener('DOMContentLoaded', function() {
                 openModal('loginModal');
+            });
+        @endif
+
+        @if($registrationErrors->any())
+            document.addEventListener('DOMContentLoaded', function() {
+                openModal('signupModal');
             });
         @endif
 

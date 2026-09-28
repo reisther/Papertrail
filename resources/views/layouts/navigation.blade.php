@@ -68,7 +68,7 @@
                                 class="{{ $desktopNavLink(request()->routeIs('advisers.pending-requests', 'advisers.respond'), 'relative inline-flex') }}">
                                 Student Requests
                                 @if($studentRequestPendingCount > 0)
-                                    <span class="ml-1.5 h-5 min-w-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white">
+                                    <span class="ml-1.5 inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-none text-white">
                                         {{ $studentRequestPendingCount > 99 ? '99+' : $studentRequestPendingCount }}
                                     </span>
                                 @endif
@@ -90,7 +90,7 @@
                                 class="{{ $desktopNavLink(request()->routeIs('chat.*'), 'relative inline-flex') }}">
                                 Chat
                                 @if($chatUnreadCount > 0)
-                                    <span class="chat-nav-unread-count ml-1.5 h-5 min-w-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white" data-unread-count="{{ $chatUnreadCount }}">
+                                    <span class="chat-nav-unread-count ml-1.5 inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-none text-white" data-unread-count="{{ $chatUnreadCount }}">
                                         {{ $chatUnreadCount > 99 ? '99+' : $chatUnreadCount }}
                                     </span>
                                 @endif
@@ -101,7 +101,7 @@
                             class="{{ $desktopNavLink(request()->routeIs('notifications.*'), 'relative inline-flex') }}">
                             Notifications
                             @if($notificationUnreadCount > 0)
-                                <span class="ml-1.5 h-5 min-w-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white">
+                                <span class="ml-1.5 inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-none text-white">
                                     {{ $notificationUnreadCount > 99 ? '99+' : $notificationUnreadCount }}
                                 </span>
                             @endif
@@ -170,7 +170,7 @@
                         <a href="{{ route('notifications.index') }}" class="{{ $mobileNavLink(request()->routeIs('notifications.*'), 'flex items-center justify-between') }}">
                             <span>Notifications</span>
                             @if($notificationUnreadCount > 0)
-                                <span class="min-w-5 h-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white">
+                                <span class="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-none text-white">
                                     {{ $notificationUnreadCount > 99 ? '99+' : $notificationUnreadCount }}
                                 </span>
                             @endif
@@ -181,7 +181,7 @@
                         <a href="{{ route('advisers.pending-requests') }}" class="{{ $mobileNavLink(request()->routeIs('advisers.pending-requests', 'advisers.respond'), 'flex items-center justify-between') }}">
                             <span>Student Requests</span>
                             @if($studentRequestPendingCount > 0)
-                                <span class="min-w-5 h-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white">
+                                <span class="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-none text-white">
                                     {{ $studentRequestPendingCount > 99 ? '99+' : $studentRequestPendingCount }}
                                 </span>
                             @endif
@@ -190,7 +190,7 @@
                         <a href="{{ route('chat.index') }}" class="{{ $mobileNavLink(request()->routeIs('chat.*'), 'flex items-center justify-between') }}">
                             <span>Chat</span>
                             @if($chatUnreadCount > 0)
-                                <span class="chat-nav-unread-count min-w-5 h-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white" data-unread-count="{{ $chatUnreadCount }}">
+                                <span class="chat-nav-unread-count inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-none text-white" data-unread-count="{{ $chatUnreadCount }}">
                                     {{ $chatUnreadCount > 99 ? '99+' : $chatUnreadCount }}
                                 </span>
                             @endif
@@ -198,7 +198,7 @@
                         <a href="{{ route('notifications.index') }}" class="{{ $mobileNavLink(request()->routeIs('notifications.*'), 'flex items-center justify-between') }}">
                             <span>Notifications</span>
                             @if($notificationUnreadCount > 0)
-                                <span class="min-w-5 h-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white">
+                                <span class="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-none text-white">
                                     {{ $notificationUnreadCount > 99 ? '99+' : $notificationUnreadCount }}
                                 </span>
                             @endif
@@ -214,7 +214,7 @@
                         <a href="{{ route('chat.index') }}" class="{{ $mobileNavLink(request()->routeIs('chat.*'), 'flex items-center justify-between') }}">
                             <span>Chat</span>
                             @if($chatUnreadCount > 0)
-                                <span class="chat-nav-unread-count min-w-5 h-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white" data-unread-count="{{ $chatUnreadCount }}">
+                                <span class="chat-nav-unread-count inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-none text-white" data-unread-count="{{ $chatUnreadCount }}">
                                     {{ $chatUnreadCount > 99 ? '99+' : $chatUnreadCount }}
                                 </span>
                             @endif
@@ -222,7 +222,7 @@
                         <a href="{{ route('notifications.index') }}" class="{{ $mobileNavLink(request()->routeIs('notifications.*'), 'flex items-center justify-between') }}">
                             <span>Notifications</span>
                             @if($notificationUnreadCount > 0)
-                                <span class="min-w-5 h-5 rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-5 text-white">
+                                <span class="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-none text-white">
                                     {{ $notificationUnreadCount > 99 ? '99+' : $notificationUnreadCount }}
                                 </span>
                             @endif

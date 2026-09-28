@@ -26,13 +26,13 @@
                 <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                         <p class="text-sm font-semibold text-blue-600">{{ $user->canLeadGroup() ? 'Group workspace' : 'Your workspace' }}</p>
-                        <h3 class="mt-1 text-2xl font-bold tracking-tight text-slate-900">Welcome back, {{ $user->firstname }}.</h3>
+                        <h3 class="mt-1 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Welcome back, {{ $user->firstname }}.</h3>
                         <p class="mt-1 text-sm text-slate-600">Here is a quick look at your thesis work and what needs your attention.</p>
                     </div>
                     <span class="status-pill {{ $user->status === 'Verified' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ $user->status }}</span>
                 </div>
             </div>
-            <div class="p-5 text-slate-900 sm:p-8">
+            <div class="p-4 text-slate-900 sm:p-8">
 
                     @include('partials.announcements-panel')
 

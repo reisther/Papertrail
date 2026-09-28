@@ -46,6 +46,7 @@ class LoginRequest extends FormRequest
             $captcha = app(CaptchaService::class);
             if (! $captcha->verify($this, $this->input('g-recaptcha-response'))) {
                 $this->session()->put('login_captcha_required', true);
+                $this->session()->flash('openLoginModal', true);
 
                 throw ValidationException::withMessages([
                     'g-recaptcha-response' => 'Complete the “I’m not a robot” verification before trying again.',
@@ -59,8 +60,9 @@ class LoginRequest extends FormRequest
 
         if (Auth::user()->status === 'Pending') {
             Auth::logout();
+            $this->session()->flash('openLoginModal', true);
             throw ValidationException::withMessages([
-                'email' => 'Your account is pending admin verification. Please wait for approval.',
+                'email' => 'Your account is still awaiting admin approval. Please wait for the confirmation email, or contact support@papertrailpsu.com if you need help.',
             ]);
         }
 
@@ -78,6 +80,7 @@ class LoginRequest extends FormRequest
         $lockedUntil = $user?->locked_until;
         if ($lockedUntil?->isFuture()) {
             $this->prepareUnlock($user);
+            $this->session()->flash('openLoginModal', true);
             throw ValidationException::withMessages([
                 'email' => 'Your account has been temporarily locked because of multiple unsuccessful login attempts. You may try again after 15 minutes or verify your identity to unlock your account now.',
             ]);
@@ -91,6 +94,7 @@ class LoginRequest extends FormRequest
 
         if ($seconds > 0) {
             $this->session()->put('login_captcha_required', true);
+            $this->session()->flash('openLoginModal', true);
             throw ValidationException::withMessages([
                 'email' => "Please wait {$seconds} seconds before trying to log in again.",
             ]);
@@ -151,11 +155,13 @@ class LoginRequest extends FormRequest
             $this->session()->forget('login_attempt_notice');
             $this->prepareUnlock($user);
             $this->sendSecurityEmail($user, true);
+            $this->session()->flash('openLoginModal', true);
             throw ValidationException::withMessages([
                 'email' => 'Your account has been temporarily locked because of multiple unsuccessful login attempts. You may try again after 15 minutes or verify your identity to unlock your account now.',
             ]);
         }
 
+        $this->session()->flash('openLoginModal', true);
         throw ValidationException::withMessages([
             'email' => 'Invalid email address or password.',
         ]);

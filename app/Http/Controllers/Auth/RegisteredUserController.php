@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
 
@@ -34,7 +35,7 @@ class RegisteredUserController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $request->validate([
+        $validated = Validator::make($request->all(), [
             'firstname' => ['required', 'string', 'max:255'],
             'middlename' => ['nullable', 'string', 'max:255'],
             'lastname' => ['required', 'string', 'max:255'],
@@ -46,7 +47,9 @@ class RegisteredUserController extends Controller
             'role' => ['required', 'string', 'in:Student,Leader,Teacher'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'terms' => ['required', 'accepted'],
-        ]);
+        ], [
+            'email.unique' => 'This email address already has a PaperTrail account. Please sign in instead or use a different email address.',
+        ])->validateWithBag('registration');
 
         // Handle file upload
         $idDocumentPath = null;
@@ -57,17 +60,17 @@ class RegisteredUserController extends Controller
         }
 
         $user = User::create([
-            'firstname' => $request->firstname,
-            'middlename' => $request->middlename,
-            'lastname' => $request->lastname,
-            'campus' => $request->campus,
-            'course' => $request->course,
-            'section' => $request->section,
+            'firstname' => $validated['firstname'],
+            'middlename' => $validated['middlename'] ?? null,
+            'lastname' => $validated['lastname'],
+            'campus' => $validated['campus'],
+            'course' => $validated['course'],
+            'section' => $validated['section'],
             'id_document_path' => $idDocumentPath,
             'status' => 'Pending', // Default status
-            'email' => $request->email,
-            'role' => $request->role,
-            'password' => Hash::make($request->password),
+            'email' => $validated['email'],
+            'role' => $validated['role'],
+            'password' => Hash::make($validated['password']),
         ]);
         $user->syncRoleProfile();
 
@@ -102,9 +105,22 @@ class RegisteredUserController extends Controller
             ]);
         }
 
+        $confirmationSent = false;
+        try {
+            $confirmationSent = app(EmailNotificationService::class)->sendRegistrationReceived($user);
+        } catch (\Throwable $exception) {
+            Log::warning('Failed to send registration confirmation email.', [
+                'user_id' => $user->id,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+
         // Don't auto-login since account needs admin verification
         // Auth::login($user);
 
-        return redirect()->route('registration.success');
+        return redirect()->route('home')->with([
+            'registration_pending' => ['email' => $user->email],
+            'registration_confirmation_sent' => $confirmationSent,
+        ]);
     }
 }

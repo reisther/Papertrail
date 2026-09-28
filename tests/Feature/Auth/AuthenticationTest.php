@@ -43,6 +43,23 @@ class AuthenticationTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_pending_users_are_told_to_wait_for_admin_approval(): void
+    {
+        $user = User::factory()->create(['status' => 'Pending']);
+
+        $response = $this->from('/')
+            ->post('/login', [
+                'email' => $user->email,
+                'password' => 'password',
+            ]);
+
+        $this->assertGuest();
+        $response->assertRedirect('/');
+        $response->assertSessionHasErrors([
+            'email' => 'Your account is still awaiting admin approval. Please wait for the confirmation email, or contact support@papertrailpsu.com if you need help.',
+        ]);
+    }
+
     public function test_users_can_logout(): void
     {
         $user = User::factory()->create();
