@@ -97,6 +97,29 @@
         </div>
     </div>
 
+    <!-- Date Actions and Daily Event List Modal -->
+    <div id="dateModal" class="meeting-modal hidden" role="dialog" aria-modal="true" aria-labelledby="dateModalTitle">
+        <div class="meeting-modal-card">
+            <div class="flex justify-between items-start gap-4 mb-4">
+                <div>
+                    <h3 id="dateModalTitle" class="text-lg font-medium text-gray-900"></h3>
+                    <p id="dateModalSubtitle" class="mt-1 text-sm text-gray-600"></p>
+                </div>
+                <button type="button" onclick="closeDateModal()" class="text-gray-400 hover:text-gray-600" aria-label="Close">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div id="dateModalContent" class="space-y-3"></div>
+            <div class="mt-6 flex justify-end border-t border-gray-200 pt-4">
+                <button type="button" onclick="closeDateModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Include FullCalendar CSS and JS -->
     <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
@@ -131,16 +154,11 @@
                     showEventDetails(info.event);
                 },
                 dateClick: function(info) {
-                    console.log('Date clicked: ' + info.dateStr);
+                    const selectedDate = info.dateStr.slice(0, 10);
                     @if(Auth::user()->isTeacher() || Auth::user()->canLeadGroup())
-                        // For advisers and leaders, clicking a date can create a new event
-                        const createUrl = '{{ route("meeting-schedule.create") }}';
-                        const selectedDate = info.dateStr;
-                        // You can pass the selected date as a parameter
-                        window.location.href = createUrl + '?date=' + selectedDate;
+                        showDateActions(selectedDate, calendar);
                     @else
-                        // For students, just show the date
-                        alert('Selected date: ' + info.dateStr);
+                        showEventsForDate(selectedDate, calendar);
                     @endif
                 },
                 height: 'auto',
@@ -166,6 +184,7 @@
             });
 
             calendar.render();
+            window.meetingCalendar = calendar;
             
             // Hide loading indicator after calendar renders
             setTimeout(function() {
@@ -307,9 +326,113 @@
             document.getElementById('eventModal').classList.add('hidden');
         }
 
+        function showDateActions(date, calendar) {
+            const events = getEventsForDate(date, calendar);
+            const formattedDate = formatCalendarDate(date);
+
+            document.getElementById('dateModalTitle').textContent = formattedDate;
+            document.getElementById('dateModalSubtitle').textContent = 'What would you like to do?';
+            document.getElementById('dateModalContent').innerHTML = `
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <button type="button" onclick="showEventsForDate('${date}', window.meetingCalendar)" class="rounded-lg border border-slate-200 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50">
+                        <span class="block font-semibold text-slate-900">View events</span>
+                        <span class="mt-1 block text-sm text-slate-600">${events.length} scheduled ${events.length === 1 ? 'event' : 'events'}.</span>
+                    </button>
+                    <a href="{{ route('meeting-schedule.create') }}?date=${date}" class="rounded-lg border border-blue-600 bg-blue-600 p-4 text-left text-white transition hover:bg-blue-700">
+                        <span class="block font-semibold">Add meeting</span>
+                        <span class="mt-1 block text-sm text-blue-100">Schedule a meeting for this date.</span>
+                    </a>
+                </div>
+            `;
+
+            openDateModal();
+        }
+
+        function showEventsForDate(date, calendar) {
+            const events = getEventsForDate(date, calendar);
+            const content = document.getElementById('dateModalContent');
+
+            document.getElementById('dateModalTitle').textContent = formatCalendarDate(date);
+            document.getElementById('dateModalSubtitle').textContent = events.length
+                ? 'Select an event to read its details.'
+                : 'No meetings or consultations are scheduled for this date.';
+
+            content.innerHTML = events.length
+                ? events.map((event, index) => `
+                    <button type="button" data-event-index="${index}" class="w-full rounded-lg border border-slate-200 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50">
+                        <span class="block font-semibold text-slate-900">${escapeHtml(event.title || 'Meeting')}</span>
+                        <span class="mt-1 block text-sm text-slate-600">${formatEventTime(event)}</span>
+                    </button>
+                `).join('')
+                : '<div class="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">Choose another date to see its scheduled events.</div>';
+
+            content.querySelectorAll('[data-event-index]').forEach((button) => {
+                button.addEventListener('click', () => {
+                    closeDateModal();
+                    showEventDetails(events[Number(button.dataset.eventIndex)]);
+                });
+            });
+
+            openDateModal();
+        }
+
+        function getEventsForDate(date, calendar) {
+            return calendar.getEvents().filter((event) => {
+                if (!event.start) {
+                    return false;
+                }
+
+                const eventDate = [
+                    event.start.getFullYear(),
+                    String(event.start.getMonth() + 1).padStart(2, '0'),
+                    String(event.start.getDate()).padStart(2, '0'),
+                ].join('-');
+
+                return eventDate === date;
+            });
+        }
+
+        function formatCalendarDate(date) {
+            return new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric',
+            });
+        }
+
+        function formatEventTime(event) {
+            if (!event.start) {
+                return 'Time not specified';
+            }
+
+            const start = event.start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+            const end = event.end?.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+            return end ? `${start} – ${end}` : start;
+        }
+
+        function escapeHtml(value) {
+            const element = document.createElement('div');
+            element.textContent = value;
+            return element.innerHTML;
+        }
+
+        function openDateModal() {
+            document.getElementById('dateModal').classList.remove('hidden');
+        }
+
+        function closeDateModal() {
+            document.getElementById('dateModal').classList.add('hidden');
+        }
+
         // Close modal when clicking outside
         document.getElementById('eventModal').addEventListener('click', function(e) {
             if (e.target === this) closeEventModal();
+        });
+
+        document.getElementById('dateModal').addEventListener('click', function(e) {
+            if (e.target === this) closeDateModal();
         });
     </script>
     @endif
