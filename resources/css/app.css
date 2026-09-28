@@ -134,7 +134,7 @@
     .meeting-form-card, .meeting-detail-card { @apply overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm; }
     .meeting-form-actions { @apply flex flex-col-reverse gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:justify-end; }
     .meeting-detail-row { @apply flex flex-col gap-0.5 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-4; }
-    .meeting-modal { @apply fixed inset-0 z-50 hidden overflow-y-auto bg-slate-950/50 px-4 py-6; }
+    .meeting-modal { @apply fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 px-4 py-6; }
     .meeting-modal-card { @apply mx-auto mt-8 max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl sm:mt-20 sm:p-6; }
     .calendar-shell { @apply p-3 sm:p-5 lg:p-7; }
     .calendar-scroll { @apply overflow-x-auto; }

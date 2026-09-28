@@ -24,11 +24,12 @@
             </div>
             <div class="profile-photo-field">
                 @if($user->profile_picture_path)
-                    <img src="{{ route('profile.picture', $user) }}"
+                    <img src="{{ route('profile.picture', $user) }}?v={{ $user->updated_at?->timestamp }}"
                          alt="{{ $user->name }}"
-                         class="profile-photo-preview">
+                         class="profile-photo-preview"
+                         data-profile-photo-preview>
                 @else
-                    <div class="profile-photo-preview profile-photo-placeholder">
+                    <div class="profile-photo-preview profile-photo-placeholder" data-profile-photo-preview>
                         {{ strtoupper(substr($user->firstname, 0, 1) . substr($user->lastname, 0, 1)) }}
                     </div>
                 @endif
@@ -256,6 +257,27 @@
             <x-primary-button>{{ __('Save changes') }}</x-primary-button>
         </div>
     </form>
+
+    <script>
+        document.getElementById('profile_picture')?.addEventListener('change', function () {
+            const [file] = this.files;
+
+            if (!file) {
+                return;
+            }
+
+            const preview = document.querySelector('[data-profile-photo-preview]');
+            const image = document.createElement('img');
+
+            image.src = URL.createObjectURL(file);
+            image.alt = 'New profile photo preview';
+            image.className = 'profile-photo-preview';
+            image.dataset.profilePhotoPreview = '';
+            image.onload = () => URL.revokeObjectURL(image.src);
+
+            preview.replaceWith(image);
+        });
+    </script>
 
     @if($user->isTeacher() && $user->adviser_schedule_path)
         <form id="deleteScheduleForm" method="POST" action="{{ route('profile.adviser-schedule.destroy') }}">
