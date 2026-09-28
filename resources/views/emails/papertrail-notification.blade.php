@@ -8,6 +8,9 @@
     <div style="max-width:640px;margin:0 auto;padding:24px;">
         <div style="border:1px solid #e5e7eb;background:#ffffff;border-radius:12px;overflow:hidden;">
             <div style="background:#1f2937;color:#ffffff;padding:18px 22px;">
+                @if(!empty($logoUrl))
+                    <img src="{{ $logoUrl }}" alt="PaperTrail" width="48" height="48" style="display:block;width:48px;height:48px;max-width:48px;margin:0 0 12px;border:0;border-radius:10px;object-fit:contain;" />
+                @endif
                 <h1 style="font-size:20px;line-height:1.3;margin:0;">{{ $title }}</h1>
                 <p style="font-size:13px;margin:6px 0 0;">PaperTrail academic update</p>
             </div>

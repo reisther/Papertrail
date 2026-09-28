@@ -131,6 +131,7 @@ class AccountSecurityTest extends TestCase
     public function test_new_device_login_is_recorded_and_notified(): void
     {
         Mail::fake();
+        config(['mail.brand.logo_url' => 'https://papertrail.example/images/email-logo.png']);
         $user = User::factory()->create();
 
         $this->withHeader('User-Agent', 'Mozilla/5.0 Windows Chrome/120.0')
@@ -142,7 +143,10 @@ class AccountSecurityTest extends TestCase
             'device' => 'Windows computer',
             'browser' => 'Google Chrome',
         ]);
-        Mail::assertSent(PaperTrailNotification::class, fn ($mail) => $mail->hasTo($user->email) && $mail->subjectLine === 'PaperTrail: New Login to Your Account'
+        Mail::assertSent(PaperTrailNotification::class, fn (PaperTrailNotification $mail) => $mail->hasTo($user->email)
+            && $mail->subjectLine === 'PaperTrail: New Login to Your Account'
+            && $mail->emailData['logoUrl'] === 'https://papertrail.example/images/email-logo.png'
+            && ! str_contains($mail->emailData['body'], 'Approximate Location:')
         );
     }
 }

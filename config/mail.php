@@ -138,4 +138,9 @@ return [
         'name' => env('MAIL_NOTIFICATION_NAME', env('MAIL_FROM_NAME', 'Example')),
     ],
 
+    'brand' => [
+        // Use a public HTTPS image URL. Email clients cannot access local file paths.
+        'logo_url' => env('MAIL_LOGO_URL'),
+    ],
+
 ];

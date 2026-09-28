@@ -257,7 +257,6 @@ class EmailNotificationService
             'Date and Time: '.($details['date_time'] ?? 'Unavailable'),
             'Device: '.($details['device'] ?? 'Unavailable'),
             'Browser: '.($details['browser'] ?? 'Unavailable'),
-            'Approximate Location: '.($details['location'] ?? 'Unavailable'),
             '',
             'Was this you?',
             '',
@@ -476,7 +475,13 @@ class EmailNotificationService
 
     private function messageHtml(string $title, string $intro, string $body, string $reason): array
     {
-        return compact('title', 'intro', 'body', 'reason');
+        return [
+            'title' => $title,
+            'intro' => $intro,
+            'body' => $body,
+            'reason' => $reason,
+            'logoUrl' => config('mail.brand.logo_url'),
+        ];
     }
 
     private function notificationFrom(): array
