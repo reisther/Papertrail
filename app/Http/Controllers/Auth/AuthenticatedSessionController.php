@@ -4,13 +4,14 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Models\User;
 use App\Services\EmailNotificationService;
 use App\Services\LoginSecurityService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
-use Illuminate\View\View;
 
 class AuthenticatedSessionController extends Controller
 {
@@ -30,10 +31,73 @@ class AuthenticatedSessionController extends Controller
         LoginSecurityService $loginSecurity,
         EmailNotificationService $notifications
     ): RedirectResponse {
-        $request->authenticate();
+        if (! $request->authenticate()) {
+            return redirect('/')->with('openDeletionModal', true);
+        }
 
         $request->session()->regenerate();
 
+        return $this->completeLogin($request, $loginSecurity, $notifications);
+    }
+
+    public function restore(
+        Request $request,
+        LoginSecurityService $loginSecurity,
+        EmailNotificationService $notifications
+    ): RedirectResponse {
+        $confirmation = $request->session()->pull('account_deletion_confirmation');
+
+        if (! is_array($confirmation) || ($confirmation['expires_at'] ?? 0) < now()->timestamp) {
+            return $this->restoreFailed();
+        }
+
+        $user = DB::transaction(function () use ($confirmation): ?User {
+            $user = User::query()->lockForUpdate()->find($confirmation['user_id'] ?? null);
+
+            if (! $user || ! $user->deletion_scheduled_for || ! $user->deletion_scheduled_for->isFuture()) {
+                return null;
+            }
+
+            $user->forceFill(['deletion_scheduled_for' => null])->save();
+
+            return $user;
+        });
+
+        if (! $user) {
+            return $this->restoreFailed();
+        }
+
+        if ($user->status === 'Pending') {
+            return redirect('/')->with('openLoginModal', true)->withErrors([
+                'email' => 'Account deletion was cancelled, but this account is still awaiting admin approval.',
+            ]);
+        }
+
+        Auth::login($user, (bool) ($confirmation['remember'] ?? false));
+        $request->session()->regenerate();
+
+        return $this->completeLogin($request, $loginSecurity, $notifications);
+    }
+
+    public function keepDeletion(Request $request): RedirectResponse
+    {
+        $request->session()->forget('account_deletion_confirmation');
+
+        return redirect('/');
+    }
+
+    private function restoreFailed(): RedirectResponse
+    {
+        return redirect('/')->with('openLoginModal', true)->withErrors([
+            'email' => 'The account could not be restored. Please sign in again if the 30-day recovery period has not ended.',
+        ]);
+    }
+
+    private function completeLogin(
+        Request $request,
+        LoginSecurityService $loginSecurity,
+        EmailNotificationService $notifications
+    ): RedirectResponse {
         // Update last login time
         $user = Auth::user();
         $user->update(['last_login_at' => now()]);

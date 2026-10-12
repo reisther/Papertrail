@@ -5,6 +5,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AdviserController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\DefenseScheduleController;
+use App\Http\Controllers\DefenseRevisionController;
 use App\Http\Controllers\GroupController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectController;
@@ -110,6 +111,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
     Route::delete('/adviser-schedule', [ProfileController::class, 'destroyAdviserSchedule'])->name('profile.adviser-schedule.destroy');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    Route::post('/profile/confirm-deletion', [ProfileController::class, 'confirmDestroy'])->name('profile.confirm-destroy');
     Route::get('/notifications', function () {
         $user = Auth::user();
 
@@ -597,6 +599,10 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
 
         return view('teacher.todo-list', compact('todos', 'chapterName', 'projects', 'selectedProject', 'canManageTasks', 'canToggleTasks', 'courses', 'selectedChapter', 'manuscriptStages'));
     })->name('advisers.todo');
+    Route::get('/defense-revisions', [DefenseRevisionController::class, 'index'])->name('defense-revisions.index');
+    Route::post('/defense-revisions', [DefenseRevisionController::class, 'store'])->name('defense-revisions.store');
+    Route::patch('/defense-revisions/{defenseRevision}', [DefenseRevisionController::class, 'update'])->name('defense-revisions.update');
+    Route::delete('/defense-revisions/{defenseRevision}', [DefenseRevisionController::class, 'destroy'])->name('defense-revisions.destroy');
     Route::get('/teacher/todo-list', function (Request $request) use ($manuscriptStages) {
         $user = Auth::user();
 

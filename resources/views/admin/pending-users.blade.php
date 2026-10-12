@@ -53,7 +53,9 @@
                                             <div class="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                                                 <div>
                                                     <p class="text-sm"><span class="font-medium">Campus:</span> {{ $user->campus }}</p>
-                                                    <p class="text-sm"><span class="font-medium">Section:</span> {{ $user->section }}</p>
+                                                    @unless($user->isTeacher())
+                                                        <p class="text-sm"><span class="font-medium">Section:</span> {{ $user->section }}</p>
+                                                    @endunless
                                                 </div>
                                                 <div>
                                                     <p class="text-sm"><span class="font-medium">Requested Role:</span> <span class="font-bold text-gray-900">{{ $user->role_display_name }}</span></p>

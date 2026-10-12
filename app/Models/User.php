@@ -10,6 +10,8 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
+    public const ADVISER_DEPARTMENT = 'CCS Department';
+
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
@@ -45,6 +47,7 @@ class User extends Authenticatable
         'failed_login_attempts',
         'login_delay_until',
         'locked_until',
+        'deletion_scheduled_for',
     ];
 
     /**
@@ -72,6 +75,7 @@ class User extends Authenticatable
             'last_login_at' => 'datetime',
             'login_delay_until' => 'datetime',
             'locked_until' => 'datetime',
+            'deletion_scheduled_for' => 'datetime',
         ];
     }
 

@@ -91,6 +91,11 @@ class ProfileController extends Controller
         unset($validated['adviser_schedule']);
         unset($validated['delete_adviser_schedule']);
 
+        if ($request->user()->isTeacher()) {
+            $validated['course'] = User::ADVISER_DEPARTMENT;
+            $validated['section'] = null;
+        }
+
         if ($request->hasFile('profile_picture')) {
             if ($request->user()->profile_picture_path) {
                 Storage::disk('public')->delete($request->user()->profile_picture_path);
@@ -142,7 +147,7 @@ class ProfileController extends Controller
     }
 
     /**
-     * Delete the user's account.
+     * Schedule the user's account for deletion in 30 days.
      */
     public function destroy(Request $request): RedirectResponse
     {
@@ -150,28 +155,62 @@ class ProfileController extends Controller
             return Redirect::route('profile.edit')->with('error', 'Admin accounts cannot delete themselves.');
         }
 
-        $request->validateWithBag('userDeletion', [
-            'password' => ['required', 'current_password'],
-        ]);
+        $request->session()->forget('adviser_deletion_confirmation');
 
+        $rules = [
+            'password' => ['required', 'current_password'],
+        ];
+
+        if ($request->user()->isTeacher()) {
+            $rules['password_confirmation'] = ['required', 'same:password'];
+        }
+
+        $request->validateWithBag('userDeletion', $rules);
+
+        if ($request->user()->isTeacher()) {
+            $request->session()->put('adviser_deletion_confirmation', [
+                'user_id' => $request->user()->id,
+                'password_hash' => $request->user()->password,
+                'expires_at' => now()->addMinutes(10)->timestamp,
+            ]);
+
+            return Redirect::route('profile.edit')->with('show_adviser_deletion_final_confirmation', true);
+        }
+
+        return $this->scheduleDeletion($request);
+    }
+
+    public function confirmDestroy(Request $request): RedirectResponse
+    {
+        $confirmation = $request->session()->pull('adviser_deletion_confirmation');
+
+        if ($request->input('decision') === 'cancel') {
+            return Redirect::route('profile.edit');
+        }
+
+        if (! $request->user()->isTeacher()
+            || $request->input('decision') !== 'confirm'
+            || ! is_array($confirmation)
+            || ($confirmation['user_id'] ?? null) !== $request->user()->id
+            || ($confirmation['password_hash'] ?? null) !== $request->user()->password
+            || ($confirmation['expires_at'] ?? 0) < now()->timestamp) {
+            return Redirect::route('profile.edit')->with('error', 'Confirm your passwords again before scheduling account deletion.');
+        }
+
+        return $this->scheduleDeletion($request);
+    }
+
+    private function scheduleDeletion(Request $request): RedirectResponse
+    {
         $user = $request->user();
+        $user->forceFill(['deletion_scheduled_for' => now()->addDays(30)])->save();
 
         Auth::logout();
-
-        if ($user->profile_picture_path) {
-            Storage::disk('public')->delete($user->profile_picture_path);
-        }
-
-        if ($user->adviser_schedule_path) {
-            Storage::disk('public')->delete($user->adviser_schedule_path);
-        }
-
-        $user->delete();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return Redirect::to('/');
+        return Redirect::to('/')->with('account_deletion_scheduled', true);
     }
 
     private function canViewAdviserSchedule(User $adviser): bool

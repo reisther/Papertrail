@@ -147,6 +147,10 @@ The app should now be running at:
 http://127.0.0.1:8000
 ```
 
+### 9. Run scheduled tasks
+
+Run `php artisan schedule:work` in a separate process. After the 30-day recovery period, the scheduler removes account access and personal profile data while keeping shared project files and chat history available to advisers. Former group owners' projects move to the archive; deleted members' contributions stay in the existing group. It also handles other timed cleanup. In production, run `php artisan schedule:run` every minute (or keep `schedule:work` running). Railway supports a separate service with `APP_ROLE=scheduler`.
+
 ---
 
 ## 🔐 Environment Variables

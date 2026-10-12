@@ -58,6 +58,11 @@ class Project extends Model
         return $this->hasMany(ProjectTask::class);
     }
 
+    public function defenseRevisions(): HasMany
+    {
+        return $this->hasMany(DefenseRevision::class);
+    }
+
     public function chatRooms(): HasMany
     {
         return $this->hasMany(ChatRoom::class);

@@ -128,8 +128,8 @@ class EmailNotificationService
                 collect([
                     "Name: {$user->name}",
                     "Email: {$user->email}",
-                    "Course: {$user->course}",
-                    "Section: {$user->section}",
+                    $user->isTeacher() ? "Department: {$user->course}" : "Course: {$user->course}",
+                    $user->isTeacher() ? null : "Section: {$user->section}",
                     "Campus: {$user->campus}",
                 ])->filter()->implode("\n"),
                 'You are receiving this because admins review new PaperTrail account registrations.'

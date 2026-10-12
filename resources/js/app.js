@@ -1,4 +1,5 @@
 import './bootstrap';
+import './chat-unread-badge';
 
 import Alpine from 'alpinejs';
 

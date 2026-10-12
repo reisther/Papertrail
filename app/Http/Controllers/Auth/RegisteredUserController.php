@@ -40,12 +40,12 @@ class RegisteredUserController extends Controller
             'middlename' => ['nullable', 'string', 'max:255'],
             'lastname' => ['required', 'string', 'max:255'],
             'campus' => ['required', 'string', 'max:255'],
-            'course' => ['required', 'string', 'max:255'],
-            'section' => ['required', 'string', 'max:255'],
+            'course' => ['exclude_if:role,Teacher', 'required', 'string', 'max:255'],
+            'section' => ['exclude_if:role,Teacher', 'required', 'string', 'max:255'],
             'id_document_file' => ['required', 'file', 'mimes:jpeg,jpg,png,pdf', 'max:10240'], // 10MB max
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
             'role' => ['required', 'string', 'in:Student,Leader,Teacher'],
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'password' => ['required', 'confirmed', Rules\Password::defaults()->mixedCase()->numbers()->symbols()],
             'terms' => ['required', 'accepted'],
         ], [
             'email.unique' => 'This email address already has a PaperTrail account. Please sign in instead or use a different email address.',
@@ -64,8 +64,8 @@ class RegisteredUserController extends Controller
             'middlename' => $validated['middlename'] ?? null,
             'lastname' => $validated['lastname'],
             'campus' => $validated['campus'],
-            'course' => $validated['course'],
-            'section' => $validated['section'],
+            'course' => $validated['role'] === 'Teacher' ? User::ADVISER_DEPARTMENT : $validated['course'],
+            'section' => $validated['role'] === 'Teacher' ? null : $validated['section'],
             'id_document_path' => $idDocumentPath,
             'status' => 'Pending', // Default status
             'email' => $validated['email'],

@@ -30,8 +30,9 @@ class LoginRequest extends FormRequest
         ];
     }
 
-    public function authenticate(): void
+    public function authenticate(): bool
     {
+        $this->session()->forget('account_deletion_confirmation');
         $email = Str::lower(trim((string) $this->input('email')));
         $user = User::whereRaw('LOWER(email) = ?', [$email])->first();
         $attempts = $user?->failed_login_attempts ?? RateLimiter::attempts($this->throttleKey());
@@ -58,6 +59,44 @@ class LoginRequest extends FormRequest
             $this->recordFailure($user);
         }
 
+        $authenticatedUser = Auth::user();
+
+        if ($authenticatedUser->status === 'Deleted') {
+            Auth::logout();
+            $this->session()->flash('openLoginModal', true);
+            throw ValidationException::withMessages([
+                'email' => 'Invalid email address or password.',
+            ]);
+        }
+
+        if ($authenticatedUser->deletion_scheduled_for) {
+            Auth::logout();
+
+            if (! $authenticatedUser->deletion_scheduled_for->isFuture()) {
+                $this->session()->flash('openLoginModal', true);
+                throw ValidationException::withMessages([
+                    'email' => 'The 30-day recovery period has ended. This account can no longer be restored.',
+                ]);
+            }
+
+            RateLimiter::clear($this->throttleKey());
+            $authenticatedUser->forceFill([
+                'failed_login_attempts' => 0,
+                'login_delay_until' => null,
+                'locked_until' => null,
+            ])->save();
+
+            $this->session()->regenerate();
+            $this->session()->put('account_deletion_confirmation', [
+                'user_id' => $authenticatedUser->id,
+                'expires_at' => now()->addMinutes(10)->timestamp,
+                'remember' => $this->boolean('remember'),
+                'days_remaining' => max(1, (int) ceil(now()->diffInSeconds($authenticatedUser->deletion_scheduled_for, false) / 86400)),
+            ]);
+
+            return false;
+        }
+
         if (Auth::user()->status === 'Pending') {
             Auth::logout();
             $this->session()->flash('openLoginModal', true);
@@ -73,6 +112,8 @@ class LoginRequest extends FormRequest
             'login_delay_until' => null,
             'locked_until' => null,
         ])->save();
+
+        return true;
     }
 
     private function ensureLoginIsAllowed(?User $user, int $attempts): void

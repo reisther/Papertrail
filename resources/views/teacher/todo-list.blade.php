@@ -39,6 +39,11 @@
                         <a href="{{ $canManageTasks ? route('teacher.dashboard') : route('dashboard') }}" class="inline-flex w-full items-center justify-center rounded-md bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-300 sm:w-auto">Back</a>
                     </div>
 
+                    <div class="mb-6 flex flex-wrap gap-2 border-b border-gray-200 pb-4" aria-label="Checklist sections">
+                        <span class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white" aria-current="page">Adviser Tasks</span>
+                        <a href="{{ route('defense-revisions.index', array_filter(['project_id' => $selectedProject?->id, 'chapter' => $selectedChapter ?? null], fn ($value) => $value !== null)) }}" class="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Defense Revisions</a>
+                    </div>
+
                     @if($projects->isNotEmpty())
                         <div class="mb-8 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                             @if($canFilterTasks ?? $canToggleTasks)

@@ -55,13 +55,15 @@
                                     <p class="text-gray-900">{{ $user->campus }}</p>
                                 </div>
                                 <div>
-                                    <p class="text-sm font-medium text-gray-500">Course/Department</p>
+                                    <p class="text-sm font-medium text-gray-500">{{ $user->isTeacher() ? 'Department' : 'Course' }}</p>
                                     <p class="text-gray-900">{{ $user->course }}</p>
                                 </div>
-                                <div>
-                                    <p class="text-sm font-medium text-gray-500">Section</p>
-                                    <p class="text-gray-900">{{ $user->section }}</p>
-                                </div>
+                                @unless($user->isTeacher())
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-500">Section</p>
+                                        <p class="text-gray-900">{{ $user->section }}</p>
+                                    </div>
+                                @endunless
                                 <div>
                                     <p class="text-sm font-medium text-gray-500">Registration Date</p>
                                     <p class="text-gray-900">{{ $user->created_at->format('M j, Y g:i A') }}</p>

@@ -72,7 +72,6 @@
                         <div class="mt-4 grid grid-cols-1 gap-3 text-sm text-slate-600 md:grid-cols-2">
                             <p><strong>Campus:</strong> {{ Auth::user()->campus }}</p>
                             <p><strong>Department:</strong> {{ Auth::user()->course }}</p>
-                            <p><strong>Section:</strong> {{ Auth::user()->section }}</p>
                             <p><strong>Status:</strong> 
                                 <span class="status-pill {{ Auth::user()->status === 'Verified' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">
                                     {{ Auth::user()->status }}

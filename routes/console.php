@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\AdminAccountRecovery;
+use App\Services\AccountDeletionService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -9,6 +10,12 @@ use Illuminate\Support\Facades\Storage;
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+Artisan::command('accounts:purge-deleted', function (AccountDeletionService $deletions): void {
+    $this->info($deletions->purgeDueAccounts().' account(s) anonymized; shared history retained.');
+})->purpose('Remove account access and personal data after the 30-day recovery period');
+
+Schedule::command('accounts:purge-deleted')->everyMinute()->withoutOverlapping();
 
 Schedule::call(function (): void {
     AdminAccountRecovery::query()

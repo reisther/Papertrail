@@ -17,7 +17,11 @@
 @endphp
 
  <!-- Header Navigation -->
-    <header class="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 shadow-sm backdrop-blur" x-data="{ mobileOpen: false }">
+    <header class="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 shadow-sm backdrop-blur" x-data="{ mobileOpen: false }"
+        @if(Auth::check() && (Auth::user()->isStudentGroupRole() || Auth::user()->isTeacher()))
+            data-chat-unread-url="{{ route('chat.unread-summary', [], false) }}"
+            data-chat-unread-managed-by-page="{{ request()->routeIs('chat.index') ? 'true' : 'false' }}"
+        @endif>
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
                 <!-- Logo -->
@@ -86,7 +90,7 @@
                         @endif
 
                         @if(Auth::user()->isStudentGroupRole() || Auth::user()->isTeacher())
-                            <a href="{{ route('chat.index') }}"
+                            <a href="{{ route('chat.index') }}" data-chat-nav-link
                                 class="{{ $desktopNavLink(request()->routeIs('chat.*'), 'relative inline-flex') }}">
                                 Chat
                                 @if($chatUnreadCount > 0)
@@ -187,7 +191,7 @@
                             @endif
                         </a>
                         <a href="{{ route('meeting-schedule.index') }}" class="{{ $mobileNavLink(request()->routeIs('meeting-schedule.*', 'students.projects')) }}">Meeting Schedule</a>
-                        <a href="{{ route('chat.index') }}" class="{{ $mobileNavLink(request()->routeIs('chat.*'), 'flex items-center justify-between') }}">
+                        <a href="{{ route('chat.index') }}" data-chat-nav-link class="{{ $mobileNavLink(request()->routeIs('chat.*'), 'flex items-center justify-between') }}">
                             <span>Chat</span>
                             @if($chatUnreadCount > 0)
                                 <span class="chat-nav-unread-count inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-none text-white" data-unread-count="{{ $chatUnreadCount }}">
@@ -211,7 +215,7 @@
                             <a href="{{ route('advisers.title-submission') }}" class="{{ $mobileNavLink(request()->routeIs('advisers.title-submission', 'advisers.send-request', 'advisers.requests.*', 'advisers.my-advisers')) }}">Find Advisers</a>
                         @endif
                         <a href="{{ route('meeting-schedule.index') }}" class="{{ $mobileNavLink(request()->routeIs('meeting-schedule.*', 'students.projects')) }}">Meeting Schedule</a>
-                        <a href="{{ route('chat.index') }}" class="{{ $mobileNavLink(request()->routeIs('chat.*'), 'flex items-center justify-between') }}">
+                        <a href="{{ route('chat.index') }}" data-chat-nav-link class="{{ $mobileNavLink(request()->routeIs('chat.*'), 'flex items-center justify-between') }}">
                             <span>Chat</span>
                             @if($chatUnreadCount > 0)
                                 <span class="chat-nav-unread-count inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-600 px-1.5 text-center text-[11px] font-semibold leading-none text-white" data-unread-count="{{ $chatUnreadCount }}">

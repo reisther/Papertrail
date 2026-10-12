@@ -1,10 +1,10 @@
 <x-guest-layout>
-    <form method="POST" action="{{ route('register', [], false) }}" enctype="multipart/form-data">
+    <form method="POST" action="{{ route('register', [], false) }}" enctype="multipart/form-data" x-data="{ role: @js(old('role', 'Student')) }">
         @csrf
 
         <div>
             <x-input-label for="role" :value="__('Sign up as')" />
-            <select id="role" name="role" required class="block mt-1 w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm bg-indigo-50">
+            <select id="role" name="role" x-model="role" required class="block mt-1 w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm bg-indigo-50">
                 <option value="Student" {{ old('role') === 'Student' ? 'selected' : '' }}>Member</option>
                 <option value="Leader" {{ old('role') === 'Leader' ? 'selected' : '' }}>Leader</option>
                 <option value="Teacher" {{ old('role') === 'Teacher' ? 'selected' : '' }}>Adviser</option>
@@ -39,17 +39,21 @@
                 <x-input-error :messages="$errors->registration->get('campus')" class="mt-2" />
             </div>
 
-            <div>
+            <div x-show="role !== 'Teacher'" style="{{ old('role') === 'Teacher' ? 'display:none;' : '' }}">
                 <x-input-label for="course" :value="__('Course')" />
-                <x-text-input id="course" class="block mt-1 w-full" type="text" name="course" :value="old('course')" required />
+                <x-text-input id="course" class="block mt-1 w-full" type="text" name="course" :value="old('course')" x-bind:required="role !== 'Teacher'" x-bind:disabled="role === 'Teacher'" />
                 <x-input-error :messages="$errors->registration->get('course')" class="mt-2" />
             </div>
         </div>
 
-        <div class="mt-4">
+        <div class="mt-4" x-show="role !== 'Teacher'" style="{{ old('role') === 'Teacher' ? 'display:none;' : '' }}">
             <x-input-label for="section" :value="__('Section')" />
-            <x-text-input id="section" class="block mt-1 w-full" type="text" name="section" :value="old('section')" required />
+            <x-text-input id="section" class="block mt-1 w-full" type="text" name="section" :value="old('section')" x-bind:required="role !== 'Teacher'" x-bind:disabled="role === 'Teacher'" />
             <x-input-error :messages="$errors->registration->get('section')" class="mt-2" />
+        </div>
+
+        <div class="mt-4 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-sm text-indigo-900" x-show="role === 'Teacher'" style="{{ old('role') === 'Teacher' ? '' : 'display:none;' }}">
+            Department: <strong>{{ \App\Models\User::ADVISER_DEPARTMENT }}</strong>
         </div>
 
         <div class="mt-4">
@@ -64,11 +68,11 @@
             <x-input-error :messages="$errors->registration->get('email')" class="mt-2" />
         </div>
 
-        <div class="mt-4">
+        <x-signup-password-check class="mt-4" requirements-id="password-requirements">
             <x-input-label for="password" :value="__('Password')" />
-            <x-text-input id="password" class="block mt-1 w-full" type="password" name="password" required autocomplete="new-password" />
+            <x-text-input id="password" class="block mt-1 w-full" type="password" name="password" x-model="password" aria-describedby="password-requirements" required autocomplete="new-password" />
             <x-input-error :messages="$errors->registration->get('password')" class="mt-2" />
-        </div>
+        </x-signup-password-check>
 
         <div class="mt-4">
             <x-input-label for="password_confirmation" :value="__('Confirm Password')" />

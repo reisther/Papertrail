@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\AccountDeletionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -151,7 +152,7 @@ class AdminController extends Controller
             abort(403, 'Access denied. Admins only.');
         }
 
-        $query = User::with(['verifiedBy', 'rejectedBy']);
+        $query = User::with(['verifiedBy', 'rejectedBy'])->where('status', '!=', 'Deleted');
 
         // Apply filters
         if ($request->filled('role')) {
@@ -185,7 +186,7 @@ class AdminController extends Controller
 
         // Get statistics
         $stats = [
-            'total' => User::count(),
+            'total' => User::where('status', '!=', 'Deleted')->count(),
             'students' => User::where('role', 'Student')->count(),
             'leaders' => User::where('role', 'Leader')->count(),
             'teachers' => User::where('role', 'Teacher')->count(),
@@ -211,11 +212,21 @@ class AdminController extends Controller
             return back()->with('error', 'You cannot change your own role.');
         }
 
+        if ($user->status === 'Deleted') {
+            return back()->with('error', 'This account has already been deleted.');
+        }
+
         $request->validate([
             'role' => 'required|in:Student,Leader,Teacher,Admin'
         ]);
 
-        $user->update(['role' => $request->role]);
+        $attributes = ['role' => $request->role];
+        if ($request->role === 'Teacher') {
+            $attributes['course'] = User::ADVISER_DEPARTMENT;
+            $attributes['section'] = null;
+        }
+
+        $user->update($attributes);
         $user->syncRoleProfile();
 
         return back()->with('success', "User role updated to {$request->role} successfully!");
@@ -228,6 +239,10 @@ class AdminController extends Controller
     {
         if (!Auth::user() || Auth::user()->role !== 'Admin') {
             abort(403, 'Access denied. Admins only.');
+        }
+
+        if ($user->status === 'Deleted') {
+            return back()->with('error', 'This account has already been deleted.');
         }
 
         $request->validate([
@@ -252,7 +267,7 @@ class AdminController extends Controller
     /**
      * Delete user
      */
-    public function deleteUser(User $user)
+    public function deleteUser(User $user, AccountDeletionService $deletions)
     {
         if (!Auth::user() || Auth::user()->role !== 'Admin') {
             abort(403, 'Access denied. Admins only.');
@@ -262,15 +277,16 @@ class AdminController extends Controller
             return back()->with('error', 'You cannot delete your own account!');
         }
 
-        $userName = $user->name;
-        
-        // Delete associated documents if any
-        if ($user->id_document_path) {
-            Storage::disk('public')->delete($user->id_document_path);
+        if ($user->status === 'Deleted') {
+            return back()->with('error', 'This account has already been deleted.');
         }
 
-        $user->delete();
+        $userName = $user->name;
 
-        return back()->with('success', "User {$userName} deleted successfully!");
+        if (! $deletions->deleteNow($user)) {
+            return back()->with('error', 'The account could not be deleted. Please try again.');
+        }
+
+        return back()->with('success', "User {$userName} deleted. Shared project files and chats remain archived.");
     }
 }

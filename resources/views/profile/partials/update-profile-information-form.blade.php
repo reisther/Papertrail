@@ -66,11 +66,13 @@
             <x-text-input id="middlename" name="middlename" type="text" class="mt-1 block w-full" :value="old('middlename', $user->middlename)" autocomplete="additional-name" />
             <x-input-error class="mt-2" :messages="$errors->get('middlename')" />
         </div>
-        <div>
-            <x-input-label for="section" :value="__('Section')" />
-            <x-text-input id="section" name="section" type="text" class="mt-1 block w-full" :value="old('section', $user->section)" required />
-            <x-input-error class="mt-2" :messages="$errors->get('section')" />
-        </div>
+        @unless($user->isTeacher())
+            <div>
+                <x-input-label for="section" :value="__('Section')" />
+                <x-text-input id="section" name="section" type="text" class="mt-1 block w-full" :value="old('section', $user->section)" required />
+                <x-input-error class="mt-2" :messages="$errors->get('section')" />
+            </div>
+        @endunless
         </div>
 
 <div class="profile-fields profile-fields-two mt-5">
@@ -83,14 +85,21 @@
         <x-input-error class="mt-2" :messages="$errors->get('campus')" />
     </div>
 
-    <div>
-        <x-input-label for="course" :value="__('Course')" />
-        <x-text-input id="course" name="course" type="text"
-            class="mt-1 block w-full"
-            :value="old('course', $user->course)"
-            required />
-        <x-input-error class="mt-2" :messages="$errors->get('course')" />
-    </div>
+    @if($user->isTeacher())
+        <div>
+            <span class="block text-sm font-medium text-gray-700">Department</span>
+            <p class="mt-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900">{{ \App\Models\User::ADVISER_DEPARTMENT }}</p>
+        </div>
+    @else
+        <div>
+            <x-input-label for="course" :value="__('Course')" />
+            <x-text-input id="course" name="course" type="text"
+                class="mt-1 block w-full"
+                :value="old('course', $user->course)"
+                required />
+            <x-input-error class="mt-2" :messages="$errors->get('course')" />
+        </div>
+    @endif
 </div>
         </div>
 

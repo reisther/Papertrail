@@ -86,6 +86,35 @@
         </div>
     @endif
 
+    @if(session('account_deletion_scheduled'))
+        <div id="deletionScheduledModal" class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 px-4 py-8" role="dialog" aria-modal="true" aria-labelledby="deletionScheduledTitle">
+            <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl sm:p-8">
+                <h2 id="deletionScheduledTitle" class="text-2xl font-bold text-slate-900">Account deletion scheduled</h2>
+                <p class="mt-3 text-slate-600">Your account and personal details will be removed in 30 days. Shared group files and chat history will remain available to your adviser. Sign in before then and confirm that you want to keep your account to cancel deletion.</p>
+                <button type="button" onclick="closeModal('deletionScheduledModal')" class="mt-6 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700">Got it</button>
+            </div>
+        </div>
+    @endif
+
+    @if(session('openDeletionModal') && session('account_deletion_confirmation'))
+        <div id="deletionRecoveryModal" class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 px-4 py-8" role="dialog" aria-modal="true" aria-labelledby="deletionRecoveryTitle">
+            <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl sm:p-8">
+                <h2 id="deletionRecoveryTitle" class="text-2xl font-bold text-slate-900">Keep your account?</h2>
+                <p class="mt-3 text-slate-600">Your account is scheduled for permanent deletion in {{ data_get(session('account_deletion_confirmation'), 'days_remaining') }} {{ data_get(session('account_deletion_confirmation'), 'days_remaining') == 1 ? 'day' : 'days' }}. Do you want to log in? Logging in will cancel the deletion.</p>
+                <div class="mt-6 flex flex-col gap-3 sm:flex-row">
+                    <form method="POST" action="{{ route('account-deletion.keep', [], false) }}" class="flex-1">
+                        @csrf
+                        <button type="submit" class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">Keep deleting my account</button>
+                    </form>
+                    <form method="POST" action="{{ route('account-deletion.restore', [], false) }}" class="flex-1">
+                        @csrf
+                        <button type="submit" class="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700">Cancel deletion and log in</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endif
+
     <!-- Login Modal -->
     <div id="loginModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
         <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
@@ -205,7 +234,7 @@
                         </svg>
                     </button>
                 </div>
-                <form action="{{ route('register', [], false) }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                <form action="{{ route('register', [], false) }}" method="POST" enctype="multipart/form-data" class="space-y-4" x-data="{ role: @js(old('role', 'Student')) }">
                     @csrf
                     
                     <!-- Display validation errors -->
@@ -230,7 +259,7 @@
                     <!-- Role Selection -->
                     <div>
                         <label for="role" class="block text-sm font-medium text-gray-700">Sign up as</label>
-                        <select id="role" name="role" required class="mt-1 block w-full px-3 py-2 border border-blue-300 rounded-md shadow-sm bg-blue-50 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <select id="role" name="role" x-model="role" required class="mt-1 block w-full px-3 py-2 border border-blue-300 rounded-md shadow-sm bg-blue-50 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                             <option value="Student" {{ old('role') === 'Student' ? 'selected' : '' }}>Member</option>
                             <option value="Leader" {{ old('role') === 'Leader' ? 'selected' : '' }}>Leader</option>
                             <option value="Teacher" {{ old('role') === 'Teacher' ? 'selected' : '' }}>Adviser</option>
@@ -259,15 +288,18 @@
                             <label for="campus" class="block text-sm font-medium text-gray-700">Campus</label>
                             <input type="text" id="campus" name="campus" value="{{ old('campus') }}" required placeholder="e.g., Main Campus" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                         </div>
-                        <div>
+                        <div x-show="role !== 'Teacher'" style="{{ old('role') === 'Teacher' ? 'display:none;' : '' }}">
                             <label for="course" class="block text-sm font-medium text-gray-700">Course</label>
-                            <input type="text" id="course" name="course" value="{{ old('course') }}" required placeholder="e.g., Computer Science" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <input type="text" id="course" name="course" value="{{ old('course') }}" x-bind:required="role !== 'Teacher'" x-bind:disabled="role === 'Teacher'" placeholder="e.g., Computer Science" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                         </div>
                     </div>
                     <div class="space-y-4">
-                        <div>
+                        <div x-show="role !== 'Teacher'" style="{{ old('role') === 'Teacher' ? 'display:none;' : '' }}">
                             <label for="section" class="block text-sm font-medium text-gray-700">Section</label>
-                            <input type="text" id="section" name="section" value="{{ old('section') }}" required placeholder="e.g., A, B, C" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <input type="text" id="section" name="section" value="{{ old('section') }}" x-bind:required="role !== 'Teacher'" x-bind:disabled="role === 'Teacher'" placeholder="e.g., A, B, C" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div x-show="role === 'Teacher'" style="{{ old('role') === 'Teacher' ? '' : 'display:none;' }}" class="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+                            Department: <strong>{{ \App\Models\User::ADVISER_DEPARTMENT }}</strong>
                         </div>
                         <div>
                             <label for="id_document_file" class="block text-sm font-medium text-gray-700">ID Document (Photo/PDF)</label>
@@ -299,10 +331,10 @@
                     </div>
 
                     <!-- Password Fields -->
-                    <div>
+                    <x-signup-password-check requirements-id="signup-password-requirements">
                         <label for="signup-password" class="block text-sm font-medium text-gray-700">Password</label>
-                        <input type="password" id="signup-password" name="password" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                    </div>
+                        <input type="password" id="signup-password" name="password" x-model="password" aria-describedby="signup-password-requirements" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    </x-signup-password-check>
                     <div>
                         <label for="confirm-password" class="block text-sm font-medium text-gray-700">Confirm Password</label>
                         <input type="password" id="confirm-password" name="password_confirmation" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
