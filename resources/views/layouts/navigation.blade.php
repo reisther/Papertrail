@@ -236,3 +236,7 @@
             </nav>
         </div>
     </header>
+
+    @if(Auth::check() && (Auth::user()->isStudentGroupRole() || Auth::user()->isTeacher()))
+        <script src="{{ asset('js/chat-unread-badge.js') }}" defer></script>
+    @endif
