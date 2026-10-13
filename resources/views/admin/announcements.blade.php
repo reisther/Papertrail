@@ -37,7 +37,8 @@
 
             <div class="mb-8 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
                 <h3 class="mb-4 text-lg font-bold text-gray-900">{{ $postTitle ?? 'Post an Announcement' }}</h3>
-                <form method="POST" action="{{ route('announcements.store') }}" enctype="multipart/form-data" class="space-y-4">
+                <form method="POST" action="{{ route('announcements.store') }}" enctype="multipart/form-data" class="space-y-4"
+                      data-loading-title="Posting announcement…" data-loading-message="Your update is on its way.">
                     @csrf
                     <div>
                         <label for="message" class="block text-sm font-semibold text-gray-700">Message</label>

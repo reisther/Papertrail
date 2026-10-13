@@ -68,6 +68,8 @@
             @endif
         </div>
         
+        @include('partials.loading-overlay')
+
         <!-- Auto-hide flash messages -->
         <script>
             document.addEventListener('DOMContentLoaded', function() {

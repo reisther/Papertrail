@@ -105,7 +105,8 @@
             <!-- Main Card -->
             <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
 
-                <form action="{{ route('suggested-ai') }}" method="POST">
+                <form action="{{ route('suggested-ai') }}" method="POST"
+                      data-loading-title="Analyzing your titles…" data-loading-message="Looking for suitable advisers.">
                     @csrf
 
                     <h3 class="font-semibold text-gray-900 mb-4">
