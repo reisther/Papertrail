@@ -29,3 +29,23 @@ Schedule::call(function (): void {
             }
         });
 })->dailyAt('02:00')->name('purge-account-recovery-documents')->withoutOverlapping();
+
+Artisan::command('announcements:purge-deleted', function (): void {
+    $count = 0;
+    \App\Models\Announcement::withoutGlobalScope('published')
+        ->where('delete_after', '<=', now())
+        ->chunkById(100, function ($announcements) use (&$count): void {
+            foreach ($announcements as $announcement) {
+                if ($announcement->attachment_path) {
+                    if (! Storage::disk('public')->delete($announcement->attachment_path)) {
+                        continue;
+                    }
+                }
+                $announcement->delete();
+                $count++;
+            }
+        });
+    $this->info($count.' announcement(s) permanently deleted.');
+})->purpose('Permanently delete announcements after their 30-day recovery period');
+
+Schedule::command('announcements:purge-deleted')->everyMinute()->withoutOverlapping();

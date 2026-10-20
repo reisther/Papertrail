@@ -79,22 +79,34 @@ class ProfileTest extends TestCase
         $this->assertNull($adviser->section);
     }
 
-    public function test_admin_changing_user_to_adviser_sets_department(): void
+    public function test_admin_cannot_change_students_or_leaders_to_adviser_or_admin(): void
     {
         $admin = User::factory()->create(['role' => 'Admin']);
-        $user = User::factory()->create([
-            'role' => 'Student',
-            'course' => 'Computer Science',
-            'section' => 'A',
-        ]);
+
+        foreach (['Student', 'Leader'] as $currentRole) {
+            $user = User::factory()->create(['role' => $currentRole]);
+
+            foreach (['Teacher', 'Admin'] as $requestedRole) {
+                $this->actingAs($admin)
+                    ->post(route('admin.update-user-role', $user), ['role' => $requestedRole])
+                    ->assertSessionHasErrors('role');
+
+                $this->assertSame($currentRole, $user->refresh()->role);
+            }
+        }
+    }
+
+    public function test_admin_can_change_student_to_leader(): void
+    {
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $user = User::factory()->create(['role' => 'Student']);
 
         $this->actingAs($admin)
-            ->post(route('admin.update-user-role', $user), ['role' => 'Teacher'])
+            ->post(route('admin.update-user-role', $user), ['role' => 'Leader'])
+            ->assertSessionHasNoErrors()
             ->assertSessionHas('success');
 
-        $user->refresh();
-        $this->assertSame(User::ADVISER_DEPARTMENT, $user->course);
-        $this->assertNull($user->section);
+        $this->assertSame('Leader', $user->refresh()->role);
     }
 
     public function test_email_verification_status_is_unchanged_when_the_email_address_is_unchanged(): void

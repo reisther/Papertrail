@@ -217,7 +217,9 @@ class AdminController extends Controller
         }
 
         $request->validate([
-            'role' => 'required|in:Student,Leader,Teacher,Admin'
+            'role' => $user->isStudentGroupRole()
+                ? 'required|in:Student,Leader'
+                : 'required|in:Student,Leader,Teacher,Admin'
         ]);
 
         $attributes = ['role' => $request->role];

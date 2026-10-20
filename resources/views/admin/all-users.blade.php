@@ -285,7 +285,14 @@
     <script>
         function openRoleModal(userId, userName, currentRole) {
             document.getElementById('roleForm').action = `/admin/users/${userId}/update-role`;
-            document.getElementById('roleSelect').value = currentRole;
+            const roleSelect = document.getElementById('roleSelect');
+            const isStudent = ['Student', 'Leader'].includes(currentRole);
+            for (const option of roleSelect.options) {
+                const restricted = isStudent && ['Teacher', 'Admin'].includes(option.value);
+                option.hidden = restricted;
+                option.disabled = restricted;
+            }
+            roleSelect.value = currentRole;
             document.getElementById('roleModal').classList.remove('hidden');
         }
 

@@ -61,21 +61,33 @@
                 </form>
             </div>
 
+            <div class="mb-5">
+                <h3 class="text-xl font-bold text-gray-900">Old/Previous announcements</h3>
+                <p class="mt-1 text-sm text-gray-500">Review your posts, update them, or choose Archive or Delete.</p>
+            </div>
             <div class="space-y-4">
                 @forelse($announcements as $announcement)
                     <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-                        <div class="mb-4 flex items-start justify-between gap-4">
+                        <div class="mb-4 flex flex-col gap-3 border-b border-gray-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
                             <div>
                                 <p class="text-sm font-bold text-gray-900">{{ $announcement->author?->name ?? 'Admin' }}</p>
-                                <p class="text-xs text-gray-400">{{ $announcement->created_at->diffForHumans() }}</p>
+                                <time datetime="{{ $announcement->created_at->toIso8601String() }}" class="mt-1 block text-xs text-gray-500">{{ $announcement->created_at->timezone('Asia/Manila')->format('M j, Y · g:i A') }}</time>
                             </div>
-                            <form method="POST" action="{{ route('announcements.destroy', $announcement) }}" onsubmit="return confirm('Delete this announcement? This action cannot be undone.');">
+                            <div class="flex shrink-0 items-center gap-2">
+                            @if($announcement->user_id === auth()->id())
+                                <form method="POST" action="{{ route('announcements.archive', $announcement) }}">
+                                    @csrf
+                                    <button type="submit" class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50">Archive</button>
+                                </form>
+                            @endif
+                            <form method="POST" action="{{ route('announcements.destroy', $announcement) }}" onsubmit="return confirm('This announcement will be hidden from everyone except you. You can retrieve it from Archived announcements within 30 days before it is permanently deleted. Continue?');">
                                 @csrf
                                 @method('DELETE')
-                                <button type="submit" class="text-xs font-semibold text-red-600 hover:text-red-800">
+                                <button type="submit" class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-100">
                                     Delete
                                 </button>
                             </form>
+                            </div>
                         </div>
 
                         <form method="POST" action="{{ route('announcements.update', $announcement) }}" enctype="multipart/form-data" class="space-y-4">
@@ -83,19 +95,20 @@
                             @method('PATCH')
                             <textarea name="message" rows="3" maxlength="5000" required class="block max-h-56 w-full overflow-y-auto rounded-lg border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">{{ old("message_{$announcement->id}", $announcement->message) }}</textarea>
 
-                            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <div class="min-w-0">
+                            <div class="space-y-4">
+                                <div class="min-w-0 max-w-2xl">
                                     @if($announcement->attachment_path)
-                                        <a href="{{ route('announcements.attachment', $announcement) }}" class="inline-flex max-w-full items-center gap-2 truncate rounded-md bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 hover:bg-blue-100">
-                                            {{ $announcement->attachment_name ?? 'Attachment' }}
-                                        </a>
+                                        @include('partials.announcement-attachment', ['announcement' => $announcement])
                                     @else
                                         <p class="text-xs text-gray-400">No attachment</p>
                                     @endif
                                 </div>
-                                <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-                                    <input name="attachment" type="file" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs">
-                                    <button type="submit" class="rounded-lg bg-gray-800 px-4 py-2 text-xs font-semibold text-white hover:bg-gray-900">
+                                <div class="flex flex-col gap-4 border-t border-gray-100 pt-4 sm:flex-row sm:items-end sm:justify-between">
+                                    <div class="min-w-0 w-full sm:max-w-md">
+                                        <label for="announcement-attachment-{{ $announcement->id }}" class="mb-1 block text-xs font-semibold text-gray-700">{{ $announcement->attachment_path ? 'Replace attachment' : 'Add attachment' }}</label>
+                                        <input id="announcement-attachment-{{ $announcement->id }}" name="attachment" type="file" class="block w-full min-w-0 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs">
+                                    </div>
+                                    <button type="submit" class="shrink-0 rounded-lg bg-gray-800 px-5 py-2 text-sm font-semibold text-white hover:bg-gray-900">
                                         Save
                                     </button>
                                 </div>

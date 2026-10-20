@@ -491,21 +491,51 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
             abort(403, 'Access denied.');
         }
 
-        if ($announcement->attachment_path) {
-            \Illuminate\Support\Facades\Storage::disk('public')->delete($announcement->attachment_path);
-        }
+        $announcement->update(['archived_at' => now(), 'delete_after' => now()->addDays(30)]);
 
-        $announcement->delete();
-
-        return back()->with('success', 'Announcement deleted successfully.');
+        return back()->with('success', "This announcement is hidden from everyone except you. You can retrieve it from Archived announcements within 30 days before it is permanently deleted.");
     })->name('announcements.destroy');
-    Route::get('/announcements/{announcement}/attachment', function (\App\Models\Announcement $announcement) {
-        if (! \App\Models\Announcement::visibleTo(Auth::user())->whereKey($announcement->id)->exists()) {
+    Route::post('/announcements/{announcement}/archive', function (\App\Models\Announcement $announcement) {
+        abort_unless($announcement->user_id === Auth::id(), 403);
+        $announcement->update(['archived_at' => now(), 'delete_after' => null]);
+
+        return back()->with('success', 'Announcement archived. It is hidden from everyone except you. You can retrieve it anytime from Archived announcements.');
+    })->name('announcements.archive');
+    Route::get('/announcements/archived', function () {
+        $announcements = \App\Models\Announcement::withoutGlobalScope('published')
+            ->where('user_id', Auth::id())
+            ->whereNotNull('archived_at')
+            ->where(fn ($query) => $query->whereNull('delete_after')->orWhere('delete_after', '>', now()))
+            ->latest('archived_at')->get();
+
+        return view('admin.archived-announcements', compact('announcements'));
+    })->name('announcements.archived');
+    Route::post('/announcements/{id}/restore', function ($id) {
+        $announcement = \App\Models\Announcement::withoutGlobalScope('published')->findOrFail($id);
+        abort_unless($announcement->user_id === Auth::id(), 403);
+        abort_if($announcement->delete_after && $announcement->delete_after->lte(now()), 404);
+        $announcement->update(['archived_at' => null, 'delete_after' => null]);
+
+        return back()->with('success', 'Announcement retrieved. It is visible to its original audience again.');
+    })->name('announcements.restore');
+    Route::get('/announcements/{id}/attachment', function ($id) {
+        $announcement = \App\Models\Announcement::withoutGlobalScope('published')->findOrFail($id);
+        abort_if($announcement->delete_after && $announcement->delete_after->lte(now()), 404);
+        if (! ($announcement->user_id === Auth::id() || \App\Models\Announcement::visibleTo(Auth::user())->whereKey($announcement->id)->exists())) {
             abort(403, 'Access denied.');
         }
 
         if (! $announcement->attachment_path || ! \Illuminate\Support\Facades\Storage::disk('public')->exists($announcement->attachment_path)) {
             abort(404);
+        }
+
+        if (request()->boolean('preview') && $announcement->hasImageAttachment()) {
+            return \Illuminate\Support\Facades\Storage::disk('public')->response(
+                $announcement->attachment_path,
+                $announcement->attachment_name,
+                ['X-Content-Type-Options' => 'nosniff'],
+                'inline'
+            );
         }
 
         return \Illuminate\Support\Facades\Storage::disk('public')->download($announcement->attachment_path, $announcement->attachment_name);

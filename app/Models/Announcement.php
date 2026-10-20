@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Schema;
 class Announcement extends Model
 {
     protected $fillable = [
+        'archived_at',
+        'delete_after',
         'user_id',
         'audience_type',
         'project_id',
@@ -17,6 +19,28 @@ class Announcement extends Model
         'attachment_path',
         'attachment_name',
     ];
+
+    protected function casts(): array
+    {
+        return ['archived_at' => 'datetime', 'delete_after' => 'datetime'];
+    }
+
+    public function hasImageAttachment(): bool
+    {
+        $disk = \Illuminate\Support\Facades\Storage::disk('public');
+
+        return $this->attachment_path && $disk->exists($this->attachment_path)
+            && in_array($disk->mimeType($this->attachment_path), [
+                'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif', 'image/bmp',
+            ], true);
+    }
+
+    protected static function booted(): void
+    {
+        static::addGlobalScope('published', function (Builder $query) {
+            $query->whereNull('archived_at')->whereNull('delete_after');
+        });
+    }
 
     public function author(): BelongsTo
     {

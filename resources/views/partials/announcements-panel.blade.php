@@ -65,6 +65,9 @@
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2">
+                @if($canManageAnnouncements || \App\Models\Announcement::withoutGlobalScope('published')->where('user_id', $announcementUser->id)->exists())
+                    <a href="{{ route('announcements.archived') }}" class="rounded-lg bg-white px-3 py-2 text-xs font-bold text-amber-800 shadow-sm hover:bg-amber-100">Archived announcements</a>
+                @endif
                 @if($canManageAnnouncements)
                     <a href="{{ $announcementUser?->isAdmin() ? route('admin.announcements') : route('announcements.manage') }}" class="rounded-lg bg-amber-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-amber-700">
                         Post an Announcement
@@ -101,9 +104,7 @@
                         </div>
                         <p class="whitespace-pre-line text-sm text-gray-700">{{ \Illuminate\Support\Str::limit($announcement->message, 180) }}</p>
                         @if($announcement->attachment_path)
-                            <a href="{{ route('announcements.attachment', $announcement) }}" class="mt-3 inline-flex max-w-full items-center gap-2 truncate rounded-md px-3 py-1.5 text-xs font-bold {{ $announcementTone['button'] }}">
-                                {{ $announcement->attachment_name ?? 'Attachment' }}
-                            </a>
+                            @include('partials.announcement-attachment', ['announcement' => $announcement])
                         @endif
                         <div class="mt-3">
                             <button type="button" @click="openAnnouncement = {{ $announcement->id }}" class="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-gray-800">
@@ -125,9 +126,7 @@
                             <div class="max-h-[55vh] overflow-y-auto px-5 py-5">
                                 <p class="whitespace-pre-line text-sm leading-6 text-gray-800">{{ $announcement->message }}</p>
                                 @if($announcement->attachment_path)
-                                    <a href="{{ route('announcements.attachment', $announcement) }}" class="mt-5 inline-flex max-w-full items-center gap-2 truncate rounded-md px-3 py-2 text-xs font-bold {{ $announcementTone['button'] }}">
-                                        {{ $announcement->attachment_name ?? 'Attachment' }}
-                                    </a>
+                                    @include('partials.announcement-attachment', ['announcement' => $announcement])
                                 @endif
                             </div>
                             <div class="flex justify-end border-t border-gray-100 bg-gray-50 px-5 py-4">
@@ -168,9 +167,7 @@
                                         </div>
                                         <p class="whitespace-pre-line text-sm leading-6 text-gray-800">{{ \Illuminate\Support\Str::limit($announcement->message, 220) }}</p>
                                         @if($announcement->attachment_path)
-                                            <a href="{{ route('announcements.attachment', $announcement) }}" class="mt-3 inline-flex max-w-full items-center gap-2 truncate rounded-md px-3 py-2 text-xs font-bold {{ $announcementTone['button'] }}">
-                                                {{ $announcement->attachment_name ?? 'Attachment' }}
-                                            </a>
+                                            @include('partials.announcement-attachment', ['announcement' => $announcement])
                                         @endif
 
                                         <div x-show="openAnnouncement === {{ $announcement->id }}" x-transition style="display: none;" class="fixed inset-0 z-[60] flex items-center justify-center bg-gray-950/90 px-4 py-6">
@@ -186,9 +183,7 @@
                                                 <div class="max-h-[55vh] overflow-y-auto px-5 py-5">
                                                     <p class="whitespace-pre-line text-sm leading-6 text-gray-800">{{ $announcement->message }}</p>
                                                     @if($announcement->attachment_path)
-                                                        <a href="{{ route('announcements.attachment', $announcement) }}" class="mt-5 inline-flex max-w-full items-center gap-2 truncate rounded-md px-3 py-2 text-xs font-bold {{ $announcementTone['button'] }}">
-                                                            {{ $announcement->attachment_name ?? 'Attachment' }}
-                                                        </a>
+                                                        @include('partials.announcement-attachment', ['announcement' => $announcement])
                                                     @endif
                                                 </div>
                                                 <div class="flex justify-end border-t border-gray-100 bg-gray-50 px-5 py-4">
