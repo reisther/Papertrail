@@ -51,22 +51,32 @@ class AdviserController extends Controller
             abort(403, 'Access denied. Group leaders only.');
         }
 
-        $request->validate([
-            'adviser_id' => 'required|exists:users,id',
-            'message' => 'nullable|string|max:500'
+        $leader = Auth::user();
+        $mode = $request->input('mode') === 'single' ? 'single' : 'multiple';
+        $batch = $request->has('match_token');
+        $page = $mode === 'single' ? ['mode' => 'single'] : [];
+        $redirect = redirect()->route($batch ? 'advisers.matches' : 'advisers.title-submission', $page);
+        $validated = $request->validate([
+            'match_token' => $batch ? 'required|uuid' : 'exclude',
+            'adviser_id' => $batch ? 'exclude' : 'required|integer|exists:users,id',
+            'adviser_ids' => $batch ? 'required|array|min:1|max:6' : 'exclude',
+            'adviser_ids.*' => 'required|integer|distinct',
+            'message' => 'nullable|string|max:500',
         ]);
 
-        // Check if adviser is actually a teacher
-        $adviser = User::findOrFail($request->adviser_id);
-        if (!$adviser->isTeacher()) {
-            return redirect()
-                ->route('advisers.title-submission')
-                ->withErrors(['adviser_id' => 'Selected user is not a teacher.']);
+        $ids = $batch ? $validated['adviser_ids'] : [$validated['adviser_id']];
+        $match = $batch ? $request->session()->get("adviser_matches.{$mode}") : null;
+        if ($batch && (!$match || $match['token'] !== $validated['match_token'] || array_diff($ids, array_keys($match['advisers'])))) {
+            return $redirect->withErrors(['adviser_id' => 'Select advisers from your current match results.']);
         }
 
-        $leader = Auth::user();
-        $page = $request->input('mode') === 'single' ? ['mode' => 'single'] : [];
-        $adviserRequest = DB::transaction(function () use ($leader, $adviser, $request) {
+        $advisers = User::whereKey(array_map('intval', $ids))->where('role', 'Teacher')
+            ->when($batch, fn ($query) => $query->where('status', 'Verified'))->get();
+        if ($advisers->count() !== count($ids)) {
+            return $redirect->withErrors(['adviser_id' => 'One or more selected users are no longer advisers.']);
+        }
+
+        $sent = DB::transaction(function () use ($leader, $advisers, $validated, $match) {
             // Sending, withdrawing, and accepting requests share the group leader's lock.
             User::whereKey($leader->id)->lockForUpdate()->firstOrFail();
 
@@ -74,52 +84,56 @@ class AdviserController extends Controller
                 return 'Your group already has an adviser.';
             }
 
-            if ($leader->adviserRequests()->pending()->where('adviser_id', $adviser->id)->exists()) {
-                return 'You already have a pending request with this adviser.';
+            $pendingIds = $leader->adviserRequests()->pending()->pluck('adviser_id');
+            $newAdvisers = $advisers->whereNotIn('id', $pendingIds);
+            if ($newAdvisers->isEmpty()) {
+                return 'You already have pending requests with the selected advisers.';
             }
 
-            $adviserRequest = $leader->adviserRequests()->updateOrCreate(
-                ['adviser_id' => $adviser->id],
-                [
-                    'message' => $request->message,
-                    'response_message' => null,
-                    'requested_at' => now(),
-                    'responded_at' => null,
-                    'status' => 'pending',
-                ]
-            );
-
-            if (Schema::hasTable('app_notifications')) {
-                AppNotification::updateOrCreate(
+            return $newAdvisers->map(function (User $adviser) use ($leader, $validated, $match) {
+                $adviserRequest = $leader->adviserRequests()->updateOrCreate(
+                    ['adviser_id' => $adviser->id],
                     [
-                        'user_id' => $adviser->id,
-                        'type' => 'student_request',
-                        'source_type' => 'adviser_student',
-                        'source_id' => $adviserRequest->id,
-                    ],
-                    [
-                        'title' => 'New adviser request',
-                        'body' => $leader->name . ' sent you an adviser request.',
-                        'action_url' => route('advisers.pending-requests'),
-                        'read_at' => null,
+                        'message' => $validated['message'] ?? null,
+                        'proposals' => $match['proposals'] ?? null,
+                        'response_message' => null,
+                        'requested_at' => now(),
+                        'responded_at' => null,
+                        'status' => 'pending',
                     ]
                 );
-            }
 
-            return $adviserRequest;
+                if (Schema::hasTable('app_notifications')) {
+                    AppNotification::updateOrCreate(
+                        [
+                            'user_id' => $adviser->id,
+                            'type' => 'student_request',
+                            'source_type' => 'adviser_student',
+                            'source_id' => $adviserRequest->id,
+                        ],
+                        [
+                            'title' => 'New adviser request',
+                            'body' => $leader->name . ' sent you an adviser request.',
+                            'action_url' => route('advisers.pending-requests'),
+                            'read_at' => null,
+                        ]
+                    );
+                }
+
+                return $adviserRequest;
+            });
         }, 3);
 
-        if (is_string($adviserRequest)) {
-            return redirect()->route('advisers.title-submission', $page)
-                ->withErrors(['adviser_id' => $adviserRequest]);
+        if (is_string($sent)) {
+            return $redirect->withErrors(['adviser_id' => $sent]);
         }
 
-        Cache::forget("navigation-counts:{$adviser->id}");
-        app(EmailNotificationService::class)->sendAdviserRequestReceived($adviserRequest);
+        foreach ($sent as $adviserRequest) {
+            Cache::forget("navigation-counts:{$adviserRequest->adviser_id}");
+            app(EmailNotificationService::class)->sendAdviserRequestReceived($adviserRequest);
+        }
 
-        return redirect()
-            ->route('advisers.title-submission', $page)
-            ->with('success', 'Request sent to ' . $adviser->name . ' successfully!');
+        return $redirect->with('success', 'Requests sent to '.$sent->count().' adviser(s).');
     }
 
     /**
@@ -259,7 +273,7 @@ class AdviserController extends Controller
         Cache::forget("navigation-counts:{$adviserStudent->adviser_id}");
 
         return redirect()
-            ->route('advisers.title-submission')
+            ->route('advisers.title-submission', ['tab' => 'pending', 'mode' => request('mode')])
             ->with('success', "Request to {$adviserName} removed successfully.");
     }
 

@@ -18,12 +18,14 @@ class AdviserStudent extends Model
         'requested_at',
         'responded_at',
         'archived_at',
+        'proposals',
     ];
 
     protected $casts = [
         'requested_at' => 'datetime',
         'responded_at' => 'datetime',
         'archived_at' => 'datetime',
+        'proposals' => 'array',
     ];
 
     /**

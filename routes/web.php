@@ -547,6 +547,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
     Route::patch('/advisers/{adviserStudent}/archive', [AdviserController::class, 'archiveStudentGroup'])->name('advisers.archive');
     Route::delete('/advisers/{adviserStudent}', [AdviserController::class, 'releaseAdviser'])->name('advisers.release');
     Route::get('/suggested-ai', fn () => redirect()->route('advisers.title-submission'));
+    Route::get('/advisers/matches', [SuggestedAIController::class, 'matches'])->name('advisers.matches');
     Route::post('/suggested-ai', [SuggestedAIController::class, 'index'])->name('suggested-ai');
     Route::post('/title-submission', [TitleSubmissionController::class, 'store'])->name('title-submission.store');
     Route::get('/my-advisers', [AdviserController::class, 'myAdvisers'])->name('advisers.my-advisers');

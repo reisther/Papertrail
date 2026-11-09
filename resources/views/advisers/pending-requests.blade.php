@@ -46,6 +46,7 @@
                                                     <p class="mt-1 text-sm text-gray-600 whitespace-pre-line">{{ $group?->description ?: 'No group description yet.' }}</p>
                                                 </div>
                                                 
+                                                @include('partials.adviser-proposals', ['proposals' => $request->proposals])
                                                 @if ($request->message)
                                                     <div class="mb-4">
                                                         <p class="text-sm font-medium text-gray-700 mb-1">Message from student:</p>

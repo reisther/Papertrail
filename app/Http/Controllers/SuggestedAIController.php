@@ -37,7 +37,16 @@ class SuggestedAIController extends Controller
             'title3' => $singleTitle ? 'exclude' : 'required|string|max:255',
             'title4' => $singleTitle ? 'exclude' : 'required|string|max:255',
             'title5' => $singleTitle ? 'exclude' : 'required|string|max:255',
+            'descriptions' => 'nullable|array|max:5',
+            'descriptions.*' => 'nullable|string|max:2000',
         ]);
+
+        $descriptions = $validated['descriptions'] ?? [];
+        unset($validated['descriptions']);
+        $proposals = [];
+        foreach ($validated as $field => $title) {
+            $proposals[] = ['title' => $title, 'description' => $descriptions[$field] ?? null];
+        }
 
         if ($singleTitle) {
             $request->session()->put('adviser_match_title', $validated['title1']);
@@ -81,16 +90,41 @@ class SuggestedAIController extends Controller
         ->take(6)
         ->values();
 
-        $currentRequests = auth()->user()
-            ->adviserRequests()
-            ->currentRequest()
-            ->get();
+        $mode = $singleTitle ? 'single' : 'multiple';
+        $request->session()->put("adviser_matches.{$mode}", [
+            'token' => (string) Str::uuid(),
+            'proposals' => $proposals,
+            'advisers' => $recommendedAdvisers->mapWithKeys(fn (User $adviser) => [
+                $adviser->id => $adviser->only(['match_score', 'matched_expertise', 'reason']),
+            ])->all(),
+        ]);
 
+        return $this->matches($request, $mode);
+    }
+
+    public function matches(Request $request, ?string $mode = null)
+    {
+        abort_unless($request->user()->canLeadGroup(), 403);
+
+        $singleTitle = ($mode ?? $request->query('mode')) === 'single';
+        $mode = $singleTitle ? 'single' : 'multiple';
+        $match = $request->session()->get("adviser_matches.{$mode}");
+        if (!$match) {
+            return redirect()->route('advisers.title-submission', ['mode' => $mode]);
+        }
+
+        $advisers = User::where('role', 'Teacher')->where('status', 'Verified')
+            ->whereKey(array_keys($match['advisers']))->get()->keyBy('id');
+        $recommendedAdvisers = collect($match['advisers'])
+            ->map(fn ($details, $id) => $advisers->get($id)?->forceFill($details))
+            ->filter()->values();
+        $currentRequests = $request->user()->adviserRequests()->currentRequest()->get();
         return view('advisers.suggestedAI', [
             'recommendedAdvisers' => $recommendedAdvisers,
-            'advisers' => $advisers,
             'currentRequests' => $currentRequests,
             'singleTitle' => $singleTitle,
+            'mode' => $mode,
+            'match' => $match,
         ]);
     }
 

@@ -2,6 +2,9 @@
     @php
         $leaderWithoutGroup = Auth::user()->canLeadGroup() && Auth::user()->ownedProjects()->doesntExist();
         $singleTitle = request()->query('mode') === 'single';
+        $mode = $singleTitle ? 'single' : 'multiple';
+        $savedMatches = session("adviser_matches.{$mode}");
+        $showPending = request()->query('tab') === 'pending';
     @endphp
 
     <div class="py-10">
@@ -50,7 +53,25 @@
                 </div>
             @endif
 
-            @foreach($currentRequests as $currentRequest)
+            <div class="mb-6 flex flex-wrap gap-2">
+                <a href="{{ route('advisers.title-submission', ['mode' => $mode, 'tab' => 'pending']) }}" class="action-button-secondary">
+                    Pending Approval ({{ $currentRequests->where('status', 'pending')->count() }})
+                </a>
+                @unless($activeRequest)
+                    @if($showPending)
+                        <a href="{{ route('advisers.title-submission', ['mode' => $mode]) }}" class="action-button-secondary">{{ $singleTitle ? 'Edit Title' : 'Edit Titles' }}</a>
+                    @endif
+                    @if($savedMatches)
+                        <a href="{{ route('advisers.matches', ['mode' => $mode]) }}" class="action-button-secondary">View Adviser Matches</a>
+                    @endif
+                @endunless
+            </div>
+
+            @if($showPending && $currentRequests->where('status', 'pending')->isEmpty() && !$activeRequest)
+                <p class="content-card text-sm text-gray-600">No adviser requests are pending.</p>
+            @endif
+
+            @foreach($showPending ? $currentRequests : $currentRequests->where('status', 'approved') as $currentRequest)
                 <div class="mb-6 bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
                     <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                         <div>
@@ -63,6 +84,7 @@
                         </span>
                     </div>
 
+                    @include('partials.adviser-proposals', ['proposals' => $currentRequest->proposals])
                     @if($currentRequest->message)
                         <div class="mt-6">
                             <p class="text-sm font-medium text-gray-700">Your message</p>
@@ -91,6 +113,7 @@
                         <form method="POST" action="{{ route('advisers.requests.remove', $currentRequest) }}" class="mt-6" onsubmit="return confirm('Remove this adviser request?');">
                             @csrf
                             @method('DELETE')
+                            <input type="hidden" name="mode" value="{{ $mode }}">
                             <button type="submit" class="rounded-md bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">
                                 Remove Request
                             </button>
@@ -102,7 +125,7 @@
                     @endif
                 </div>
             @endforeach
-            @unless($activeRequest)
+            @if(!$activeRequest && !$showPending)
                 @if($latestRejectedRequest)
                     <div class="mb-6 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
                         Your request to {{ $latestRejectedRequest->adviser->name }} was rejected. You can search again and send another request.
@@ -137,11 +160,17 @@
                                 $field = 'title'.$index;
                                 $label = $singleTitle ? 'Approved Research Title' : 'Title '.$index;
                             @endphp
-                            <input type="text" name="{{ $field }}" aria-label="{{ $label }}"
-                                   placeholder="{{ $label }}"
-                                   value="{{ old($field, $singleTitle ? session('adviser_match_title') : ($submission?->{$field} ?? '')) }}"
-                                   class="w-full rounded-md border-gray-300 focus:ring-black focus:border-black"
-                                   maxlength="255" required>
+                            <div class="rounded-lg border border-gray-200 p-3">
+                                <label for="{{ $field }}" class="mb-1 block text-sm font-medium">{{ $label }}</label>
+                                <input id="{{ $field }}" type="text" name="{{ $field }}"
+                                       placeholder="{{ $label }}"
+                                       value="{{ old($field, $singleTitle ? session('adviser_match_title') : ($submission?->{$field} ?? '')) }}"
+                                       class="w-full rounded-md border-gray-300 focus:ring-black focus:border-black"
+                                       maxlength="255" required>
+                                <label for="{{ $field }}Description" class="mb-1 mt-3 block text-sm font-medium">Description (optional)</label>
+                                <textarea id="{{ $field }}Description" name="descriptions[{{ $field }}]" rows="3" maxlength="2000"
+                                          class="w-full rounded-md border-gray-300 text-sm">{{ old('descriptions.'.$field, $savedMatches['proposals'][$index - 1]['description'] ?? '') }}</textarea>
+                            </div>
                         @endfor
                     </div>
 
@@ -179,7 +208,7 @@
                 </div>
             </div>
 
-            @endunless
+            @endif
             @endif
 
         </div>

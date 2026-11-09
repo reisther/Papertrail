@@ -28,19 +28,40 @@ class MultipleAdviserRequestsTest extends TestCase
 
         $this->actingAs($leader);
         foreach ([$winner, $other, $archived] as $adviser) {
-            $this->post(route('advisers.send-request'), ['adviser_id' => $adviser->id])
-                ->assertRedirect(route('advisers.title-submission'))
-                ->assertSessionDoesntHaveErrors();
+            $adviser->expertise()->create(['iot' => true]);
         }
-        $this->get(route('advisers.title-submission'))
+        config()->set('services.papertrail_ai.enabled', true);
+        Http::fake(['*/analyze' => Http::response(['analysis' => 'Expertise: IoT.'])]);
+        $title = 'IoT Classroom Monitoring';
+        $description = 'A sensor-based system for monitoring classroom conditions.';
+        $results = $this->post(route('suggested-ai'), [
+            'mode' => 'single',
+            'title1' => $title,
+            'descriptions' => ['title1' => $description],
+        ])->assertOk()->assertViewIs('advisers.suggestedAI')
+            ->assertSee('Edit Title')->assertSee('Select All Available')->assertSee('Send Selected Requests');
+        $matchesUrl = route('advisers.matches', ['mode' => 'single']);
+        $this->post(route('advisers.send-request'), [
+            'mode' => 'single',
+            'match_token' => $results->viewData('match')['token'],
+            'adviser_ids' => [$winner->id, $other->id, $archived->id],
+        ])->assertRedirect($matchesUrl)->assertSessionDoesntHaveErrors();
+        $this->get($matchesUrl)->assertOk()->assertSee('Pending Approval (3)');
+        Http::assertSentCount(1);
+
+        $this->get(route('advisers.title-submission', ['mode' => 'single', 'tab' => 'pending']))
             ->assertOk()
             ->assertSee($winner->name)
             ->assertSee($other->name)
-            ->assertSee('Analyze Titles');
-        Http::fake(['*/analyze' => Http::response(['analysis' => 'Expertise: IoT.'])]);
-        $this->post(route('suggested-ai'), ['mode' => 'single', 'title1' => 'IoT Classroom Monitoring'])
-            ->assertOk()
-            ->assertViewIs('advisers.suggestedAI');
+            ->assertDontSee('Analyze Title');
+        $this->get(route('advisers.title-submission', ['mode' => 'single']))
+            ->assertOk()->assertSee($description)->assertSee('Analyze Title');
+        $revisedDescription = 'A revised description for future requests.';
+        $this->post(route('suggested-ai'), [
+            'mode' => 'single',
+            'title1' => $title,
+            'descriptions' => ['title1' => $revisedDescription],
+        ])->assertOk()->assertSee($revisedDescription);
         $this->post(route('advisers.send-request'), ['adviser_id' => $other->id])
             ->assertSessionHasErrors('adviser_id');
         $this->assertSame(3, $leader->adviserRequests()->pending()->count());
@@ -51,6 +72,8 @@ class MultipleAdviserRequestsTest extends TestCase
         $this->actingAs($other)->get($notificationsUrl)
             ->assertOk()
             ->assertSee('New adviser request');
+        $this->get(route('advisers.pending-requests'))->assertOk()
+            ->assertSee($title)->assertSee($description)->assertDontSee($revisedDescription);
 
         $this->actingAs($winner)->post(route('advisers.respond', $winningRequest), ['status' => 'approved'])
             ->assertSessionHas('success', 'Request approved successfully!');
