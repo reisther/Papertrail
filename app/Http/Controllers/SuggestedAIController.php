@@ -37,16 +37,7 @@ class SuggestedAIController extends Controller
             'title3' => $singleTitle ? 'exclude' : 'required|string|max:255',
             'title4' => $singleTitle ? 'exclude' : 'required|string|max:255',
             'title5' => $singleTitle ? 'exclude' : 'required|string|max:255',
-            'descriptions' => 'nullable|array|max:5',
-            'descriptions.*' => 'nullable|string|max:2000',
         ]);
-
-        $descriptions = $validated['descriptions'] ?? [];
-        unset($validated['descriptions']);
-        $proposals = [];
-        foreach ($validated as $field => $title) {
-            $proposals[] = ['title' => $title, 'description' => $descriptions[$field] ?? null];
-        }
 
         if ($singleTitle) {
             $request->session()->put('adviser_match_title', $validated['title1']);
@@ -93,7 +84,7 @@ class SuggestedAIController extends Controller
         $mode = $singleTitle ? 'single' : 'multiple';
         $request->session()->put("adviser_matches.{$mode}", [
             'token' => (string) Str::uuid(),
-            'proposals' => $proposals,
+            'proposals' => array_map(fn ($title) => ['title' => $title], $titles),
             'advisers' => $recommendedAdvisers->mapWithKeys(fn (User $adviser) => [
                 $adviser->id => $adviser->only(['match_score', 'matched_expertise', 'reason']),
             ])->all(),

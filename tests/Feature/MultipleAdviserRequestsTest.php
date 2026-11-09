@@ -55,25 +55,25 @@ class MultipleAdviserRequestsTest extends TestCase
             ->assertSee($other->name)
             ->assertDontSee('Analyze Title');
         $this->get(route('advisers.title-submission', ['mode' => 'single']))
-            ->assertOk()->assertSee($description)->assertSee('Analyze Title');
-        $revisedDescription = 'A revised description for future requests.';
+            ->assertOk()->assertDontSee('Description (optional)')->assertSee('Analyze Title');
+        $revisedTitle = 'IoT Classroom Air Quality Monitoring';
         $this->post(route('suggested-ai'), [
             'mode' => 'single',
-            'title1' => $title,
-            'descriptions' => ['title1' => $revisedDescription],
-        ])->assertOk()->assertSee($revisedDescription);
+            'title1' => $revisedTitle,
+        ])->assertOk()->assertSee($revisedTitle);
         $this->post(route('advisers.send-request'), ['adviser_id' => $other->id])
             ->assertSessionHasErrors('adviser_id');
         $this->assertSame(3, $leader->adviserRequests()->pending()->count());
 
         $winningRequest = $leader->adviserRequests()->where('adviser_id', $winner->id)->sole();
         $otherRequest = $leader->adviserRequests()->where('adviser_id', $other->id)->sole();
+        $this->assertSame([['title' => $title]], $otherRequest->proposals);
         $notificationsUrl = route('notifications.index', ['type' => 'student-requests']);
         $this->actingAs($other)->get($notificationsUrl)
             ->assertOk()
             ->assertSee('New adviser request');
         $this->get(route('advisers.pending-requests'))->assertOk()
-            ->assertSee($title)->assertSee($description)->assertDontSee($revisedDescription);
+            ->assertSee($title)->assertDontSee($description)->assertDontSee($revisedTitle);
 
         $this->actingAs($winner)->post(route('advisers.respond', $winningRequest), ['status' => 'approved'])
             ->assertSessionHas('success', 'Request approved successfully!');

@@ -167,9 +167,6 @@
                                        value="{{ old($field, $singleTitle ? session('adviser_match_title') : ($submission?->{$field} ?? '')) }}"
                                        class="w-full rounded-md border-gray-300 focus:ring-black focus:border-black"
                                        maxlength="255" required>
-                                <label for="{{ $field }}Description" class="mb-1 mt-3 block text-sm font-medium">Description (optional)</label>
-                                <textarea id="{{ $field }}Description" name="descriptions[{{ $field }}]" rows="3" maxlength="2000"
-                                          class="w-full rounded-md border-gray-300 text-sm">{{ old('descriptions.'.$field, $savedMatches['proposals'][$index - 1]['description'] ?? '') }}</textarea>
                             </div>
                         @endfor
                     </div>

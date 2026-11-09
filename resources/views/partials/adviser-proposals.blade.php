@@ -5,9 +5,6 @@
             @foreach($proposals as $proposal)
                 <li class="break-words">
                     <p class="text-sm font-semibold text-gray-900">{{ $proposal['title'] }}</p>
-                    @if($proposal['description'])
-                        <p class="mt-1 whitespace-pre-line text-sm text-gray-600">{{ $proposal['description'] }}</p>
-                    @endif
                 </li>
             @endforeach
         </ul>

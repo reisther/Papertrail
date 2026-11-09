@@ -69,6 +69,7 @@ class AdviserController extends Controller
         if ($batch && (!$match || $match['token'] !== $validated['match_token'] || array_diff($ids, array_keys($match['advisers'])))) {
             return $redirect->withErrors(['adviser_id' => 'Select advisers from your current match results.']);
         }
+        $proposals = $match ? array_map(fn ($proposal) => ['title' => $proposal['title']], $match['proposals']) : null;
 
         $advisers = User::whereKey(array_map('intval', $ids))->where('role', 'Teacher')
             ->when($batch, fn ($query) => $query->where('status', 'Verified'))->get();
@@ -76,7 +77,7 @@ class AdviserController extends Controller
             return $redirect->withErrors(['adviser_id' => 'One or more selected users are no longer advisers.']);
         }
 
-        $sent = DB::transaction(function () use ($leader, $advisers, $validated, $match) {
+        $sent = DB::transaction(function () use ($leader, $advisers, $validated, $proposals) {
             // Sending, withdrawing, and accepting requests share the group leader's lock.
             User::whereKey($leader->id)->lockForUpdate()->firstOrFail();
 
@@ -90,12 +91,12 @@ class AdviserController extends Controller
                 return 'You already have pending requests with the selected advisers.';
             }
 
-            return $newAdvisers->map(function (User $adviser) use ($leader, $validated, $match) {
+            return $newAdvisers->map(function (User $adviser) use ($leader, $validated, $proposals) {
                 $adviserRequest = $leader->adviserRequests()->updateOrCreate(
                     ['adviser_id' => $adviser->id],
                     [
                         'message' => $validated['message'] ?? null,
-                        'proposals' => $match['proposals'] ?? null,
+                        'proposals' => $proposals,
                         'response_message' => null,
                         'requested_at' => now(),
                         'responded_at' => null,
