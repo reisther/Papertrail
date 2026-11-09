@@ -83,6 +83,13 @@
                     @endif
 
                     <div class="mt-10 pt-6">
+                        @if($errors->taskCompletion->any())
+                            <ul role="alert" class="mb-4 list-disc rounded-md bg-red-50 p-3 pl-7 text-sm text-red-700">
+                                @foreach($errors->taskCompletion->all() as $message)
+                                    <li>{{ $message }}</li>
+                                @endforeach
+                            </ul>
+                        @endif
                         @forelse($todos as $chapter => $tasks)
                             @php
                                 $completed = $tasks->where('is_completed', true)->count();
@@ -119,9 +126,9 @@
                                                     </select>
                                                     <input type="text" name="title" value="{{ $task->title }}" class="w-full min-w-0 rounded-md border-gray-200 bg-gray-50 text-sm" required>
                                                     <div class="text-xs {{ $task->is_completed ? 'text-emerald-600' : 'text-gray-400 italic' }}">
-                                                        <span>{{ $task->is_completed ? 'Completed by leader' : 'Waiting for leader' }}</span>
-                                                        @if($task->completion_note)
-                                                            <span class="block text-gray-500 not-italic">{{ $task->completion_note }}</span>
+                                                        <span>{{ $task->is_completed ? 'Completed' : 'Waiting Progress' }}</span>
+                                                        @if($task->completion_names)
+                                                            <span class="block text-gray-500 not-italic">{{ $task->completion_names }}</span>
                                                         @endif
                                                     </div>
                                                     <button type="submit" class="w-full rounded-md bg-blue-600 px-3 py-2 text-center text-xs font-semibold text-white hover:bg-blue-700 lg:w-20">Save</button>
@@ -143,27 +150,52 @@
                                                             <input type="checkbox" name="is_completed" value="1" @checked($task->is_completed) class="rounded border-gray-300 text-blue-600">
                                                             <span class="{{ $task->is_completed ? 'text-gray-400 line-through' : 'text-gray-700' }}">{{ $task->title }}</span>
                                                         </label>
-                                                        <select name="completion_user_id" class="rounded-md border-gray-200 bg-gray-50 text-sm">
-                                                            <option value="">Who finished this?</option>
-                                                            @foreach($completionUsers ?? collect() as $completionUser)
-                                                                <option value="{{ $completionUser->id }}" @selected($task->completion_note === $completionUser->name)>
-                                                                    {{ $completionUser->name }}
-                                                                </option>
-                                                            @endforeach
-                                                        </select>
+                                                        <details class="relative rounded-md border border-gray-200 bg-gray-50"
+                                                                 @click.outside="$el.open = false">
+                                                            <summary class="cursor-pointer px-3 py-2 text-sm font-medium text-gray-700">Who did this</summary>
+                                                            <div class="absolute inset-x-0 top-full z-20 mt-1 max-h-48 space-y-2 overflow-y-auto rounded-md border border-gray-200 bg-white px-3 py-2 shadow-lg">
+                                                                @foreach($completionUsers ?? collect() as $completionUser)
+                                                                    <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                                        <input type="checkbox" name="completion_user_ids[]" value="{{ $completionUser->id }}"
+                                                                               @checked($task->completion_contributors === null ? $task->completion_note === $completionUser->name : isset($task->completion_contributors[$completionUser->id]))
+                                                                               class="rounded border-gray-300 text-blue-600">
+                                                                        {{ $completionUser->name }}
+                                                                    </label>
+                                                                @endforeach
+                                                            </div>
+                                                        </details>
                                                         <button type="submit" class="rounded-md bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">Update</button>
                                                     </form>
                                                 @else
                                                     <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                                                         <span class="{{ $task->is_completed ? 'text-gray-400 line-through' : 'text-gray-700' }}">{{ $task->title }}</span>
                                                         <div class="text-xs sm:text-right {{ $task->is_completed ? 'text-emerald-600' : 'text-gray-400 italic' }}">
-                                                            <span>{{ $task->is_completed ? 'Completed' : 'Not yet checked' }}</span>
-                                                            @if($task->completion_note)
-                                                                <span class="block text-gray-500 not-italic">Finished by {{ $task->completion_note }}</span>
+                                                            <span>{{ $task->is_completed ? 'Completed' : 'Waiting Progress' }}</span>
+                                                            @if($task->completion_names)
+                                                                <span class="block text-gray-500 not-italic">Finished by {{ $task->completion_names }}</span>
                                                             @endif
                                                         </div>
                                                     </div>
                                                 @endif
+                                            @endif
+                                            @if($task->documents->isNotEmpty())
+                                                <ul class="mt-3 space-y-2 border-t border-gray-100 pt-3">
+                                                    @foreach($task->documents as $document)
+                                                        <li class="flex items-center gap-3">
+                                                            <div class="min-w-0 flex-1 text-sm text-gray-700">
+                                                                <p class="break-words">{{ $document->original_name }}</p>
+                                                                @if($document->contributor_names)
+                                                                    <p class="text-xs text-gray-500">Contributors: {{ implode(', ', $document->contributor_names) }}</p>
+                                                                @endif
+                                                            </div>
+                                                            <a href="{{ route('projects.preview-document', [$task->project_id, $document]) }}"
+                                                               aria-label="Show {{ $document->original_name }}"
+                                                               class="rounded-md bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100">
+                                                                Show
+                                                            </a>
+                                                        </li>
+                                                    @endforeach
+                                                </ul>
                                             @endif
                                         </div>
                                     @endforeach

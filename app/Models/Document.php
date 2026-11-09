@@ -18,6 +18,8 @@ class Document extends Model
         'project_id',
         'folder_id',
         'uploaded_by',
+        'project_task_id',
+        'contributor_names',
         'is_shared',
         'permissions',
         'last_accessed',
@@ -26,6 +28,7 @@ class Document extends Model
 
     protected $casts = [
         'permissions' => 'array',
+        'contributor_names' => 'array',
         'is_shared' => 'boolean',
         'last_accessed' => 'datetime',
     ];
@@ -149,7 +152,7 @@ class Document extends Model
      */
     public function getFullPathAttribute(): string
     {
-        return storage_path('app/public/' . $this->file_path);
+        return Storage::disk('public')->path($this->file_path);
     }
 
     /**

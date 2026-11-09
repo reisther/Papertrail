@@ -66,14 +66,16 @@
                                         <span class="inline-flex w-fit items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
                                             Active Group
                                         </span>
-                                        <div class="grid grid-cols-1 items-stretch gap-2 sm:grid-cols-3">
+                                        <div class="grid grid-cols-1 items-stretch gap-2 sm:grid-cols-2">
                                             @if($group)
+                                                <a href="{{ route('group-description.details', $group) }}"
+                                                   class="inline-flex h-10 w-full items-center justify-center rounded-md bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100">
+                                                    Show
+                                                </a>
                                                 <a href="{{ route('projects.show', $group) }}"
                                                    class="inline-flex h-10 w-full items-center justify-center rounded-md bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100">
                                                     Project
                                                 </a>
-                                            @else
-                                                <span class="hidden sm:block"></span>
                                             @endif
                                             <form method="POST"
                                                   action="{{ route('advisers.archive', $relationship) }}"

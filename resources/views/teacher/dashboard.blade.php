@@ -19,11 +19,11 @@
                 <h3 class="mt-1 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Welcome back, {{ Auth::user()->firstname }}.</h3>
                 <p class="mt-1 text-sm text-slate-600">Keep an eye on your students, requests, and current projects.</p>
             </div>
-            <div class="p-4 text-slate-900 sm:p-8">
+            <div class="dashboard-body">
 
                     @include('partials.announcements-panel')
                     
-                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div class="dashboard-metrics">
                         <div class="metric-card">
                             <h4 class="metric-label">My students</h4>
                             <p class="metric-value">{{ Auth::user()->students()->count() }}</p>
@@ -44,7 +44,7 @@
                     </div>
 
                     <div class="mt-6 grid grid-cols-1 gap-4 sm:mt-8 sm:grid-cols-2 sm:gap-6">
-                        <a href="{{ route('todo.index') }}" class="group block rounded-2xl border border-slate-200 bg-slate-50 p-6 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-white hover:shadow-md">
+                        <a href="{{ route('todo.index') }}" class="group flex min-w-0 flex-col items-start rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-white hover:shadow-md sm:p-6">
                             <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100">
                                 <svg class="w-6 h-6 text-blue-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4M7 4h10a2 2 0 012 2v14l-4-2-4 2-4-2-4 2V6a2 2 0 012-2z"></path>
@@ -52,10 +52,10 @@
                             </div>
                             <h3 class="mb-1 text-xl font-bold text-slate-800">To-do lists</h3>
                             <p class="mb-4 text-sm text-slate-600">Create per-chapter tasks for student groups.</p>
-                            <span class="rounded-lg bg-blue-100 px-4 py-2 text-xs font-semibold text-blue-700 transition group-hover:bg-blue-200">Open to-do lists</span>
+                            <span class="mt-auto rounded-lg bg-blue-100 px-4 py-2 text-xs font-semibold text-blue-700 transition group-hover:bg-blue-200">Open to-do lists</span>
                         </a>
 
-                        <a href="{{ route('advisers.progress-tracker') }}" class="group block rounded-2xl border border-slate-200 bg-slate-50 p-6 transition hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-white hover:shadow-md">
+                        <a href="{{ route('advisers.progress-tracker') }}" class="group flex min-w-0 flex-col items-start rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-white hover:shadow-md sm:p-6">
                             <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-100">
                                 <svg class="w-6 h-6 text-emerald-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 19V5m0 14h16M8 16v-4m4 4V8m4 8v-6"></path>
@@ -63,7 +63,7 @@
                             </div>
                             <h3 class="mb-1 text-xl font-bold text-slate-800">Progress tracker</h3>
                             <p class="mb-4 text-sm text-slate-600">Monitor advisee chapter progress and task completion.</p>
-                            <span class="rounded-lg bg-emerald-100 px-4 py-2 text-xs font-semibold text-emerald-700 transition group-hover:bg-emerald-200">View progress</span>
+                            <span class="mt-auto rounded-lg bg-emerald-100 px-4 py-2 text-xs font-semibold text-emerald-700 transition group-hover:bg-emerald-200">View progress</span>
                         </a>
                     </div>
 
@@ -87,7 +87,7 @@
                                 @foreach(Auth::user()->studentRequests()->pending()->with('student')->latest()->take(3)->get() as $request)
                                     <div class="flex flex-col gap-2 rounded border bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
                                         <div class="min-w-0">
-                                            <p class="truncate font-medium text-gray-900">{{ $request->student->name }}</p>
+                                            <p class="font-medium text-gray-900">{{ $request->student->name }}</p>
                                             <p class="text-sm text-gray-600">{{ $request->student->course }} - {{ $request->student->section }}</p>
                                         </div>
                                         <span class="shrink-0 text-xs text-gray-500">{{ $request->created_at->diffForHumans() }}</span>
@@ -116,7 +116,7 @@
                                 @foreach($studentProjects as $project)
                                     <div class="flex flex-col gap-2 rounded border bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
                                         <div class="min-w-0">
-                                            <p class="truncate font-medium text-gray-900">{{ $project->title }}</p>
+                                            <p class="font-medium text-gray-900">{{ $project->title }}</p>
                                             <p class="text-sm text-gray-600">by {{ $project->owner->name }} • {{ $project->documents_count }} files</p>
                                         </div>
                                         <div class="shrink-0 sm:text-right">

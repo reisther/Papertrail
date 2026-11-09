@@ -60,14 +60,17 @@ class FastApiTest(unittest.TestCase):
             analysis="AI-focused proposals. Expertise: Machine Learning.",
         )
 
-        with patch.object(main, "analyze_titles", return_value=result):
-            response = TestClient(main.app).post(
-                "/analyze",
-                json={f"title{index}": title for index, title in enumerate(TITLES, start=1)},
-            )
+        for titles in (TITLES[:1], TITLES):
+            with self.subTest(title_count=len(titles)):
+                with patch.object(main, "analyze_titles", return_value=result) as analyze:
+                    response = TestClient(main.app).post(
+                        "/analyze",
+                        json={f"title{index}": title for index, title in enumerate(titles, start=1)},
+                    )
 
-        self.assertEqual(200, response.status_code)
-        self.assertEqual(result.analysis, response.json()["analysis"])
+                self.assertEqual(200, response.status_code)
+                self.assertEqual(result.analysis, response.json()["analysis"])
+                analyze.assert_called_once_with(titles)
 
 
 if __name__ == "__main__":

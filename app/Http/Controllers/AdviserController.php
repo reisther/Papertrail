@@ -56,16 +56,6 @@ class AdviserController extends Controller
             'message' => 'nullable|string|max:500'
         ]);
 
-        $activeRequest = Auth::user()->adviserRequests()
-            ->currentRequest()
-            ->first();
-
-        if ($activeRequest) {
-            return redirect()
-                ->route('advisers.title-submission')
-                ->withErrors(['adviser_id' => 'You already have an active adviser request. Wait for a response before sending another request.']);
-        }
-
         // Check if adviser is actually a teacher
         $adviser = User::findOrFail($request->adviser_id);
         if (!$adviser->isTeacher()) {
@@ -74,59 +64,61 @@ class AdviserController extends Controller
                 ->withErrors(['adviser_id' => 'Selected user is not a teacher.']);
         }
 
-        // Check if request already exists
-        $existingRequest = AdviserStudent::where('student_id', Auth::id())
-            ->where('adviser_id', $request->adviser_id)
-            ->currentRequest()
-            ->first();
+        $leader = Auth::user();
+        $page = $request->input('mode') === 'single' ? ['mode' => 'single'] : [];
+        $adviserRequest = DB::transaction(function () use ($leader, $adviser, $request) {
+            // Sending, withdrawing, and accepting requests share the group leader's lock.
+            User::whereKey($leader->id)->lockForUpdate()->firstOrFail();
 
-        if ($existingRequest) {
-            return redirect()
-                ->route('advisers.title-submission')
-                ->withErrors(['adviser_id' => 'You already have a request with this adviser.']);
-        }
+            if ($leader->adviserRequests()->approved()->active()->exists()) {
+                return 'Your group already has an adviser.';
+            }
 
-        $adviserRequest = AdviserStudent::where('student_id', Auth::id())
-            ->where('adviser_id', $request->adviser_id)
-            ->first();
+            if ($leader->adviserRequests()->pending()->where('adviser_id', $adviser->id)->exists()) {
+                return 'You already have a pending request with this adviser.';
+            }
 
-        if ($adviserRequest) {
-            $adviserRequest->update([
-                'message' => $request->message,
-                'response_message' => null,
-                'requested_at' => now(),
-                'responded_at' => null,
-                'status' => 'pending',
-            ]);
-        } else {
-            $adviserRequest = AdviserStudent::create([
-                'student_id' => Auth::id(),
-                'adviser_id' => $request->adviser_id,
-                'message' => $request->message,
-                'status' => 'pending'
-            ]);
-        }
-
-        if (Schema::hasTable('app_notifications')) {
-            AppNotification::updateOrCreate(
+            $adviserRequest = $leader->adviserRequests()->updateOrCreate(
+                ['adviser_id' => $adviser->id],
                 [
-                    'user_id' => $adviser->id,
-                    'type' => 'student_request',
-                    'source_type' => 'adviser_student',
-                    'source_id' => $adviserRequest->id,
-                ],
-                [
-                    'title' => 'New adviser request',
-                    'body' => Auth::user()->name . ' sent you an adviser request.',
-                    'action_url' => route('advisers.pending-requests'),
-                    'read_at' => null,
+                    'message' => $request->message,
+                    'response_message' => null,
+                    'requested_at' => now(),
+                    'responded_at' => null,
+                    'status' => 'pending',
                 ]
             );
+
+            if (Schema::hasTable('app_notifications')) {
+                AppNotification::updateOrCreate(
+                    [
+                        'user_id' => $adviser->id,
+                        'type' => 'student_request',
+                        'source_type' => 'adviser_student',
+                        'source_id' => $adviserRequest->id,
+                    ],
+                    [
+                        'title' => 'New adviser request',
+                        'body' => $leader->name . ' sent you an adviser request.',
+                        'action_url' => route('advisers.pending-requests'),
+                        'read_at' => null,
+                    ]
+                );
+            }
+
+            return $adviserRequest;
+        }, 3);
+
+        if (is_string($adviserRequest)) {
+            return redirect()->route('advisers.title-submission', $page)
+                ->withErrors(['adviser_id' => $adviserRequest]);
         }
+
+        Cache::forget("navigation-counts:{$adviser->id}");
         app(EmailNotificationService::class)->sendAdviserRequestReceived($adviserRequest);
 
         return redirect()
-            ->route('advisers.title-submission')
+            ->route('advisers.title-submission', $page)
             ->with('success', 'Request sent to ' . $adviser->name . ' successfully!');
     }
 
@@ -164,19 +156,25 @@ class AdviserController extends Controller
             'response_message' => 'nullable|string|max:500'
         ]);
 
-        $wasArchivedReactivation = $adviserStudent->isArchived();
+        $result = DB::transaction(function () use ($adviserStudent, $request) {
+            $leader = User::whereKey($adviserStudent->student_id)->lockForUpdate()->firstOrFail();
+            $adviserStudent = $leader->adviserRequests()->pending()->whereKey($adviserStudent->id)->lockForUpdate()->first();
 
-        if ($request->status === 'rejected' && $wasArchivedReactivation) {
-            $adviserStudent->update([
-                'status' => 'approved',
-                'response_message' => $request->response_message,
-                'responded_at' => now(),
-            ]);
+            if (!$adviserStudent || $leader->adviserRequests()->approved()->active()->exists()) {
+                return null;
+            }
 
-            return back()->with('success', 'Request rejected. The group remains in archived history.');
-        }
+            $wasArchivedReactivation = $adviserStudent->isArchived();
+            if ($request->status === 'rejected' && $wasArchivedReactivation) {
+                $adviserStudent->update([
+                    'status' => 'approved',
+                    'response_message' => $request->response_message,
+                    'responded_at' => now(),
+                ]);
 
-        DB::transaction(function () use ($adviserStudent, $request, $wasArchivedReactivation) {
+                return ['message' => 'Request rejected. The group remains in archived history.', 'adviserIds' => []];
+            }
+
             $adviserStudent->update([
                 'status' => $request->status,
                 'response_message' => $request->response_message,
@@ -185,7 +183,13 @@ class AdviserController extends Controller
             ]);
 
             if ($request->status !== 'approved') {
-                return;
+                return ['message' => 'Request rejected successfully!', 'adviserIds' => []];
+            }
+
+            $otherRequests = $leader->adviserRequests()->pending()->lockForUpdate()->get();
+            $this->deleteRequestNotifications($otherRequests->modelKeys());
+            foreach ($otherRequests as $otherRequest) {
+                $this->withdrawPendingRequest($otherRequest);
             }
 
             $projects = Project::where('owner_id', $adviserStudent->student_id)->get();
@@ -208,10 +212,21 @@ class AdviserController extends Controller
             if ($wasArchivedReactivation) {
                 $this->markProjectChatRoomsRead($projectIds);
             }
-        });
+            return [
+                'message' => 'Request approved successfully!',
+                'adviserIds' => $otherRequests->pluck('adviser_id')->all(),
+            ];
+        }, 3);
 
-        $statusText = $request->status === 'approved' ? 'approved' : 'rejected';
-        return back()->with('success', "Request {$statusText} successfully!");
+        if ($result === null) {
+            return back()->with('error', 'This adviser request is no longer available.');
+        }
+
+        foreach ([Auth::id(), ...$result['adviserIds']] as $adviserId) {
+            Cache::forget("navigation-counts:{$adviserId}");
+        }
+
+        return back()->with('success', $result['message']);
     }
 
     public function removeRequest(AdviserStudent $adviserStudent)
@@ -222,17 +237,52 @@ class AdviserController extends Controller
 
         $adviserName = $adviserStudent->adviser?->name ?? 'The adviser';
 
-        if ($adviserStudent->status === 'approved') {
+        $removed = DB::transaction(function () use ($adviserStudent) {
+            User::whereKey($adviserStudent->student_id)->lockForUpdate()->firstOrFail();
+            $relationship = AdviserStudent::whereKey($adviserStudent->id)->lockForUpdate()->firstOrFail();
+            if ($relationship->status === 'approved') {
+                return false;
+            }
+
+            $this->deleteRequestNotifications([$relationship->id]);
+            $this->withdrawPendingRequest($relationship);
+
+            return true;
+        }, 3);
+
+        if (!$removed) {
             return redirect()
                 ->route('advisers.title-submission')
                 ->with('error', "Accepted adviser requests can't be deleted from Find Advisers. Use Remove Adviser or Stop Advising to end the adviser assignment.");
         }
 
-        $adviserStudent->delete();
+        Cache::forget("navigation-counts:{$adviserStudent->adviser_id}");
 
         return redirect()
             ->route('advisers.title-submission')
             ->with('success', "Request to {$adviserName} removed successfully.");
+    }
+
+    private function deleteRequestNotifications(array $requestIds): void
+    {
+        if ($requestIds !== [] && Schema::hasTable('app_notifications')) {
+            AppNotification::where('type', 'student_request')
+                ->where('source_type', 'adviser_student')
+                ->whereIn('source_id', $requestIds)
+                ->delete();
+        }
+    }
+
+    private function withdrawPendingRequest(AdviserStudent $relationship): void
+    {
+        if ($relationship->isArchived()) {
+            $relationship->update([
+                'status' => 'approved',
+                'responded_at' => $relationship->responded_at ?? $relationship->archived_at,
+            ]);
+        } else {
+            $relationship->delete();
+        }
     }
 
     /**
@@ -415,12 +465,13 @@ class AdviserController extends Controller
         }
 
         $submission = TitleSubmission::where('student_id', Auth::id())->first();
-        $activeRequest = Auth::user()
+        $currentRequests = Auth::user()
             ->adviserRequests()
             ->currentRequest()
             ->with('adviser')
             ->latest()
-            ->first();
+            ->get();
+        $activeRequest = $currentRequests->firstWhere('status', 'approved');
         $latestRejectedRequest = Auth::user()
             ->adviserRequests()
             ->where('status', 'rejected')
@@ -429,6 +480,6 @@ class AdviserController extends Controller
             ->latest()
             ->first();
 
-        return view('advisers.title-submission', compact('submission', 'activeRequest', 'latestRejectedRequest'));
+        return view('advisers.title-submission', compact('submission', 'currentRequests', 'activeRequest', 'latestRejectedRequest'));
     }
 }

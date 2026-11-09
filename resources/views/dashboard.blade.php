@@ -23,16 +23,16 @@
     <div class="dashboard-shell">
         <div class="dashboard-surface">
             <div class="dashboard-hero">
-                <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
+                <div class="flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div class="min-w-0">
                         <p class="text-sm font-semibold text-blue-600">{{ $user->canLeadGroup() ? 'Group workspace' : 'Your workspace' }}</p>
                         <h3 class="mt-1 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Welcome back, {{ $user->firstname }}.</h3>
                         <p class="mt-1 text-sm text-slate-600">Here is a quick look at your thesis work and what needs your attention.</p>
                     </div>
-                    <span class="status-pill {{ $user->status === 'Verified' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ $user->status }}</span>
+                    <span class="status-pill shrink-0 {{ $user->status === 'Verified' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ $user->status }}</span>
                 </div>
             </div>
-            <div class="p-4 text-slate-900 sm:p-8">
+            <div class="dashboard-body">
 
                     @include('partials.announcements-panel')
 
@@ -67,13 +67,13 @@
                                         <p class="text-2xl font-bold tracking-tight text-slate-900">{{ $group->title }}</p>
                                         <p class="mt-2 text-sm text-slate-600 whitespace-pre-line">{{ $group->description ?: 'No group description yet.' }}</p>
                                     </div>
-                                    <div class="flex flex-col gap-2 sm:flex-row">
+                                    <div class="grid shrink-0 grid-cols-2 gap-2">
                                         <a href="{{ route('group-description.show') }}"
-                                           class="inline-flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:text-blue-700 sm:w-auto">
+                                           class="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:text-blue-700">
                                             Show
                                         </a>
                                         <a href="{{ route('group-description.show', ['edit' => 1]) }}"
-                                           class="inline-flex w-full items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 sm:w-auto">
+                                           class="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
                                             Edit
                                         </a>
                                     </div>
@@ -87,7 +87,7 @@
                                         <p class="mt-2 text-sm text-slate-600">{{ $group->description ?: 'No group description yet.' }}</p>
                                     </div>
                                     <a href="{{ route('group-description.show') }}"
-                                       class="inline-flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:text-blue-700 sm:w-auto">
+                                       class="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:text-blue-700">
                                         Show
                                     </a>
                                 </div>
@@ -103,7 +103,7 @@
                                         <p class="text-sm font-semibold text-slate-800">Share group link</p>
                                         <p class="mt-1 text-sm text-slate-600">Generate a link so members can join your group.</p>
                                     </div>
-                                    <form method="POST" action="{{ route('group-description.share-link') }}">
+                                    <form method="POST" action="{{ route('group-description.share-link') }}" class="shrink-0">
                                         @csrf
                                         <button type="submit" class="w-full rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-900 sm:w-auto">
                                             Generate Link
@@ -129,7 +129,7 @@
 
                     </div>
                     
-                    <div class="grid grid-cols-1 gap-4 {{ $user->isStudentGroupRole() ? 'sm:grid-cols-2 lg:grid-cols-3' : 'sm:grid-cols-2' }}">
+                    <div class="dashboard-metrics">
                         <div class="metric-card">
                             <h4 class="metric-label">My projects</h4>
                             <p class="metric-value">{{ $user->activeAccessibleProjects()->count() }}</p>

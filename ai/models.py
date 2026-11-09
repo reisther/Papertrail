@@ -19,14 +19,17 @@ ExpertiseName = Literal[
 
 class TitleRequest(BaseModel):
     title1: str = Field(min_length=1, max_length=255)
-    title2: str = Field(min_length=1, max_length=255)
-    title3: str = Field(min_length=1, max_length=255)
-    title4: str = Field(min_length=1, max_length=255)
-    title5: str = Field(min_length=1, max_length=255)
+    title2: str | None = Field(default=None, min_length=1, max_length=255)
+    title3: str | None = Field(default=None, min_length=1, max_length=255)
+    title4: str | None = Field(default=None, min_length=1, max_length=255)
+    title5: str | None = Field(default=None, min_length=1, max_length=255)
 
     @field_validator("title1", "title2", "title3", "title4", "title5")
     @classmethod
-    def normalize_title(cls, value: str) -> str:
+    def normalize_title(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+
         normalized = " ".join(value.split())
 
         if not normalized:
@@ -35,14 +38,14 @@ class TitleRequest(BaseModel):
         return normalized
 
     def as_list(self) -> list[str]:
-        return [self.title1, self.title2, self.title3, self.title4, self.title5]
+        return [title for title in (self.title1, self.title2, self.title3, self.title4, self.title5) if title is not None]
 
 
 class GeminiAnalysis(BaseModel):
     summary: str = Field(
         min_length=1,
         max_length=800,
-        description="A concise combined analysis of the five thesis proposals.",
+        description="A concise analysis of the submitted thesis proposals.",
     )
     keywords: list[str] = Field(
         min_length=1,

@@ -20,29 +20,32 @@ class SuggestedAIController extends Controller
 
         $activeRequest = auth()->user()
             ->adviserRequests()
-            ->currentRequest()
+            ->approved()
+            ->active()
             ->first();
 
         if ($activeRequest) {
             return redirect()
                 ->route('advisers.title-submission')
-                ->withErrors(['title1' => 'You already have an active adviser request. You can submit new titles after the request is rejected.']);
+                ->withErrors(['title1' => 'Your group already has an adviser.']);
         }
 
+        $singleTitle = $request->input('mode') === 'single';
         $validated = $request->validate([
             'title1' => 'required|string|max:255',
-            'title2' => 'required|string|max:255',
-            'title3' => 'required|string|max:255',
-            'title4' => 'required|string|max:255',
-            'title5' => 'required|string|max:255',
+            'title2' => $singleTitle ? 'exclude' : 'required|string|max:255',
+            'title3' => $singleTitle ? 'exclude' : 'required|string|max:255',
+            'title4' => $singleTitle ? 'exclude' : 'required|string|max:255',
+            'title5' => $singleTitle ? 'exclude' : 'required|string|max:255',
         ]);
 
-        $submission = TitleSubmission::updateOrCreate(
-            ['student_id' => auth()->id()],
-            $validated
-        );
+        if ($singleTitle) {
+            $request->session()->put('adviser_match_title', $validated['title1']);
+        } else {
+            TitleSubmission::updateOrCreate(['student_id' => auth()->id()], $validated);
+        }
 
-        $titles = array_values($submission->only(['title1', 'title2', 'title3', 'title4', 'title5']));
+        $titles = array_values($validated);
         $analysis = $titleAnalysisService->analyze($titles);
         $scoringInputs = $analysis ? [...$titles, $analysis] : $titles;
         $normalizedTitles = $this->normalizeText(implode(' ', $scoringInputs));
@@ -87,6 +90,7 @@ class SuggestedAIController extends Controller
             'recommendedAdvisers' => $recommendedAdvisers,
             'advisers' => $advisers,
             'currentRequests' => $currentRequests,
+            'singleTitle' => $singleTitle,
         ]);
     }
 

@@ -21,7 +21,7 @@ class TitleAnalysisService
             ])
             ->all();
 
-        if (count($payload) !== 5) {
+        if ($payload === []) {
             return null;
         }
 

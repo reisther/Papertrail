@@ -75,7 +75,7 @@ class AdviserStudent extends Model
     }
 
     /**
-     * Scope for requests that should block another adviser request.
+     * Scope for pending requests and active adviser relationships.
      */
     public function scopeCurrentRequest($query)
     {

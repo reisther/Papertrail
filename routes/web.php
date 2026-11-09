@@ -17,18 +17,12 @@ use App\Services\EmailNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 
-$manuscriptStages = fn () => collect([
-    0 => 'Concept Paper',
-    1 => 'Chapter 1',
-    2 => 'Chapter 2',
-    3 => 'Chapter 3',
-    4 => 'Chapter 4',
-    5 => 'Chapter 5',
-]);
+$manuscriptStages = fn () => collect(\App\Models\ProjectTask::STAGES);
 
 Route::get('/', function () {
     return view('papertrail-landing');
@@ -149,30 +143,33 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
         }
 
         if ($user->isTeacher()) {
-            $user->studentRequests()
-                ->pending()
-                ->with(['student.ownedProjects' => fn ($query) => $query->latest()])
-                ->get()
-                ->each(function ($requestNotification) use ($user) {
-                    $student = $requestNotification->student;
-                    $project = $student?->ownedProjects?->first();
+            DB::transaction(function () use ($user) {
+                $user->studentRequests()
+                    ->pending()
+                    ->with(['student.ownedProjects' => fn ($query) => $query->latest()])
+                    ->lockForUpdate()
+                    ->get()
+                    ->each(function ($requestNotification) use ($user) {
+                        $student = $requestNotification->student;
+                        $project = $student?->ownedProjects?->first();
 
-                    AppNotification::firstOrCreate(
-                        [
-                            'user_id' => $user->id,
-                            'type' => 'student_request',
-                            'source_type' => 'adviser_student',
-                            'source_id' => $requestNotification->id,
-                        ],
-                        [
-                            'title' => 'New adviser request',
-                            'body' => ($student?->name ?? 'A student').' from '.($project?->title ?? 'Student group').' requested you as adviser.',
-                            'action_url' => route('advisers.pending-requests'),
-                            'created_at' => $requestNotification->created_at ?? now(),
-                            'updated_at' => now(),
-                        ]
-                    );
-                });
+                        AppNotification::firstOrCreate(
+                            [
+                                'user_id' => $user->id,
+                                'type' => 'student_request',
+                                'source_type' => 'adviser_student',
+                                'source_id' => $requestNotification->id,
+                            ],
+                            [
+                                'title' => 'New adviser request',
+                                'body' => ($student?->name ?? 'A student').' from '.($project?->title ?? 'Student group').' requested you as adviser.',
+                                'action_url' => route('advisers.pending-requests'),
+                                'created_at' => $requestNotification->created_at ?? now(),
+                                'updated_at' => now(),
+                            ]
+                        );
+                    });
+            }, 3);
         }
 
         if (! $user->isAdmin()) {
@@ -614,6 +611,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
         $selectedProject = $projects->firstWhere('id', $selectedProjectId);
         $projectIds = $projects->pluck('id');
         $todos = \App\Models\ProjectTask::query()
+            ->with('documents')
             ->where('adviser_id', Auth::id())
             ->whereIn('project_id', $projectIds)
             ->when($selectedProject, fn ($query) => $query->where('project_id', $selectedProject->id))
@@ -665,6 +663,7 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
         $selectedProject = $projects->firstWhere('id', $selectedProjectId);
         $projectIds = $projects->pluck('id');
         $todos = \App\Models\ProjectTask::query()
+            ->with('documents')
             ->whereIn('project_id', $projectIds)
             ->when($user->isTeacher(), fn ($query) => $query->where('adviser_id', $user->id))
             ->when($user->canLeadGroup(), fn ($query) => $query->whereHas('project', fn ($project) => $project->where('owner_id', $user->id)))
@@ -833,23 +832,31 @@ Route::middleware('auth')->group(function () use ($manuscriptStages) {
             ->unique('id')
             ->values();
 
-        $validated = $request->validate([
+        if (!$request->has('completion_user_ids') && $request->filled('completion_user_id')) {
+            $request->merge(['completion_user_ids' => [$request->input('completion_user_id')]]);
+        }
+
+        $validated = $request->validateWithBag('taskCompletion', [
             'is_completed' => 'nullable|boolean',
-            'completion_user_id' => [
-                $request->boolean('is_completed') ? 'required' : 'nullable',
-                'integer',
+            'completion_user_ids' => [$request->boolean('is_completed') ? 'required' : 'nullable', 'array', 'min:1'],
+            'completion_user_ids.*' => [
+                'required', 'integer', 'distinct',
                 \Illuminate\Validation\Rule::in($completionUsers->pluck('id')->all()),
             ],
+        ], [
+            'completion_user_ids.required' => 'Select at least one person who worked on the completed task.',
+            'completion_user_ids.*.in' => 'Select contributors from your group.',
         ]);
         $isCompleted = $request->boolean('is_completed');
         $completedBy = $isCompleted
-            ? $completionUsers->firstWhere('id', (int) $validated['completion_user_id'])
+            ? $completionUsers->whereIn('id', $validated['completion_user_ids'])->pluck('name', 'id')->all()
             : null;
 
         $task->update([
             'is_completed' => $isCompleted,
             'completed_at' => $isCompleted ? now() : null,
-            'completion_note' => $completedBy?->name,
+            'completion_note' => null,
+            'completion_contributors' => $completedBy,
         ]);
 
         return back();

@@ -8,14 +8,19 @@ use App\Models\AppNotification;
 use App\Models\ChatRoom;
 use App\Models\Project;
 use App\Models\ProjectInvitation;
+use App\Models\ProjectTask;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use RuntimeException;
+use Throwable;
 
 class ProjectController extends Controller
 {
@@ -158,8 +163,18 @@ class ProjectController extends Controller
         $canUploadToProject = ! $isArchivedForCurrentUser;
         $canEditProject = $project->canEdit($user);
         $canDeleteProjectItems = $project->canManageFiles($user);
+        $uploadChapter = $this->uploadChapter($currentFolder);
+        $uploadTasks = collect();
+        $uploadContributors = collect();
 
-        return view('projects.show', compact('project', 'folders', 'documents', 'currentFolder', 'breadcrumb', 'submissionFolder', 'submissionCount', 'isArchivedForCurrentUser', 'canUploadToProject', 'canEditProject', 'canDeleteProjectItems'));
+        if ($canUploadToProject && $user->isStudentGroupRole()) {
+            $uploadTasks = $this->uploadTasks($project, $uploadChapter);
+            if ($uploadTasks->isNotEmpty()) {
+                $uploadContributors = $this->uploadContributors($project, $user);
+            }
+        }
+
+        return view('projects.show', compact('project', 'folders', 'documents', 'currentFolder', 'breadcrumb', 'submissionFolder', 'submissionCount', 'isArchivedForCurrentUser', 'canUploadToProject', 'canEditProject', 'canDeleteProjectItems', 'uploadChapter', 'uploadTasks', 'uploadContributors'));
     }
 
     /**
@@ -374,52 +389,118 @@ class ProjectController extends Controller
      */
     public function uploadDocuments(Request $request, Project $project)
     {
-        if (!$project->canUploadDocuments(Auth::user())) {
+        $user = Auth::user();
+
+        if (!$project->canUploadDocuments($user)) {
             abort(403, 'Access denied.');
         }
 
-        $request->validate([
+        $request->validateWithBag('upload', [
             'files' => 'required|array|min:1',
             'files.*' => 'required|file|max:10240', // 10MB max per file
-            'folder_id' => 'nullable|exists:folders,id',
+            'folder_id' => 'nullable|integer|exists:folders,id',
         ]);
 
-        $folderId = $request->folder_id;
-
-        if (! $folderId && Auth::user()->isStudentGroupRole()) {
-            $folderId = $this->ensureSubmissionsFolder($project)->id;
-        }
-
-        // Verify folder belongs to this project
-        if ($folderId) {
-            $folder = Folder::findOrFail($folderId);
+        $folder = null;
+        if ($request->filled('folder_id')) {
+            $folder = Folder::findOrFail($request->input('folder_id'));
             if ($folder->project_id !== $project->id) {
                 abort(400, 'Invalid folder.');
             }
+        } elseif ($user->isStudentGroupRole()) {
+            $folder = $this->ensureSubmissionsFolder($project);
         }
 
-        $uploadedCount = 0;
+        $chapter = $this->uploadChapter($folder);
+        $tasks = $user->isStudentGroupRole() ? $this->uploadTasks($project, $chapter) : collect();
+        $contributors = $tasks->isNotEmpty() ? $this->uploadContributors($project, $user) : collect();
+        $selection = $request->validateWithBag('upload', [
+            'project_task_id' => [
+                Rule::requiredIf($chapter !== null && $tasks->isNotEmpty()),
+                'nullable', 'integer', Rule::in($tasks->pluck('id')->all()),
+            ],
+            'contributor_ids' => ['nullable', 'array'],
+            'contributor_ids.*' => ['required', 'integer', 'distinct', Rule::in($contributors->pluck('id')->all())],
+        ], [
+            'project_task_id.required' => 'Choose a to-do task for this upload.',
+            'project_task_id.in' => 'Choose a to-do task available in this folder.',
+            'contributor_ids.*.in' => 'Choose contributors from your group.',
+        ]);
+        $taskId = $selection['project_task_id'] ?? null;
+        $taskContributors = $taskId
+            ? $contributors->whereIn('id', [$user->id, ...($selection['contributor_ids'] ?? [])])->pluck('name', 'id')->all()
+            : null;
 
-        foreach ($request->file('files') as $file) {
-            $originalName = $file->getClientOriginalName();
-            $fileName = time() . '_' . Str::random(10) . '.' . $file->getClientOriginalExtension();
-            $filePath = $file->storeAs('projects/' . $project->id, $fileName, 'public');
+        $files = $request->file('files');
+        $storedPaths = [];
+        try {
+            DB::transaction(function () use ($files, $project, $folder, $user, $taskId, $taskContributors, &$storedPaths) {
+                foreach ($files as $file) {
+                    $originalName = $file->getClientOriginalName();
+                    $fileName = time() . '_' . Str::random(10) . '.' . $file->getClientOriginalExtension();
+                    $filePath = $file->storeAs('projects/' . $project->id, $fileName, 'public');
+                    if ($filePath === false) {
+                        throw new RuntimeException('Could not store the uploaded file.');
+                    }
+                    $storedPaths[] = $filePath;
 
-            Document::create([
-                'name' => pathinfo($originalName, PATHINFO_FILENAME),
-                'original_name' => $originalName,
-                'file_path' => $filePath,
-                'mime_type' => $file->getMimeType(),
-                'file_size' => $file->getSize(),
-                'project_id' => $project->id,
-                'folder_id' => $folderId,
-                'uploaded_by' => Auth::id(),
-            ]);
+                    $project->documents()->create([
+                        'name' => pathinfo($originalName, PATHINFO_FILENAME),
+                        'original_name' => $originalName,
+                        'file_path' => $filePath,
+                        'mime_type' => $file->getMimeType(),
+                        'file_size' => $file->getSize(),
+                        'folder_id' => $folder?->id,
+                        'uploaded_by' => $user->id,
+                        'project_task_id' => $taskId,
+                        'contributor_names' => $taskContributors === null ? null : array_values($taskContributors),
+                    ]);
+                }
 
-            $uploadedCount++;
+                if ($taskId !== null) {
+                    $project->tasks()->whereKey($taskId)->where('is_completed', false)->update([
+                        'is_completed' => true,
+                        'completed_at' => now(),
+                        'completion_note' => null,
+                        'completion_contributors' => json_encode($taskContributors, JSON_THROW_ON_ERROR),
+                    ]);
+                }
+            });
+        } catch (Throwable $exception) {
+            Storage::disk('public')->delete($storedPaths);
+            throw $exception;
         }
+
+        $uploadedCount = count($files);
 
         return back()->with('success', "{$uploadedCount} file(s) uploaded successfully!");
+    }
+
+    private function uploadChapter(?Folder $folder): ?int
+    {
+        $rootName = $folder?->breadcrumb[0]['name'] ?? null;
+        $chapter = array_search($rootName, ProjectTask::STAGES, true);
+
+        return $chapter === false ? null : $chapter;
+    }
+
+    private function uploadTasks(Project $project, ?int $chapter): Collection
+    {
+        return $project->tasks()
+            ->where('adviser_id', $project->adviser_id)
+            ->when($chapter !== null, fn ($query) => $query->where('chapter', $chapter))
+            ->orderBy('chapter')
+            ->orderBy('id')
+            ->get();
+    }
+
+    private function uploadContributors(Project $project, User $uploader): Collection
+    {
+        return collect([$uploader, $project->owner])
+            ->merge($project->members()->get()->sortBy('name'))
+            ->filter(fn (User $user) => $user->isStudentGroupRole())
+            ->unique('id')
+            ->values();
     }
 
     private function ensureSubmissionsFolder(Project $project): Folder

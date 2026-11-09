@@ -216,6 +216,9 @@
                                             </div>
                                             <div class="flex-1 min-w-0">
                                                 <p class="text-sm font-medium text-gray-900 truncate">{{ $document->original_name }}</p>
+                                                @if($document->contributor_names)
+                                                    <p class="text-xs text-gray-600">Contributors: {{ implode(', ', $document->contributor_names) }}</p>
+                                                @endif
                                                 <div class="flex items-center space-x-4 text-xs text-gray-500">
                                                     <span>{{ $document->uploader->name }}</span>
                                                     <span>{{ $document->updated_at->format('M j, Y g:i A') }}</span>
@@ -295,17 +298,56 @@
 
     @if($canUploadToProject)
     <!-- Upload Modal -->
-    <div id="uploadModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
-        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+    <div id="uploadModal" role="dialog" aria-modal="true" aria-labelledby="uploadModalTitle"
+         @class(['fixed inset-0 z-50 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full', 'hidden' => !$errors->upload->any()])>
+        <div class="relative mx-auto my-12 w-[calc(100%-2rem)] max-w-md rounded-md border bg-white p-5 shadow-lg">
             <div class="mt-3">
-                <h3 class="text-lg font-medium text-gray-900 mb-4">
+                <h3 id="uploadModalTitle" class="text-lg font-medium text-gray-900 mb-4">
                     {{ $currentFolder && $currentFolder->id === $submissionFolder->id ? 'Submit Work' : 'Upload Files' }}
                 </h3>
+
+                @if($errors->upload->any())
+                    <ul role="alert" class="mb-4 list-disc space-y-1 rounded-md bg-red-50 p-3 pl-7 text-sm text-red-700">
+                        @foreach($errors->upload->all() as $message)
+                            <li>{{ $message }}</li>
+                        @endforeach
+                    </ul>
+                @endif
                 
                 <form method="POST" action="{{ route('projects.upload-documents', $project) }}" enctype="multipart/form-data">
                     @csrf
                     @if($currentFolder)
                         <input type="hidden" name="folder_id" value="{{ $currentFolder->id }}">
+                    @endif
+
+                    @if($uploadTasks->isNotEmpty())
+                        <div class="mb-4">
+                            <label for="uploadTask" class="mb-2 block text-sm font-medium text-gray-700">Which to-do task are you uploading this for?</label>
+                            <select id="uploadTask" name="project_task_id" @required($uploadChapter !== null)
+                                    class="w-full rounded-md border-gray-300 text-sm">
+                                <option value="">{{ $uploadChapter !== null ? 'Choose a task' : 'No to-do task' }}</option>
+                                @foreach($uploadTasks as $uploadTask)
+                                    <option value="{{ $uploadTask->id }}" @selected(old('project_task_id') == $uploadTask->id)>
+                                        @if($uploadChapter === null){{ \App\Models\ProjectTask::STAGES[$uploadTask->chapter] ?? 'Task' }} — @endif{{ $uploadTask->title }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <fieldset class="mb-4">
+                            <legend class="mb-1 text-sm font-medium text-gray-700">Contributors</legend>
+                            <p class="mb-2 text-xs text-gray-500">You’re included automatically. Check anyone else who worked on this task.</p>
+                            <div class="max-h-36 space-y-2 overflow-y-auto">
+                                @foreach($uploadContributors as $contributor)
+                                    <label class="flex items-center gap-2 text-sm text-gray-700">
+                                        <input type="checkbox" name="contributor_ids[]" value="{{ $contributor->id }}"
+                                               @checked($contributor->id === Auth::id() || in_array($contributor->id, (array) old('contributor_ids', [])))
+                                               @disabled($contributor->id === Auth::id())
+                                               class="rounded border-gray-300 text-blue-600">
+                                        {{ $contributor->name }}{{ $contributor->id === Auth::id() ? ' (you)' : '' }}
+                                    </label>
+                                @endforeach
+                            </div>
+                        </fieldset>
                     @endif
                     
                     <div class="mb-4">

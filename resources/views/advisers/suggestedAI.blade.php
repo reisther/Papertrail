@@ -96,11 +96,11 @@
                     </div>
                 @endif
 
-                @if ($hasRequest)
+                @if ($hasRequest || $currentRequests->contains('status', 'approved'))
                     <button disabled
                         class="w-full bg-gray-300 text-gray-500 py-2 rounded-md">
 
-                        Request {{ ucfirst($hasRequest->status) }}
+                        {{ $hasRequest ? 'Request '.ucfirst($hasRequest->status) : 'Adviser Already Assigned' }}
 
                     </button>
                 @else
@@ -122,7 +122,7 @@
 </div>
 @else
     <div class="mb-10 rounded-lg border border-yellow-200 bg-yellow-50 p-5 text-sm text-yellow-900">
-        No close adviser expertise match was found for these titles. Try using clearer technology keywords in the titles or ask an admin to update adviser expertise profiles.
+        No close adviser expertise match was found for {{ $singleTitle ? 'this title' : 'these titles' }}. Try using clearer technology keywords or ask an admin to update adviser expertise profiles.
     </div>
 @endif
 
@@ -136,6 +136,9 @@
                 <form method="POST" action="{{ route('advisers.send-request') }}">
                     @csrf
                     <input type="hidden" id="adviserId" name="adviser_id" value="">
+                    @if($singleTitle)
+                        <input type="hidden" name="mode" value="single">
+                    @endif
                     
                     <div class="mb-4">
                         <label for="message" class="block text-sm font-medium text-gray-700 mb-2">
