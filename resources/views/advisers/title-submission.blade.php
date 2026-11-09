@@ -160,14 +160,11 @@
                                 $field = 'title'.$index;
                                 $label = $singleTitle ? 'Approved Research Title' : 'Title '.$index;
                             @endphp
-                            <div class="rounded-lg border border-gray-200 p-3">
-                                <label for="{{ $field }}" class="mb-1 block text-sm font-medium">{{ $label }}</label>
-                                <input id="{{ $field }}" type="text" name="{{ $field }}"
-                                       placeholder="{{ $label }}"
-                                       value="{{ old($field, $singleTitle ? session('adviser_match_title') : ($submission?->{$field} ?? '')) }}"
-                                       class="w-full rounded-md border-gray-300 focus:ring-black focus:border-black"
-                                       maxlength="255" required>
-                            </div>
+                            <input type="text" name="{{ $field }}" aria-label="{{ $label }}"
+                                   placeholder="{{ $label }}"
+                                   value="{{ old($field, $singleTitle ? session('adviser_match_title') : ($submission?->{$field} ?? '')) }}"
+                                   class="w-full rounded-md border-gray-300 focus:ring-black focus:border-black"
+                                   maxlength="255" required>
                         @endfor
                     </div>
 
