@@ -105,13 +105,23 @@ class SuggestedAIController extends Controller
         }
 
         $advisers = User::where('role', 'Teacher')->where('status', 'Verified')
-            ->whereKey(array_keys($match['advisers']))->get()->keyBy('id');
+            ->whereKey(array_keys($match['advisers']))->with('expertise')->get()->keyBy('id');
         $recommendedAdvisers = collect($match['advisers'])
             ->map(fn ($details, $id) => $advisers->get($id)?->forceFill($details))
             ->filter()->values();
+        $expertiseFields = array_map(fn ($config) => $config['field'], $this->expertiseTerms());
+        $specializations = $recommendedAdvisers->mapWithKeys(function (User $adviser) use ($expertiseFields) {
+            $expertise = $adviser->expertise;
+            $registered = collect($expertiseFields)
+                ->filter(fn ($field) => $expertise?->{$field})
+                ->keys()->merge($expertise?->custom_expertise ?? [])->filter()->unique()->values();
+
+            return [$adviser->id => $registered];
+        });
         $currentRequests = $request->user()->adviserRequests()->currentRequest()->get();
         return view('advisers.suggestedAI', [
             'recommendedAdvisers' => $recommendedAdvisers,
+            'specializations' => $specializations,
             'currentRequests' => $currentRequests,
             'singleTitle' => $singleTitle,
             'mode' => $mode,

@@ -28,7 +28,11 @@ class MultipleAdviserRequestsTest extends TestCase
 
         $this->actingAs($leader);
         foreach ([$winner, $other, $archived] as $adviser) {
-            $adviser->expertise()->create(['iot' => true]);
+            $adviser->expertise()->create([
+                'iot' => true,
+                'cybersecurity' => true,
+                'custom_expertise' => ['Embedded Systems'],
+            ]);
         }
         config()->set('services.papertrail_ai.enabled', true);
         Http::fake(['*/analyze' => Http::response(['analysis' => 'Expertise: IoT.'])]);
@@ -39,14 +43,18 @@ class MultipleAdviserRequestsTest extends TestCase
             'title1' => $title,
             'descriptions' => ['title1' => $description],
         ])->assertOk()->assertViewIs('advisers.suggestedAI')
-            ->assertSee('Edit Title')->assertSee('Select All Available')->assertSee('Send Selected Requests');
+            ->assertSee('Edit Title')->assertSee('Send Request')->assertSee('Specializations')
+            ->assertSee('Cybersecurity')->assertSee('Embedded Systems')
+            ->assertDontSee('type="checkbox" name="adviser_ids[]"', false);
         $matchesUrl = route('advisers.matches', ['mode' => 'single']);
-        $this->post(route('advisers.send-request'), [
-            'mode' => 'single',
-            'match_token' => $results->viewData('match')['token'],
-            'adviser_ids' => [$winner->id, $other->id, $archived->id],
-        ])->assertRedirect($matchesUrl)->assertSessionDoesntHaveErrors();
-        $this->get($matchesUrl)->assertOk()->assertSee('Pending Approval (3)');
+        foreach ([$winner, $other, $archived] as $index => $adviser) {
+            $this->post(route('advisers.send-request'), [
+                'mode' => 'single',
+                'match_token' => $results->viewData('match')['token'],
+                'adviser_ids' => [$adviser->id],
+            ])->assertRedirect($matchesUrl)->assertSessionDoesntHaveErrors();
+            $this->get($matchesUrl)->assertOk()->assertSee('Pending Approval ('.($index + 1).')');
+        }
         Http::assertSentCount(1);
 
         $this->get(route('advisers.title-submission', ['mode' => 'single', 'tab' => 'pending']))
